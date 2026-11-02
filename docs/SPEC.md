@@ -78,7 +78,7 @@ First launch shows **Onboarding** (§3.7).
 - Header: today's count / allowance (Flare when at/over), Settings link.
 - Hero: time since last cigarette (`Fmt.gap`), subline with time until next earned.
 - **Orb** (`EmberOrb.kt`, concept "Gather" from the Ember Lab): a molten core coloured by `heat`
-  with seven droplets orbiting it. At rest the core pulses every 4 s and the drops drift in and out,
+  with four droplets orbiting it. At rest the core pulses every 4 s and the drops drift in and out,
   sometimes touching the core and merging with a liquid bridge (blur + alpha threshold RenderEffect,
   Android 12+; plain drops below that).
 - **Hold to log**: press 1.5 s. The drops are pulled in and merge, the core swells and warms, a

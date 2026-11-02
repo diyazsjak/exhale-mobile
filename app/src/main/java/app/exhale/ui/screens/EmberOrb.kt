@@ -48,10 +48,9 @@ import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.pow
 import kotlin.math.sin
-import kotlin.random.Random
 
 /*
- * "Gather": the ember as a molten core with droplets orbiting it, ported 1:1 from the Ember Lab.
+ * "Gather": the ember as a molten core with four droplets orbiting it, ported 1:1 from the Ember Lab.
  * At rest the core pulses every 4 s and the drops drift in and out, sometimes touching the core
  * and merging with a liquid bridge. Holding pulls them in until they merge and the core swells;
  * a log flings them back out with a ring and a splash of droplets.
@@ -75,18 +74,17 @@ val EmberSize: Dp = 300.dp
 
 private class Drop(val angle: Float, val dist: Float, val size: Float, val speed: Float, val bob: Float)
 
-/** Seven drops with fixed, slightly irregular orbits (seeded so the layout is stable). */
-private val DROPS: List<Drop> = Random(11).let { r ->
-    List(7) { i ->
-        Drop(
-            angle = i / 7f * TAU + r.nextFloat() * 0.4f,
-            dist = 1.55f + r.nextFloat() * 0.35f,
-            size = 0.16f + r.nextFloat() * 0.14f,
-            speed = 0.12f + r.nextFloat() * 0.1f,
-            bob = r.nextFloat() * TAU,
-        )
-    }
-}
+/**
+ * Four drops with fixed orbits. Each drop's rest distance is set from its size so that, at the
+ * bottom of its slow in-and-out drift, it just reaches the core and melts into it: about a third
+ * of each 12.6 s drift cycle. The drift phases are staggered so the touches take turns.
+ */
+private val DROPS: List<Drop> = listOf(
+    Drop(angle = 0.3f, dist = 1.50f, size = 0.22f, speed = 0.12f, bob = 0f),
+    Drop(angle = 1.9f, dist = 1.56f, size = 0.26f, speed = 0.16f, bob = TAU * 0.25f),
+    Drop(angle = 3.4f, dist = 1.45f, size = 0.20f, speed = 0.14f, bob = TAU * 0.5f),
+    Drop(angle = 5.0f, dist = 1.58f, size = 0.28f, speed = 0.19f, bob = TAU * 0.75f),
+)
 
 private fun easeOut(t: Float) = 1f - (1f - t).pow(3)
 private fun easeInOut(t: Float) = if (t < 0.5f) 4f * t * t * t else 1f - (-2f * t + 2f).pow(3) / 2f
@@ -225,7 +223,7 @@ fun EmberOrbCanvas(heat: Float, hold: Float, burst: Float, breathe: Float, phase
                 drawCircle(Color.White, r, center)
                 DROPS.forEach { d ->
                     val a = d.angle + phase * d.speed
-                    val dist = r * (d.dist + 0.28f * sin(phase * 0.5f + d.bob)) * (1f - pull) * (1f + fling) + r * 0.2f * pull
+                    val dist = r * (d.dist + 0.3f * sin(phase * 0.5f + d.bob)) * (1f - pull) * (1f + fling) + r * 0.2f * pull
                     drawCircle(Color.White, r * d.size * (1f - 0.5f * pull), center + Offset(cos(a), sin(a)) * dist)
                 }
             }

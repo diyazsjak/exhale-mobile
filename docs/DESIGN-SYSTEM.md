@@ -49,7 +49,7 @@ Exhale's own line icons: 24px grid, 1.8 stroke, round caps and joins, no fills. 
 
 - Tappable components squish to 97% on press with a spring; the tab pill and segmented thumb slide with a spring.
 - Ambient loops are slow (orb breathing 4.2s, particles drifting) and stop when the screen leaves.
-- The Ember ("Gather") is a molten core that pulses every 4s with seven droplets orbiting slowly and sometimes merging with it. Holding pulls the drops in and runs a trail around it along the heat scale; logging flings them out with a ring and a splash.
+- The Ember ("Gather") is a molten core that pulses every 4s with four droplets orbiting slowly, each touching and merging with it about a third of the time. Holding pulls the drops in and runs a trail around it along the heat scale; logging flings them out with a ring and a splash.
 - Each haptic has one meaning: rising ticks = charging the hold (12 over 1.5s), thud = logged, double tick = next one earned, low tick = breath phase change. Every pattern checks that the phone supports it and falls back to plain vibration, so it works on Samsung and Xiaomi phones too.
 
 ## Themes
