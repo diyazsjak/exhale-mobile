@@ -1,0 +1,73 @@
+name: Release APK
+
+# Publishes only when the app version changes:
+#   1. Edit versionName in version.properties (e.g. 0.1.0 -> 0.2.0)
+#   2. Push to main
+# The workflow builds, tests, and creates GitHub Release v<versionName> with the APK.
+# If a release for that version already exists, it does nothing.
+on:
+  push:
+    branches: [main]
+    paths: [version.properties]
+  workflow_dispatch: # manual re-run, e.g. after a failed build; still skips existing versions
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # tags are needed to tell whether this version was already released
+
+      - name: Read version
+        id: version
+        run: |
+          name="$(grep -E '^versionName=' version.properties | cut -d= -f2 | tr -d '[:space:]')"
+          if ! [[ "$name" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error file=version.properties::versionName must look like 1.2.3, got '$name'"
+            exit 1
+          fi
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+          echo "tag=v$name" >> "$GITHUB_OUTPUT"
+          if git rev-parse -q --verify "refs/tags/v$name" > /dev/null; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::v$name is already released. Bump versionName in version.properties to publish a new one."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up JDK 17
+        if: steps.version.outputs.exists == 'false'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Set up Gradle
+        if: steps.version.outputs.exists == 'false'
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Test and build
+        if: steps.version.outputs.exists == 'false'
+        run: ./gradlew --no-daemon testDebugUnitTest assembleDebug
+
+      - name: Publish release
+        if: steps.version.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NAME: ${{ steps.version.outputs.name }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          apk="exhale-$NAME.apk"
+          cp app/build/outputs/apk/debug/app-debug.apk "$apk"
+          gh release create "$TAG" "$apk" \
+            --target "$GITHUB_SHA" \
+            --title "Exhale $NAME" \
+            --generate-notes

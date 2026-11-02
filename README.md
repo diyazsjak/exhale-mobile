@@ -21,6 +21,18 @@ As you cut down, the app literally cools.
 - Step-by-step onboarding: habit, cost, plan, optional goal.
 - Demo data loader in Settings for trying every screen.
 
+## Install on a phone
+Open the latest release on your phone: https://github.com/diyazsjak/exhale-mobile/releases/latest
+Download `exhale-<version>.apk` and open it. Android asks once to allow installs from your browser.
+New versions install over the old one and keep your data.
+
+## Publish a new version
+1. Change `versionName` in [`version.properties`](version.properties), e.g. `0.1.0` → `0.2.0`.
+2. Push to `main`.
+
+GitHub Actions ([`release.yml`](.github/workflows/release.yml)) runs the tests, builds the APK and creates release `v<versionName>`.
+Pushes that don't change the version don't publish anything. A version that's already released is never rebuilt.
+
 ## Build
 Requires JDK 17+ and the Android SDK (platform 36).
 

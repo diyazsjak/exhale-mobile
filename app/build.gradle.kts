@@ -1,9 +1,23 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
     alias(libs.plugins.roborazzi)
+}
+
+// Single source of truth for the app version: version.properties at the repo root.
+// Changing versionName there is what triggers a release (see .github/workflows/release.yml).
+val versionProps = Properties().apply { rootProject.file("version.properties").inputStream().use { load(it) } }
+val appVersionName: String = versionProps.getProperty("versionName")?.trim()
+    ?: error("versionName is missing in version.properties")
+val appVersionCode: Int = appVersionName.split(".").let { p ->
+    require(p.size == 3 && p.all { part -> part.toIntOrNull()?.let { it in 0..999 } == true }) {
+        "versionName must look like MAJOR.MINOR.PATCH (each 0-999), was '$appVersionName'"
+    }
+    p[0].toInt() * 1_000_000 + p[1].toInt() * 1_000 + p[2].toInt()
 }
 
 android {
@@ -14,8 +28,20 @@ android {
         applicationId = "app.exhale"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = appVersionCode
+        versionName = appVersionName
+    }
+
+    signingConfigs {
+        // Shared debug key, committed on purpose: every build (CI and local) gets the same
+        // signature, so a new APK installs over the old one and keeps the user's data.
+        // Not for Play Store releases; those need a private key kept in GitHub secrets.
+        getByName("debug") {
+            storeFile = file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
     }
 
     buildTypes {

@@ -210,6 +210,12 @@ app/src/main/java/app/exhale/
   `docs/screenshots/` when a screen changes visibly.
 - `./gradlew assembleDebug` — APK at `app/build/outputs/apk/debug/app-debug.apk`.
 
+### Releases
+- Version: `versionName` in `version.properties` (MAJOR.MINOR.PATCH). `versionCode` = MAJOR×1,000,000 + MINOR×1,000 + PATCH.
+- `.github/workflows/release.yml` runs on pushes to `main` that touch `version.properties` (or manually).
+  If tag `v<versionName>` doesn't exist yet, it runs tests, builds the debug APK and creates a GitHub Release with `exhale-<version>.apk`.
+- APKs are signed with the committed `app/debug.keystore` so updates install over earlier versions. A Play Store build will need a private release key in GitHub secrets.
+
 Every change to `domain/` needs a unit test. Every new screen needs a screenshot test.
 
 ---
