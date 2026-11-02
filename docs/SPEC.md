@@ -99,6 +99,9 @@ First launch shows **Onboarding** (§3.7).
 - 240 s wave; crest at ~46 % (minute ~2). Dot rides the curve.
 - Breath pacing 4-2-6 (in-hold-out), `breath()` haptic on phase change.
 - Headline copy changes with progress (rising, crest, fading).
+- Breathing guide (`BreathGuide.kt`), text only: the current instruction fills letter by letter over
+  its duration; the next ("then hold · 2s") waits below and brightens in the final second; on a
+  change it glides up and grows into place. The wave dot's halo swells and shrinks with the breath.
 - Optional trigger selection.
 - Before end: "I'm okay now" (SURVIVED) / "Smoke anyway" (SMOKED + log).
   After end: "No. I rode it out." / "Yes, log one". "Close" records nothing.

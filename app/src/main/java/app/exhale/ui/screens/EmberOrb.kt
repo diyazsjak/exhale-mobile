@@ -207,11 +207,11 @@ fun EmberOrbCanvas(heat: Float, hold: Float, burst: Float, breathe: Float, phase
     fun coreRadius(s: Float) = s * 0.2f * (1f + 0.03f * breathe) * (1f + 0.22f * pull)
 
     Box(modifier) {
-        // Glow underneath.
+        // Soft glow underneath. Pastels on a light background need more alpha to read the same.
         Canvas(Modifier.matchParentSize()) {
             val r = coreRadius(size.minDimension)
             drawCircle(
-                Brush.radialGradient(listOf(body.copy(alpha = if (c.isDark) 0.18f else 0.12f), body.copy(alpha = 0f)), center, r * 2.1f),
+                Brush.radialGradient(listOf(body.copy(alpha = if (c.isDark) 0.18f else 0.3f), body.copy(alpha = 0f)), center, r * 2.1f),
                 r * 2.1f, center,
             )
         }

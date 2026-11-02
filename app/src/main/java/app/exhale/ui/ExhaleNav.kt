@@ -1,5 +1,13 @@
 package app.exhale.ui
 
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -45,6 +53,38 @@ private enum class Tab(val route: String, val label: String, val icon: ImageVect
     }
 }
 
+/** Screen transitions: short and sliding. */
+private const val NAV_MS = 260
+private fun <T> navSpec() = tween<T>(NAV_MS, easing = FastOutSlowInEasing)
+
+private fun tabIndex(route: String?) = Tab.entries.indexOfFirst { it.route == route }
+
+private fun isTabSwitch(from: String?, to: String?) = tabIndex(from) >= 0 && tabIndex(to) >= 0
+
+/**
+ * Tabs slide like pages, full width, in tab order. A full-screen route (Urge Wave, Settings)
+ * pushes in from the right over a screen that recedes a third and fades; popping reverses that.
+ */
+private fun slideIn(from: String?, to: String?, forward: Boolean): EnterTransition =
+    if (isTabSwitch(from, to)) {
+        val dir = if (tabIndex(to) > tabIndex(from)) 1 else -1
+        slideInHorizontally(navSpec()) { w -> dir * w }
+    } else if (forward) {
+        slideInHorizontally(navSpec()) { w -> w }
+    } else {
+        slideInHorizontally(navSpec()) { w -> -w / 3 } + fadeIn(navSpec())
+    }
+
+private fun slideOut(from: String?, to: String?, forward: Boolean): ExitTransition =
+    if (isTabSwitch(from, to)) {
+        val dir = if (tabIndex(to) > tabIndex(from)) 1 else -1
+        slideOutHorizontally(navSpec()) { w -> -dir * w }
+    } else if (forward) {
+        slideOutHorizontally(navSpec()) { w -> -w / 3 } + fadeOut(navSpec())
+    } else {
+        slideOutHorizontally(navSpec()) { w -> w }
+    }
+
 private const val WAVE = "wave"
 private const val SETTINGS = "settings"
 private const val UIKIT = "uikit"
@@ -70,7 +110,15 @@ private fun MainNav(state: ExhaleState, logged: LoggedEvent?, vm: ExhaleViewMode
     val tab = Tab.entries.firstOrNull { it.route == entry?.destination?.route }
 
     Box(Modifier.fillMaxSize()) {
-        NavHost(nav, startDestination = Tab.EMBER.route, modifier = Modifier.fillMaxSize()) {
+        NavHost(
+            nav,
+            startDestination = Tab.EMBER.route,
+            modifier = Modifier.fillMaxSize(),
+            enterTransition = { slideIn(initialState.destination.route, targetState.destination.route, forward = true) },
+            exitTransition = { slideOut(initialState.destination.route, targetState.destination.route, forward = true) },
+            popEnterTransition = { slideIn(initialState.destination.route, targetState.destination.route, forward = false) },
+            popExitTransition = { slideOut(initialState.destination.route, targetState.destination.route, forward = false) },
+        ) {
             composable(Tab.EMBER.route) {
                 EmberScreen(
                     state, logged,

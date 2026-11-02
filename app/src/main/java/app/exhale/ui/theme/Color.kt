@@ -25,6 +25,9 @@ data class ExColors(
     /** Pressed / selected surface, inner highlight in the tab bar. */
     val surfaceHigh: Color,
     val line: Color,
+    /** Floating navigation (tab bar): a step apart from cards so the two never merge. */
+    val chrome: Color,
+    val chromeSelected: Color,
     val ink: Color,
     val inkSoft: Color,
     val inkFaint: Color,
@@ -73,6 +76,8 @@ val DarkColors = ExColors(
     surface = Color(0xFF18181E),
     surfaceHigh = Color(0xFF26262E),
     line = Color(0xFF2E2E37),
+    chrome = Color(0xFF222229),
+    chromeSelected = Color(0xFF34343E),
     ink = Color(0xFFF4F3F7),
     inkSoft = Color(0xFFA6A4B0),
     inkFaint = Color(0xFF8A8894),
@@ -97,6 +102,8 @@ val LightColors = ExColors(
     surface = Color(0xFFFFFFFF),
     surfaceHigh = Color(0xFFE7E7EC),
     line = Color(0xFFDCDBE2),
+    chrome = Color(0xFFFFFFFF),
+    chromeSelected = Color(0xFFE9E9EE),
     ink = Color(0xFF131318),
     inkSoft = Color(0xFF5C5A66),
     inkFaint = Color(0xFF6F6D79),

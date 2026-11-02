@@ -130,8 +130,10 @@ class ScreenshotTest {
     @Test fun emberHotLight() = shot("1b_ember_logged", false, 0) { EmberScreen(sampleState(4), LoggedEvent(1, 5, 12), {}, {}, { _, _ -> }, {}, {}, {}) }
     @Test fun regulateDark() = shot("2_regulate", true, 1) { RegulateScreen(sampleState(41)) {} }
     @Test fun regulateLight() = shot("2_regulate", false, 1) { RegulateScreen(sampleState(41)) {} }
-    @Test fun waveDark() = shot("3_wave", true) { UrgeWaveScreen({ _, _, _ -> }, {}) }
-    @Test fun waveLight() = shot("3_wave", false) { UrgeWaveScreen({ _, _, _ -> }, {}) }
+    @Test fun waveDark() = shot("3_wave", true) { UrgeWaveScreen({ _, _, _ -> }, {}, startAt = 1.5f) }
+    @Test fun waveLight() = shot("3_wave", false) { UrgeWaveScreen({ _, _, _ -> }, {}, startAt = 1.5f) }
+    @Test fun waveReadyDark() = shot("3b_wave_get_ready", true) { UrgeWaveScreen({ _, _, _ -> }, {}, startAt = 63.4f) }
+    @Test fun waveHoldLight() = shot("3c_wave_hold", false) { UrgeWaveScreen({ _, _, _ -> }, {}, startAt = 64.6f) }
     @Test fun rhythmDark() = shot("4_rhythm", true, 2) { RhythmScreen(sampleState()) }
     @Test fun rhythmLight() = shot("4_rhythm", false, 2) { RhythmScreen(sampleState()) }
     @Test fun airDark() = shot("5_air", true, 3) { AirScreen(sampleState()) }

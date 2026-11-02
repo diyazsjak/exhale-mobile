@@ -39,42 +39,55 @@ data class TabItem(val icon: ImageVector, val label: String, val tint: Color? = 
 /**
  * iOS-style floating tab bar: a pill hovering above the content, icons only, the selected
  * tab sits in a lighter inner pill. [TabItem.tint] colours the selected icon (e.g. heat for Ember).
- * Place it at the bottom of a Box; it adds the navigation-bar inset itself.
+ * Place it at the bottom of a Box; it adds the navigation-bar inset itself. Content scrolls
+ * underneath it. Light: a soft elevation shadow. Dark: a lighter surface and hairline outline.
  */
 @Composable
 fun FloatingTabBar(items: List<TabItem>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier) {
     val c = Ex.colors
-    Row(
+    // Content scrolls underneath the solid bar.
+    Box(
         modifier
-            .navigationBarsPadding()
-            .padding(horizontal = ExSpace.gutter, vertical = ExSpace.sm)
             .fillMaxWidth()
-            .height(ExSize.tabBar)
-            .shadow(if (c.isDark) 0.dp else 18.dp, ExRadius.pill, ambientColor = Color.Black.copy(alpha = 0.2f), spotColor = Color.Black.copy(alpha = 0.2f))
-            .clip(ExRadius.pill)
-            .background(c.surface)
-            .border(1.dp, if (c.isDark) c.line else Color.Transparent, ExRadius.pill)
-            .padding(6.dp)
-            .selectableGroup(),
+            .navigationBarsPadding()
+            .padding(horizontal = ExSpace.gutter, vertical = ExSpace.sm),
     ) {
-        items.forEachIndexed { i, item ->
-            val sel = i == selected
-            val bg by animateColorAsState(if (sel) c.surfaceHigh else Color.Transparent, label = "tab-bg")
-            val fg by animateColorAsState(if (sel) item.tint?.let { c.inkOf(it) } ?: c.ink else c.inkSoft, label = "tab-fg")
-            val source = remember { MutableInteractionSource() }
-            Box(
-                Modifier
-                    .weight(1f)
-                    .fillMaxHeight()
-                    .scale(pressScale(source))
-                    .clip(ExRadius.pill)
-                    .background(bg)
-                    .selectable(sel, source, null, role = Role.Tab) { onSelect(i) }
-                    .semantics { contentDescription = item.label },
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(item.icon, null, Modifier.size(ExSize.icon), tint = fg)
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .height(ExSize.tabBar)
+                // Light: a soft platform shadow. Dark: no shadow (it doesn't read on dark); the bar is
+                // lifted by its lighter tone and hairline outline instead (tonal elevation).
+                .then(
+                    if (c.isDark) Modifier
+                    else Modifier.shadow(10.dp, ExRadius.pill, ambientColor = Color.Black.copy(alpha = 0.08f), spotColor = Color.Black.copy(alpha = 0.12f))
+                )
+                .clip(ExRadius.pill)
+                .background(c.chrome)
+                .border(1.dp, if (c.isDark) c.line else c.line.copy(alpha = 0.6f), ExRadius.pill)
+                .padding(6.dp)
+                .selectableGroup(),
+        ) {
+            items.forEachIndexed { i, item ->
+                val sel = i == selected
+                val bg by animateColorAsState(if (sel) c.chromeSelected else Color.Transparent, label = "tab-bg")
+                val fg by animateColorAsState(if (sel) item.tint?.let { c.inkOf(it) } ?: c.ink else c.inkSoft, label = "tab-fg")
+                val source = remember { MutableInteractionSource() }
+                Box(
+                    Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .scale(pressScale(source))
+                        .clip(ExRadius.pill)
+                        .background(bg)
+                        .selectable(sel, source, null, role = Role.Tab) { onSelect(i) }
+                        .semantics { contentDescription = item.label },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(item.icon, null, Modifier.size(ExSize.icon), tint = fg)
+                }
             }
         }
     }
 }
+

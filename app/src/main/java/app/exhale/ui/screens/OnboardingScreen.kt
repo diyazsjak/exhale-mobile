@@ -2,6 +2,8 @@ package app.exhale.ui.screens
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
@@ -134,8 +136,8 @@ fun OnboardingScreen(onFinish: (UserSettings) -> Unit, initialStep: Int = 0) {
             modifier = Modifier.weight(1f).fillMaxWidth(),
             transitionSpec = {
                 val dir = if (targetState > initialState) 1 else -1
-                (slideInHorizontally { it * dir / 4 } + fadeIn()) togetherWith
-                    (slideOutHorizontally { -it * dir / 4 } + fadeOut())
+                (slideInHorizontally(tween(260, easing = FastOutSlowInEasing)) { it * dir / 4 } + fadeIn(tween(260))) togetherWith
+                    (slideOutHorizontally(tween(260, easing = FastOutSlowInEasing)) { -it * dir / 4 } + fadeOut(tween(200)))
             },
             label = "onboarding-step",
         ) { s ->

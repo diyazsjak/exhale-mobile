@@ -35,11 +35,11 @@ Neutrals carry the UI; accents carry meaning.
 - 4px spacing scale; screens use a 20px side gutter (`space-lg`) and 16px between blocks (`space-md`).
 - Radii: `radius-pill` for anything tappable that is a single line (buttons, chips, badges, tab bar, segmented control), `radius-md` for inputs and option cards, `radius-lg` for cards.
 - Sizes: `button-large` 60, `button-medium` 48, `icon-button` 48, `chip` 40, `tab-bar` 68. Touch targets are never under 44.
-- Elevation: flat. The only shadow is `shadow-float` on the light tab bar; dark uses a `line` border instead.
+- Elevation: flat. The only shadow is a soft one on the floating tab bar in light. Dark uses tone and a `line` outline instead of shadows.
 
 ## Navigation
 
-A **floating tab bar**: a `surface` pill hovering 12px above the system navigation bar with a 20px gutter, icons only (each with an accessibility label). The selected tab sits in a `surface-high` inner pill and takes its meaning colour: Ember (heat), Regulate (`sky`), Rhythm (`flare`), Air (`oxy`), Money (`sun`). Screens under it leave `tab-bar-clearance` at the bottom. Full-screen flows (Urge Wave, Settings, Onboarding) hide it and use a round back or close button in the header instead.
+A **floating tab bar**: a `chrome` pill hovering 12px above the system navigation bar with a 20px gutter, icons only (each with an accessibility label). `chrome` is a step lighter than cards in dark (with a `line` outline) and white in light. It is solid and content scrolls underneath it. Light: a soft elevation shadow. Dark: no shadow; the lighter tone and hairline outline lift it (tonal elevation). The selected tab sits in a `chrome-selected` inner pill and takes its meaning colour: Ember (heat), Regulate (`sky`), Rhythm (`flare`), Air (`oxy`), Money (`sun`). Screens under it leave `tab-bar-clearance` at the bottom. Full-screen flows (Urge Wave, Settings, Onboarding) hide it and use a round back or close button in the header instead.
 
 ## Iconography
 
@@ -48,6 +48,8 @@ Exhale's own line icons: 24px grid, 1.8 stroke, round caps and joins, no fills. 
 ## Motion and haptics
 
 - Tappable components squish to 97% on press with a spring; the tab pill and segmented thumb slide with a spring.
+- Screen transitions are short (260ms) and slide: tabs move like pages in tab order; full-screen flows push in from the right over a receding screen and pop back.
+- The craving screen's breathing guide is text only. The current instruction fills with colour letter by letter over its duration; centred under the wave; the next waits below, small and faded ("then hold · 2s"), and brightens and lifts in the last second; on a change it glides up and grows into place while the old one floats away. The halo around the wave's dot swells and shrinks continuously with the breath.
 - Ambient loops are slow (orb breathing 4.2s, particles drifting) and stop when the screen leaves.
 - The Ember ("Gather") is a molten core that pulses every 4s with four droplets orbiting slowly, each touching and merging with it about a third of the time. Holding pulls the drops in and runs a trail around it along the heat scale; logging flings them out with a ring and a splash.
 - Each haptic has one meaning: rising ticks = charging the hold (12 over 1.5s), thud = logged, double tick = next one earned, low tick = breath phase change. Every pattern checks that the phone supports it and falls back to plain vibration, so it works on Samsung and Xiaomi phones too.
@@ -69,9 +71,11 @@ Button, IconButton, Chip, Badge, Card, OptionCard, TextField, Stepper, Segmented
 | Token | Dark | Light | Use |
 |---|---|---|---|
 | `bg` | `#0c0c10` | `#f3f3f6` | The one background every screen uses. Never swap it per screen. |
-| `surface` | `#18181e` | `#ffffff` | Cards, chips, inputs, the tab bar, secondary buttons. |
-| `surface-high` | `#26262e` | `#e7e7ec` | Selected tab pill, pressed surfaces, the logged card, empty progress tracks. |
+| `surface` | `#18181e` | `#ffffff` | Cards, chips, inputs, secondary buttons. |
+| `surface-high` | `#26262e` | `#e7e7ec` | Pressed surfaces, the logged card, empty progress tracks. |
 | `line` | `#2e2e37` | `#dcdbe2` | Hairline borders: the dark tab bar outline, swatch edges. Use rarely. |
+| `chrome` | `#222229` | `#ffffff` | Floating tab bar fill (solid), a step apart from cards. |
+| `chrome-selected` | `#34343e` | `#e9e9ee` | Selected tab pill. |
 | `ink` | `#f4f3f7` | `#131318` | Primary text and icons on bg and surfaces (16:1 or more). |
 | `ink-soft` | `#a6a4b0` | `#5c5a66` | Secondary text: subtitles, captions, unselected tab icons (6:1 or more). |
 | `ink-faint` | `#8a8894` | `#6f6d79` | Tertiary text: placeholders, source lines, empty week days (4.5:1 on bg). |
@@ -201,7 +205,7 @@ Tappable row inside a card: label, optional value, chevron.
 
 iOS-style floating pill tab bar, icons only; the selected tab sits in a lighter inner pill and takes its meaning colour.
 
-`surface` pill, 68px tall, 6px inner padding, floating 12px above the navigation bar with a 20px gutter. Light: `shadow-float`; dark: a 1px `line` ring. Selected: `surface-high` inner pill and the icon in its colour's ink (Ember follows heat). Unselected icons `ink-soft`. Every tab has an accessibility label. Screens leave `tab-bar-clearance` at the bottom.
+`chrome` pill, 68px tall, 6px inner padding, floating 12px above the navigation bar with a 20px gutter. Light: `shadow-float`; dark: a 1px `line` ring. Selected: `chrome-selected` inner pill and the icon in its colour's ink (Ember follows heat). Unselected icons `ink-soft`. Every tab has an accessibility label. Screens leave `tab-bar-clearance` at the bottom.
 
 - Compose: `FloatingTabBar(items = listOf(TabItem(ExIcons.Ember, "Ember", tint)), selected, onSelect)`.
 

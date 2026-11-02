@@ -54,7 +54,7 @@ fun AirScreen(state: ExhaleState) {
             Stat(Fmt.gap(since), "since your last one", color = c.oxyInk)
             Stat(Fmt.gap(state.longestGapWeek), "longest gap, 7 days")
         }
-        VSpace(96.dp)
+        VSpace(ExSpace.lg)
         Milestones.all.forEach { m ->
             val unlocked = since == null || since >= m.after
             ExCard(color = c.surface.copy(alpha = 0.88f), padding = ExSpace.md) {
