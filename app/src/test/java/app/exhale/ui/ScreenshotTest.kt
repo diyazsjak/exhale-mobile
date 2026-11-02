@@ -16,6 +16,7 @@ import app.exhale.domain.UserSettings
 import app.exhale.ui.screens.AirScreen
 import app.exhale.ui.screens.EmberScreen
 import app.exhale.ui.screens.MoneyScreen
+import app.exhale.ui.screens.OnboardingScreen
 import app.exhale.ui.screens.RegulateScreen
 import app.exhale.ui.screens.RhythmScreen
 import app.exhale.ui.screens.SettingsScreen
@@ -31,7 +32,6 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import java.time.Duration
 import java.time.Instant
-import java.time.LocalDate
 import java.time.ZoneId
 import kotlin.random.Random
 
@@ -104,5 +104,10 @@ class ScreenshotTest {
     @Test fun rhythm() = shot("4_rhythm") { RhythmScreen(sampleState()) }
     @Test fun air() = shot("5_air") { AirScreen(sampleState()) }
     @Test fun money() = shot("6_money") { MoneyScreen(sampleState()) }
-    @Test fun onboarding() = shot("0_onboarding") { SettingsScreen(UserSettings(planStart = LocalDate.of(2026, 11, 2)), true, {}, {}, {}, null) }
+    @Test fun onboardingWelcome() = shot("0a_onboarding_welcome") { OnboardingScreen({}, initialStep = 0) }
+    @Test fun onboardingHabit() = shot("0b_onboarding_habit") { OnboardingScreen({}, initialStep = 1) }
+    @Test fun onboardingCost() = shot("0c_onboarding_cost") { OnboardingScreen({}, initialStep = 2) }
+    @Test fun onboardingPlan() = shot("0d_onboarding_plan") { OnboardingScreen({}, initialStep = 3) }
+    @Test fun onboardingGoal() = shot("0e_onboarding_goal") { OnboardingScreen({}, initialStep = 4) }
+    @Test fun settings() = shot("7_settings") { SettingsScreen(sampleState().settings, {}, {}, {}, {}) }
 }

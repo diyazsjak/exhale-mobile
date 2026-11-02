@@ -18,7 +18,8 @@ As you cut down, the app literally cools.
 - **Air** — WHO recovery milestones over a particle field that clears.
 - **Money** — money not burned vs. your old baseline, with a savings goal.
 - **Quick-settings tile** — log without opening the app.
-- Demo data loader for trying every screen.
+- Step-by-step onboarding: habit, cost, plan, optional goal.
+- Demo data loader in Settings for trying every screen.
 
 ## Build
 Requires JDK 17+ and the Android SDK (platform 36).

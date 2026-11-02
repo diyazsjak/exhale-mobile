@@ -87,7 +87,7 @@ Don't reuse a pattern for a different meaning.
 ## 3. Screens
 
 Bottom bar: **Ember · Regulate · Rhythm · Air · Money**. Full-screen routes: **Urge Wave**, **Settings**.
-First launch shows **Onboarding** (the Settings form in onboarding mode).
+First launch shows **Onboarding** (§3.7).
 
 ### 3.1 Ember (home) — `EmberScreen.kt`
 - Header: today's count / allowance (Flare when at/over), Settings link.
@@ -129,12 +129,25 @@ First launch shows **Onboarding** (the Settings form in onboarding mode).
 - Sticks row: fraction of the current hundred not smoked.
 - Goal card with progress and weeks-to-goal at current pace.
 
-### 3.7 Settings / Onboarding — `SettingsScreen.kt`
-Fields: baseline per day, cigarettes per pack, pack price, currency (ISO 4217), starting allowance
-(default baseline − 2), taper type, goal name, goal amount.
-Prototype actions: load demo data (30 days), erase all data (two-tap confirm).
+### 3.7 Onboarding — `OnboardingScreen.kt`
+One question per screen. Nothing is saved until the last step; system Back goes to the previous step.
+A segmented progress bar (steps 1–4) fills with colours that cool from Ember to Oxygen.
 
-### 3.8 Outside the app
+| Step | Asks | Notes |
+|---|---|---|
+| 0 Welcome | — | Thesis, warm/cool gradient legend, privacy line. "Get started". |
+| 1 Habit | Cigarettes a day before Exhale | Big stepper, 1–60, default 15. |
+| 2 Cost | Pack price, cigarettes per pack, currency | Currency defaults from the device locale. Live line: cost per cigarette and per month. Next is disabled until valid. |
+| 3 Plan | Starting allowance + taper type | Stepper 0..baseline, default baseline − 2. Taper cards preview weeks 1–4. |
+| 4 Goal (optional) | Goal name and amount | Shows money kept in the first 4 weeks if the plan is followed. "Start" or "Skip the goal for now". |
+
+No demo data in onboarding.
+
+### 3.8 Settings — `SettingsScreen.kt`
+All onboarding fields in one form; keeps the original plan start.
+Prototype tools: replace data with 30 days of demo data (explained in-screen), erase all data (two-tap confirm).
+
+### 3.9 Outside the app
 - **Quick-settings tile** — `tile/LogTileService.kt`: tap to log; subtitle shows today's count.
 - Planned: Glance home-screen widget, Wear OS tile, smart nudges (see §6).
 

@@ -34,6 +34,7 @@ import androidx.navigation.compose.rememberNavController
 import app.exhale.ui.screens.AirScreen
 import app.exhale.ui.screens.EmberScreen
 import app.exhale.ui.screens.MoneyScreen
+import app.exhale.ui.screens.OnboardingScreen
 import app.exhale.ui.screens.RegulateScreen
 import app.exhale.ui.screens.RhythmScreen
 import app.exhale.ui.screens.SettingsScreen
@@ -60,10 +61,7 @@ fun ExhaleRoot(vm: ExhaleViewModel = viewModel(factory = ExhaleViewModel.Factory
     Box(Modifier.fillMaxSize().background(Ex.Void)) {
         when {
             !state.loaded -> Unit
-            !state.settings.onboarded -> SettingsScreen(
-                current = state.settings, onboarding = true,
-                onSave = vm::saveSettings, onDemo = vm::loadDemo, onErase = vm::eraseAll, onClose = null,
-            )
+            !state.settings.onboarded -> OnboardingScreen(onFinish = vm::saveSettings)
             else -> MainNav(state, logged, vm)
         }
     }
@@ -105,7 +103,7 @@ private fun MainNav(state: ExhaleState, logged: LoggedEvent?, vm: ExhaleViewMode
             composable(SETTINGS) {
                 Box(Modifier.statusBarsPadding()) {
                     SettingsScreen(
-                        current = state.settings, onboarding = false,
+                        current = state.settings,
                         onSave = { vm.saveSettings(it); nav.popBackStack() },
                         onDemo = { vm.loadDemo(); nav.popBackStack() },
                         onErase = vm::eraseAll,

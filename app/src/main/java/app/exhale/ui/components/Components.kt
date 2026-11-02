@@ -72,19 +72,22 @@ fun ExButton(
     modifier: Modifier = Modifier,
     color: Color = Ex.Oxy,
     filled: Boolean = true,
+    enabled: Boolean = true,
     contentColor: Color = if (filled) Ex.Void else color,
 ) {
     val shape = RoundedCornerShape(50)
+    val bg = if (enabled) color else Ex.Line
+    val fg = if (enabled) contentColor else Ex.Mute
     Box(
         modifier
             .clip(shape)
-            .then(if (filled) Modifier.background(color) else Modifier.border(BorderStroke(1.5.dp, color), shape))
-            .clickable(role = Role.Button, onClick = onClick)
+            .then(if (filled) Modifier.background(bg) else Modifier.border(BorderStroke(1.5.dp, bg), shape))
+            .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
             .heightIn(min = 52.dp)
             .padding(horizontal = 22.dp, vertical = 14.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text(text, style = ExType.bodyStrong, color = contentColor, textAlign = TextAlign.Center)
+        Text(text, style = ExType.bodyStrong, color = fg, textAlign = TextAlign.Center)
     }
 }
 
