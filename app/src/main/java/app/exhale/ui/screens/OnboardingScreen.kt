@@ -8,8 +8,6 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,8 +20,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -36,21 +32,26 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import app.exhale.domain.PlanMath
 import app.exhale.domain.TaperType
 import app.exhale.domain.UserSettings
 import app.exhale.ui.Fmt
-import app.exhale.ui.components.Eyebrow
+import app.exhale.ui.components.ButtonStyle
+import app.exhale.ui.components.ExBadge
 import app.exhale.ui.components.ExButton
-import app.exhale.ui.components.ExField
+import app.exhale.ui.components.ExIconButton
+import app.exhale.ui.components.ExIcons
+import app.exhale.ui.components.ExTextField
+import app.exhale.ui.components.OptionCard
+import app.exhale.ui.components.Overline
+import app.exhale.ui.components.StepProgress
 import app.exhale.ui.components.Stepper
 import app.exhale.ui.theme.Ex
+import app.exhale.ui.theme.ExRadius
+import app.exhale.ui.theme.ExSize
+import app.exhale.ui.theme.ExSpace
 import app.exhale.ui.theme.ExType
 import java.time.LocalDate
 import java.util.Currency
@@ -70,6 +71,7 @@ private const val DEFAULT_GOAL_MINOR = 30000L
  */
 @Composable
 fun OnboardingScreen(onFinish: (UserSettings) -> Unit, initialStep: Int = 0) {
+    val c = Ex.colors
     var step by rememberSaveable { mutableIntStateOf(initialStep) }
     var baseline by rememberSaveable { mutableIntStateOf(15) }
     var perPack by rememberSaveable { mutableStateOf("20") }
@@ -115,10 +117,17 @@ fun OnboardingScreen(onFinish: (UserSettings) -> Unit, initialStep: Int = 0) {
     Column(
         Modifier
             .fillMaxSize()
+            .background(c.bg)
             .safeDrawingPadding()
-            .padding(horizontal = 20.dp, vertical = 16.dp),
+            .padding(horizontal = ExSpace.gutter, vertical = ExSpace.xs),
     ) {
-        if (step > 0) ProgressHeader(step, onBack = { step-- })
+        Row(Modifier.fillMaxWidth().heightIn(min = ExSize.iconButton), verticalAlignment = Alignment.CenterVertically) {
+            if (step > 0) {
+                ExIconButton(ExIcons.Back, "Back", { step-- })
+                StepProgress(step, STEPS, Modifier.weight(1f).padding(horizontal = ExSpace.md))
+                ExBadge("$step / $STEPS")
+            }
+        }
 
         AnimatedContent(
             targetState = step,
@@ -134,8 +143,8 @@ fun OnboardingScreen(onFinish: (UserSettings) -> Unit, initialStep: Int = 0) {
                 Modifier
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
-                    .padding(top = if (s == 0) 8.dp else 28.dp, bottom = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
+                    .padding(top = ExSpace.xl, bottom = ExSpace.md),
+                verticalArrangement = Arrangement.spacedBy(ExSpace.md),
             ) {
                 when (s) {
                     0 -> WelcomeStep()
@@ -160,98 +169,60 @@ fun OnboardingScreen(onFinish: (UserSettings) -> Unit, initialStep: Int = 0) {
         if (step == 2 && !stepValid) {
             Text(
                 "Enter the pack price. Currency is a 3-letter code like USD, EUR or KZT.",
-                style = ExType.small, color = Ex.Mute, modifier = Modifier.padding(bottom = 10.dp),
+                style = ExType.caption, color = c.inkSoft, modifier = Modifier.padding(bottom = ExSpace.sm),
             )
         }
         ExButton(
-            when (step) { 0 -> "Get started"; STEPS -> "Start"; else -> "Next" },
+            when (step) { 0 -> "Get started"; STEPS -> "Start"; else -> "Continue" },
             ::next,
             Modifier.fillMaxWidth(),
             enabled = stepValid,
         )
         if (step == STEPS) {
-            Text(
-                "Skip the goal for now",
-                style = ExType.bodyStrong, color = Ex.Mute,
-                modifier = Modifier
-                    .align(Alignment.CenterHorizontally)
-                    .padding(top = 6.dp)
-                    .clip(RoundedCornerShape(50))
-                    .clickable(role = Role.Button) { onFinish(draft(withGoal = false)) }
-                    .heightIn(min = 44.dp)
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-            )
+            ExButton("Skip the goal for now", { onFinish(draft(withGoal = false)) }, Modifier.fillMaxWidth(), style = ButtonStyle.Ghost)
         }
-    }
-}
-
-/** Back link, segmented progress that cools from ember to oxygen, and "n / 4". */
-@Composable
-private fun ProgressHeader(step: Int, onBack: () -> Unit) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(
-            "BACK", style = ExType.eyebrow, color = Ex.Mute,
-            modifier = Modifier
-                .clip(RoundedCornerShape(8.dp))
-                .clickable(role = Role.Button, onClick = onBack)
-                .heightIn(min = 44.dp)
-                .padding(horizontal = 8.dp, vertical = 14.dp),
-        )
-        Row(
-            Modifier
-                .weight(1f)
-                .padding(horizontal = 12.dp)
-                .semantics { contentDescription = "Step $step of $STEPS" },
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            repeat(STEPS) { i ->
-                val done = i < step
-                Box(
-                    Modifier
-                        .weight(1f)
-                        .height(4.dp)
-                        .clip(RoundedCornerShape(2.dp))
-                        .background(if (done) Ex.heatColor(1f - i / (STEPS - 1f)) else Ex.Line)
-                )
-            }
-        }
-        Text("$step / $STEPS", style = ExType.dataSmall, color = Ex.Mute)
     }
 }
 
 @Composable
 private fun WelcomeStep() {
-    Eyebrow("Exhale")
-    Text("Burn less.\nExhale more.", style = ExType.hero, color = Ex.Ink)
+    val c = Ex.colors
+    Overline("Exhale")
+    Column {
+        Text("Burn less.", style = ExType.display, color = c.ink)
+        Text("Exhale more.", style = ExType.display.copy(fontStyle = ExType.titleItalic.fontStyle), color = c.oxyInk)
+    }
     Text(
         "Track every cigarette in one gesture, cut down at your own pace, and ride out cravings.",
-        style = ExType.body, color = Ex.Mute,
+        style = ExType.body, color = c.inkSoft,
     )
-    Spacer(Modifier.height(8.dp))
+    Spacer(Modifier.height(ExSpace.md))
     Box(
         Modifier
             .fillMaxWidth()
-            .height(14.dp)
-            .clip(RoundedCornerShape(7.dp))
-            .background(Brush.horizontalGradient(listOf(Ex.Ember, Ex.Flare, Ex.Sky, Ex.Oxy)))
+            .height(16.dp)
+            .clip(ExRadius.pill)
+            .background(Brush.horizontalGradient(listOf(c.ember, c.flare, c.sky, c.oxy)))
     )
     Row {
-        Text("just smoked", style = ExType.dataSmall, color = Ex.Ember, modifier = Modifier.weight(1f))
-        Text("next one earned", style = ExType.dataSmall, color = Ex.Oxy)
+        Text("just smoked", style = ExType.caption, color = c.emberInk, modifier = Modifier.weight(1f))
+        Text("next one earned", style = ExType.caption, color = c.oxyInk)
     }
     Text(
         "Warm means smoke. Cool means recovery. As you cut down, the whole app cools.",
-        style = ExType.body, color = Ex.Ink,
+        style = ExType.body, color = c.ink,
     )
-    Spacer(Modifier.height(24.dp))
-    Text("Everything stays on this phone. No account, no cloud.", style = ExType.small, color = Ex.Mute)
+    Spacer(Modifier.height(ExSpace.lg))
+    Text("Everything stays on this phone. No account, no cloud.", style = ExType.caption, color = c.inkFaint)
 }
+
 
 @Composable
 private fun StepTitle(eyebrow: String, title: String, body: String) {
-    Eyebrow(eyebrow)
-    Text(title, style = ExType.title, color = Ex.Ink)
-    Text(body, style = ExType.body, color = Ex.Mute)
+    val c = Ex.colors
+    Overline(eyebrow)
+    Text(title, style = ExType.title, color = c.ink)
+    Text(body, style = ExType.body, color = c.inkSoft)
 }
 
 @Composable
@@ -261,7 +232,7 @@ private fun HabitStep(baseline: Int, onChange: (Int) -> Unit) {
         "How many a day, usually?",
         "Your honest average before Exhale. It's your starting point, and money saved is counted against it.",
     )
-    Spacer(Modifier.height(12.dp))
+    Spacer(Modifier.height(ExSpace.lg))
     Stepper(baseline, onChange, 1..60, if (baseline == 1) "cigarette a day" else "cigarettes a day")
 }
 
@@ -272,11 +243,12 @@ private fun CostStep(
     currency: String, onCurrency: (String) -> Unit,
     baseline: Int, perPackN: Int?, priceMinor: Long?, validCurrency: String?,
 ) {
+    val c = Ex.colors
     StepTitle("Cost", "What does a pack cost?", "Used only to show the money you keep.")
-    ExField("Pack price", price, onPrice, KeyboardType.Decimal, placeholder = "10.00")
-    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        ExField("Cigarettes per pack", perPack, onPerPack, KeyboardType.Number, Modifier.weight(1.3f))
-        ExField("Currency", currency, onCurrency, KeyboardType.Text, Modifier.weight(1f))
+    ExTextField("Pack price", price, onPrice, type = KeyboardType.Decimal, placeholder = "10.00")
+    Row(horizontalArrangement = Arrangement.spacedBy(ExSpace.sm)) {
+        ExTextField("Cigarettes per pack", perPack, onPerPack, Modifier.weight(1.3f), type = KeyboardType.Number)
+        ExTextField("Currency", currency, onCurrency, Modifier.weight(1f))
     }
     if (perPackN != null && priceMinor != null && validCurrency != null) {
         val perCig = priceMinor.toDouble() / perPackN
@@ -284,7 +256,7 @@ private fun CostStep(
         Text(
             "That's ${Fmt.money(perCig.toLong(), validCurrency, decimals = true)} a cigarette, " +
                 "about ${Fmt.money(perMonth, validCurrency)} a month at $baseline a day.",
-            style = ExType.body, color = Ex.Sun,
+            style = ExType.body, color = c.sunInk,
         )
     }
 }
@@ -297,42 +269,17 @@ private fun PlanStep(
     taper: TaperType,
     onTaper: (TaperType) -> Unit,
 ) {
-    StepTitle(
-        "Your plan",
-        "Start at",
-        "Cigarettes allowed per day this week. Two under your usual is a gentle start.",
-    )
+    val c = Ex.colors
+    StepTitle("Your plan", "Start at", "Cigarettes allowed per day this week. Two under your usual is a gentle start.")
     Stepper(allowance, onAllowance, 0..baseline, "a day this week")
-    Spacer(Modifier.height(4.dp))
-    Eyebrow("Then each week")
+    Overline("Then each week", Modifier.padding(top = ExSpace.xs))
     val today = LocalDate.now()
     TaperType.entries.forEach { t ->
-        val sel = t == taper
         val plan = UserSettings(startAllowance = allowance, taper = t, planStart = today)
         val preview = (0..3).map { w -> PlanMath.baseAllowance(plan, today.plusDays(w * 7L)) }
-        val shape = RoundedCornerShape(18.dp)
-        Column(
-            Modifier
-                .fillMaxWidth()
-                .clip(shape)
-                .background(if (sel) Ex.Oxy.copy(alpha = 0.08f) else Color.Transparent)
-                .border(if (sel) 2.dp else 1.dp, if (sel) Ex.Oxy else Ex.Line, shape)
-                .selectable(selected = sel, role = Role.RadioButton) { onTaper(t) }
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            Text(t.label, style = ExType.bodyStrong, color = Ex.Ink)
-            Text(t.description, style = ExType.small, color = Ex.Mute)
-            Text(
-                "Weeks 1–4: " + preview.joinToString(" → "),
-                style = ExType.dataSmall, color = if (sel) Ex.Oxy else Ex.Mute,
-            )
-        }
+        OptionCard(t.label, t.description, t == taper, { onTaper(t) }, trailing = "Weeks 1–4: " + preview.joinToString(" → "))
     }
-    Text(
-        "Going over isn't failing. It's borrowed from tomorrow's allowance.",
-        style = ExType.small, color = Ex.Mute,
-    )
+    Text("Going over isn't failing. It's borrowed from tomorrow's allowance.", style = ExType.caption, color = c.inkSoft)
 }
 
 @Composable
@@ -342,17 +289,14 @@ private fun GoalStep(
     fourWeeksMinor: Long,
     currency: String,
 ) {
-    StepTitle(
-        "Goal · optional",
-        "What will the money go to?",
-        "Something you'd like. The Money screen tracks how close you are.",
-    )
-    ExField("Saving for", goalName, onName, KeyboardType.Text, placeholder = "New headphones")
-    ExField("Amount", goal, onGoal, KeyboardType.Decimal, placeholder = "300")
+    val c = Ex.colors
+    StepTitle("Goal · optional", "What will the money go to?", "Something you'd like. The Money screen tracks how close you are.")
+    ExTextField("Saving for", goalName, onName, placeholder = "New headphones")
+    ExTextField("Amount", goal, onGoal, type = KeyboardType.Decimal, placeholder = "300")
     if (fourWeeksMinor > 0) {
         Text(
             "Following your plan, you keep about ${Fmt.money(fourWeeksMinor, currency)} in the first 4 weeks.",
-            style = ExType.body, color = Ex.Sun,
+            style = ExType.body, color = c.sunInk,
         )
     }
 }

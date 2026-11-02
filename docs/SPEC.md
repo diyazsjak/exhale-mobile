@@ -36,36 +36,21 @@ Many have tried and slipped before. They are sensitive to judgement.
 
 ---
 
-## 2. Design language — "Two temperatures"
+## 2. Design language
 
-Warm = smoke. Cool = recovery. This is the main data channel; learn it once, read it everywhere.
+The full design system (tokens, components, usage rules) is in [`DESIGN-SYSTEM.md`](DESIGN-SYSTEM.md).
+In short:
 
-| Token | Hex | Meaning — never use for anything else |
-|---|---|---|
-| `Ex.Void` | `#0D0B1C` | Base background |
-| `Ex.Panel` | `#17142D` | Raised surfaces |
-| `Ex.Line` | `#2C2750` | Borders, empty slots |
-| `Ex.Ink` / `Ex.Mute` | `#F4EFFF` / `#A49DCB` | Text / secondary text |
-| `Ex.Ember` | `#FF5A1F` | A cigarette, a log |
-| `Ex.Flare` | `#FF2E88` | Craving, peak, over-allowance |
-| `Ex.Sky` | `#6C7BFF` | Transition between hot and cool |
-| `Ex.Oxy` | `#2EF2D0` | Recovery, earned time, primary actions |
-| `Ex.Sun` | `#FFC53D` | Money, milestones (Money screen background) |
-
-Rules:
-- `Ex.heatColor(heat)` maps `heat` (1 = just smoked, 0 = interval earned) Ember → Sky → Oxygen.
-  Any element showing "how recently did I smoke" uses it.
+- **Two temperatures**: warm = smoke (`ember`, `flare`), cool = recovery (`sky`, `oxy`), `sun` = money.
+  Soft pastel accents on one shared background. `c.heat(h)` maps heat 1 (just smoked) → 0 (earned).
+- **Accents are fills**; text and small icons in an accent use its `*Ink` token (`c.inkOf(accent)`),
+  identical in dark, darker in light for 4.5:1.
+- **Type**: Newsreader (serif) for feelings and big states, Figtree (sans) for reading and tapping,
+  tabular digits for timers. Use `ExType` styles only.
+- **Layout**: every screen in `ExScreen` (shared `bg`, gutter, insets, tab-bar clearance). One primary
+  60dp pill button per screen. Floating iOS-style tab bar, icons only.
+- **Themes**: dark and light; follows the phone, override in Settings → Appearance (`ThemeMode`).
 - Colour is never the only signal: always pair with a number or label.
-- Dark-only app. The Money screen is the single deliberate exception (flat Sun background).
-
-**Type** (bundled variable fonts in `res/font`, OFL — see `docs/FONTS-OFL.txt`):
-- Display — Bricolage Grotesque, condensed (`wdth` 75–85), weight 700–800. Big states and headlines.
-- Body — Hanken Grotesk 400–600. Copy and coaching.
-- Data — Martian Mono. Timers, counts, eyebrows. Tabular digits so timers don't jitter.
-Use the styles in `ExType`; don't create ad-hoc `TextStyle`s in screens.
-
-**Motion**: springs with visible mass (toast, press squish), slow ambient loops (orb breathing,
-particles). Long loops must stop when the screen leaves composition.
 
 ### Haptics vocabulary (`ui/components/Haptics.kt`)
 | Pattern | Meaning |
@@ -86,7 +71,7 @@ Don't reuse a pattern for a different meaning.
 
 ## 3. Screens
 
-Bottom bar: **Ember · Regulate · Rhythm · Air · Money**. Full-screen routes: **Urge Wave**, **Settings**.
+Floating tab bar (icons only): **Ember · Regulate · Rhythm · Air · Money**. Full-screen routes: **Urge Wave**, **Settings**.
 First launch shows **Onboarding** (§3.7).
 
 ### 3.1 Ember (home) — `EmberScreen.kt`
@@ -125,6 +110,7 @@ First launch shows **Onboarding** (§3.7).
 - WHO milestones list; locked ones show a countdown. Source line at the bottom.
 
 ### 3.6 Money — `MoneyScreen.kt`
+Same background as every screen; money is carried by `sun` accents.
 - Saved = (baseline × days since plan start − cigarettes smoked since) × price per cigarette, floored at 0.
 - Sticks row: fraction of the current hundred not smoked.
 - Goal card with progress and weeks-to-goal at current pace.
@@ -144,7 +130,8 @@ A segmented progress bar (steps 1–4) fills with colours that cool from Ember t
 No demo data in onboarding.
 
 ### 3.8 Settings — `SettingsScreen.kt`
-All onboarding fields in one form; keeps the original plan start.
+Appearance (System / Light / Dark, applies instantly) and all onboarding fields in one form; keeps the original plan start.
+Prototype tools: Design system (opens `UiKitScreen`, the live component catalogue).
 Prototype tools: replace data with 30 days of demo data (explained in-screen), erase all data (two-tap confirm).
 
 ### 3.9 Outside the app

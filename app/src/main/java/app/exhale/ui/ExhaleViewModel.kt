@@ -11,6 +11,7 @@ import app.exhale.domain.Milestones
 import app.exhale.domain.PlanMath
 import app.exhale.domain.SmokeLog
 import app.exhale.domain.Stats
+import app.exhale.domain.ThemeMode
 import app.exhale.domain.Trigger
 import app.exhale.domain.Urge
 import app.exhale.domain.UrgeOutcome
@@ -28,6 +29,10 @@ import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import java.time.temporal.TemporalAdjusters
+import java.time.temporal.WeekFields
+import java.util.Locale
+import app.exhale.ui.components.DayDot
 
 /** Everything the screens render, derived once per tick. */
 data class ExhaleState(
@@ -50,6 +55,8 @@ data class ExhaleState(
     val urgesSurvived: Int = 0,
     val longestGapWeek: Duration = Duration.ZERO,
     val clearFraction: Float = 1f,
+    /** Current week, first day per locale, for the week strip on Ember. */
+    val week: List<DayDot> = emptyList(),
 ) {
     val remainingToNext: Duration?
         get() = nextAllowedAt?.let { Duration.between(now, it) }?.takeIf { !it.isNegative && !it.isZero }
@@ -109,6 +116,7 @@ class ExhaleViewModel(private val repo: ExhaleRepository) : ViewModel() {
             urgesSurvived = urges.count { it.outcome == UrgeOutcome.SURVIVED },
             longestGapWeek = Stats.longestGap(logs, now, Duration.ofDays(7)),
             clearFraction = Milestones.clearFraction(sinceLast),
+            week = weekDays(s, logs, today, zone),
         )
     }
 
@@ -141,6 +149,8 @@ class ExhaleViewModel(private val repo: ExhaleRepository) : ViewModel() {
 
     fun saveSettings(s: UserSettings) { viewModelScope.launch { repo.saveSettings(s) } }
 
+    fun setTheme(mode: ThemeMode) { saveSettings(state.value.settings.copy(theme = mode)) }
+
     fun loadDemo() { viewModelScope.launch { repo.seedDemo() } }
 
     fun eraseAll() { viewModelScope.launch { repo.eraseAll() } }
@@ -151,6 +161,19 @@ class ExhaleViewModel(private val repo: ExhaleRepository) : ViewModel() {
                 val app = this[ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY] as ExhaleApp
                 ExhaleViewModel(app.repository)
             }
+        }
+    }
+}
+
+/** The current week (first day per locale) for the week strip: count and allowance per past day. */
+fun weekDays(s: UserSettings, logs: List<SmokeLog>, today: LocalDate, zone: ZoneId): List<DayDot> {
+    val first = today.with(TemporalAdjusters.previousOrSame(WeekFields.of(Locale.getDefault()).firstDayOfWeek))
+    return (0L until 7L).map { i ->
+        val d = first.plusDays(i)
+        if (d.isAfter(today)) {
+            DayDot(d, null, 0)
+        } else {
+            DayDot(d, Stats.countOn(logs, d, zone), PlanMath.allowance(s, d, Stats.countOn(logs, d.minusDays(1), zone)))
         }
     }
 }

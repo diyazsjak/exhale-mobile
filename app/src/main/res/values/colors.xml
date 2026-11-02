@@ -1,4 +1,3 @@
 <resources>
-    <color name="void_bg">#FF0D0B1C</color>
-    <color name="ember">#FFFF5A1F</color>
+    <color name="app_bg">#FFF3F3F6</color>
 </resources>

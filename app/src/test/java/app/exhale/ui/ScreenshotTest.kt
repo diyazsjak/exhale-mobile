@@ -22,6 +22,12 @@ import app.exhale.ui.screens.RhythmScreen
 import app.exhale.ui.screens.SettingsScreen
 import app.exhale.ui.screens.UrgeWaveScreen
 import app.exhale.ui.theme.Ex
+import app.exhale.ui.components.ExIcons
+import app.exhale.ui.components.FloatingTabBar
+import app.exhale.ui.components.TabItem
+import app.exhale.ui.screens.UiKitScreen
+import app.exhale.domain.ThemeMode
+import androidx.compose.ui.Alignment
 import app.exhale.ui.theme.ExhaleTheme
 import com.github.takahirom.roborazzi.captureRoboImage
 import org.junit.Rule
@@ -87,27 +93,62 @@ class ScreenshotTest {
             notSmoked = notSmoked, savedMinor = Stats.moneySavedMinor(notSmoked, settings.pricePerCigMinor),
             longestGapWeek = Stats.longestGap(logs, now, Duration.ofDays(7)),
             clearFraction = 0.4f,
+            week = weekDays(settings, logs, today, zone),
         )
     }
 
-    private fun shot(name: String, content: @Composable () -> Unit) {
+    private fun shot(name: String, dark: Boolean = true, tab: Int? = null, content: @Composable () -> Unit) {
         compose.mainClock.autoAdvance = false
-        compose.setContent { ExhaleTheme { Box(Modifier.fillMaxSize().background(Ex.Void)) { content() } } }
+        compose.setContent {
+            ExhaleTheme(dark = dark) {
+                val c = Ex.colors
+                Box(Modifier.fillMaxSize().background(c.bg)) {
+                    content()
+                    if (tab != null) {
+                        FloatingTabBar(
+                            listOf(
+                                TabItem(ExIcons.Ember, "Ember", c.heat(0.2f)), TabItem(ExIcons.Regulate, "Regulate", c.sky),
+                                TabItem(ExIcons.Rhythm, "Rhythm", c.flare), TabItem(ExIcons.Air, "Air", c.oxy),
+                                TabItem(ExIcons.Money, "Money", c.sun),
+                            ),
+                            tab, {}, Modifier.align(Alignment.BottomCenter),
+                        )
+                    }
+                }
+            }
+        }
         compose.mainClock.advanceTimeBy(2_000)
-        compose.onRoot().captureRoboImage("build/outputs/roborazzi/$name.png")
+        compose.onRoot().captureRoboImage("build/outputs/roborazzi/${name}_${if (dark) "dark" else "light"}.png")
     }
 
-    @Test fun ember() = shot("1_ember") { EmberScreen(sampleState(), null, {}, {}, { _, _ -> }, {}, {}, {}) }
-    @Test fun emberHot() = shot("1b_ember_hot") { EmberScreen(sampleState(4), LoggedEvent(1, 5, 12), {}, {}, { _, _ -> }, {}, {}, {}) }
-    @Test fun regulate() = shot("2_regulate") { RegulateScreen(sampleState(41)) {} }
-    @Test fun wave() = shot("3_wave") { UrgeWaveScreen({ _, _, _ -> }, {}) }
-    @Test fun rhythm() = shot("4_rhythm") { RhythmScreen(sampleState()) }
-    @Test fun air() = shot("5_air") { AirScreen(sampleState()) }
-    @Test fun money() = shot("6_money") { MoneyScreen(sampleState()) }
-    @Test fun onboardingWelcome() = shot("0a_onboarding_welcome") { OnboardingScreen({}, initialStep = 0) }
-    @Test fun onboardingHabit() = shot("0b_onboarding_habit") { OnboardingScreen({}, initialStep = 1) }
-    @Test fun onboardingCost() = shot("0c_onboarding_cost") { OnboardingScreen({}, initialStep = 2) }
-    @Test fun onboardingPlan() = shot("0d_onboarding_plan") { OnboardingScreen({}, initialStep = 3) }
-    @Test fun onboardingGoal() = shot("0e_onboarding_goal") { OnboardingScreen({}, initialStep = 4) }
-    @Test fun settings() = shot("7_settings") { SettingsScreen(sampleState().settings, {}, {}, {}, {}) }
+    @Test fun emberDark() = shot("1_ember", true, 0) { EmberScreen(sampleState(), null, {}, {}, { _, _ -> }, {}, {}, {}) }
+    @Test fun emberLight() = shot("1_ember", false, 0) { EmberScreen(sampleState(), null, {}, {}, { _, _ -> }, {}, {}, {}) }
+    @Test fun emberHotDark() = shot("1b_ember_logged", true, 0) { EmberScreen(sampleState(4), LoggedEvent(1, 5, 12), {}, {}, { _, _ -> }, {}, {}, {}) }
+    @Test fun emberHotLight() = shot("1b_ember_logged", false, 0) { EmberScreen(sampleState(4), LoggedEvent(1, 5, 12), {}, {}, { _, _ -> }, {}, {}, {}) }
+    @Test fun regulateDark() = shot("2_regulate", true, 1) { RegulateScreen(sampleState(41)) {} }
+    @Test fun regulateLight() = shot("2_regulate", false, 1) { RegulateScreen(sampleState(41)) {} }
+    @Test fun waveDark() = shot("3_wave", true) { UrgeWaveScreen({ _, _, _ -> }, {}) }
+    @Test fun waveLight() = shot("3_wave", false) { UrgeWaveScreen({ _, _, _ -> }, {}) }
+    @Test fun rhythmDark() = shot("4_rhythm", true, 2) { RhythmScreen(sampleState()) }
+    @Test fun rhythmLight() = shot("4_rhythm", false, 2) { RhythmScreen(sampleState()) }
+    @Test fun airDark() = shot("5_air", true, 3) { AirScreen(sampleState()) }
+    @Test fun airLight() = shot("5_air", false, 3) { AirScreen(sampleState()) }
+    @Test fun moneyDark() = shot("6_money", true, 4) { MoneyScreen(sampleState()) }
+    @Test fun moneyLight() = shot("6_money", false, 4) { MoneyScreen(sampleState()) }
+    @Test fun settingsDark() = shot("7_settings", true) { SettingsScreen(sampleState().settings, {}, {}, {}, {}, {}, {}) }
+    @Test fun settingsLight() = shot("7_settings", false) { SettingsScreen(sampleState().settings, {}, {}, {}, {}, {}, {}) }
+
+    @Test fun onboardingWelcomeDark() = shot("0a_onboarding_welcome", true) { OnboardingScreen({}, initialStep = 0) }
+    @Test fun onboardingWelcomeLight() = shot("0a_onboarding_welcome", false) { OnboardingScreen({}, initialStep = 0) }
+    @Test fun onboardingHabitDark() = shot("0b_onboarding_habit", true) { OnboardingScreen({}, initialStep = 1) }
+    @Test fun onboardingCostDark() = shot("0c_onboarding_cost", true) { OnboardingScreen({}, initialStep = 2) }
+    @Test fun onboardingPlanDark() = shot("0d_onboarding_plan", true) { OnboardingScreen({}, initialStep = 3) }
+    @Test fun onboardingPlanLight() = shot("0d_onboarding_plan", false) { OnboardingScreen({}, initialStep = 3) }
+    @Test fun onboardingGoalDark() = shot("0e_onboarding_goal", true) { OnboardingScreen({}, initialStep = 4) }
+
+    @Config(qualifiers = "w411dp-h4600dp-xxhdpi")
+    @Test fun uiKitDark() = shot("8_uikit", true) { UiKitScreen(ThemeMode.DARK, {}, {}) }
+
+    @Config(qualifiers = "w411dp-h4600dp-xxhdpi")
+    @Test fun uiKitLight() = shot("8_uikit", false) { UiKitScreen(ThemeMode.LIGHT, {}, {}) }
 }

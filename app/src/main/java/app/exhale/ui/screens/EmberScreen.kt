@@ -10,36 +10,33 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
@@ -50,16 +47,27 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onLongClick
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import app.exhale.domain.Trigger
 import app.exhale.ui.ExhaleState
 import app.exhale.ui.Fmt
 import app.exhale.ui.LoggedEvent
-import app.exhale.ui.components.Eyebrow
+import app.exhale.ui.components.ButtonStyle
+import app.exhale.ui.components.ExBadge
 import app.exhale.ui.components.ExButton
-import app.exhale.ui.components.TriggerRow
+import app.exhale.ui.components.ExCard
+import app.exhale.ui.components.ExIconButton
+import app.exhale.ui.components.ExIcons
+import app.exhale.ui.components.ExScreen
+import app.exhale.ui.components.Fill
+import app.exhale.ui.components.TriggerChips
+import app.exhale.ui.components.WeekStrip
 import app.exhale.ui.components.rememberHaptics
 import app.exhale.ui.theme.Ex
+import app.exhale.ui.theme.ExSize
+import app.exhale.ui.theme.ExSpace
 import app.exhale.ui.theme.ExType
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -77,104 +85,101 @@ fun EmberScreen(
     onUrge: () -> Unit,
     onSettings: () -> Unit,
 ) {
+    val c = Ex.colors
     val heat by animateFloatAsState(state.heat, tween(1200), label = "heat")
-    Box(
-        Modifier
-            .fillMaxSize()
-            .background(Brush.radialGradient(listOf(lerp(Color(0xFF0F2A3A), Color(0xFF2A1230), heat), Ex.Void), radius = 1400f))
-    ) {
-        Column(Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 16.dp)) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Eyebrow("Today")
-                Spacer(Modifier.width(10.dp))
-                Text("${state.todayCount} / ${state.allowance}", style = ExType.dataSmall, color = if (state.overAllowance) Ex.Flare else Ex.Ink)
-                Spacer(Modifier.weight(1f))
+    Box(Modifier.fillMaxSize()) {
+        ExScreen(
+            scroll = false,
+            header = {
+                ExBadge("${state.todayCount} of ${state.allowance} today", accent = if (state.overAllowance) c.flare else null)
+                Fill()
+                ExIconButton(ExIcons.Settings, "Settings", onSettings)
+            },
+        ) {
+            if (state.week.isNotEmpty()) WeekStrip(state.week, state.today)
+            Column(
+                Modifier.fillMaxWidth().padding(top = ExSpace.md),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(ExSpace.xxs),
+            ) {
+                Text(Fmt.gap(state.sinceLast), style = ExType.display.copy(fontSize = 64.sp), color = c.ink, textAlign = TextAlign.Center)
                 Text(
-                    "SETTINGS", style = ExType.eyebrow, color = Ex.Mute,
-                    modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable(onClick = onSettings).padding(8.dp),
+                    if (state.lastLog == null) "nothing logged yet" else "since your last one",
+                    style = ExType.titleItalic.copy(fontSize = 22.sp), color = c.inkSoft,
                 )
             }
-            Spacer(Modifier.size(12.dp))
-            Text(Fmt.gap(state.sinceLast), style = ExType.hero, color = Ex.Ink)
-            Text(subline(state), style = ExType.body, color = Ex.Mute)
-
             Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                 HoldOrb(heat = heat, onLog = onLog)
             }
-            Eyebrow("Hold to light · 1.5 s", Modifier.align(Alignment.CenterHorizontally))
-            Spacer(Modifier.size(16.dp))
-            ExButton("I want one. Help me wait.", onUrge, Modifier.fillMaxWidth(), color = Ex.Flare, filled = false)
+            Text(nextLine(state), style = ExType.caption, color = c.inkSoft, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+            ExButton("I want one. Help me wait.", onUrge, Modifier.fillMaxWidth(), style = ButtonStyle.Secondary, icon = ExIcons.Wave)
         }
 
-        // Keep the last event while the toast animates out.
+        // Keep the last event while the card animates out.
         var shown by remember { mutableStateOf(logged) }
         if (logged != null) shown = logged
         AnimatedVisibility(
             visible = logged != null,
-            modifier = Modifier.align(Alignment.BottomCenter).padding(12.dp),
-            enter = slideInVertically(spring(dampingRatio = 0.6f)) { it * 2 },
-            exit = slideOutVertically { it * 2 },
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .navigationBarsPadding()
+                .padding(horizontal = ExSpace.sm)
+                .padding(bottom = ExSize.tabBar + ExSpace.lg),
+            enter = slideInVertically(spring(dampingRatio = 0.7f, stiffness = 400f)) { it },
+            exit = slideOutVertically { it } + fadeOut(),
         ) {
             val ev = shown ?: return@AnimatedVisibility
             LaunchedEffect(ev.logId) { delay(8000); onDismissLogged() }
-            LoggedToast(ev, onUndo = { onUndo(ev.logId) }, onTag = { onTag(ev.logId, it) })
+            LoggedCard(ev, onUndo = { onUndo(ev.logId) }, onTag = { onTag(ev.logId, it) })
         }
     }
 }
 
-private fun subline(s: ExhaleState): String = when {
-    s.lastLog == null -> "No cigarettes logged yet. Hold the ember when you light one."
-    s.remainingToNext == null -> "since your last one. Your next one is earned."
-    else -> "since your last one. Next earned in ${Fmt.gap(s.remainingToNext)}."
+private fun nextLine(s: ExhaleState): String = when {
+    s.lastLog == null -> "Hold the ember for a moment when you light one."
+    s.remainingToNext == null -> "Your next one is earned. Hold the ember to log."
+    else -> "Next one earned in ${Fmt.gap(s.remainingToNext)}. Hold the ember to log."
 }
 
 @Composable
-private fun LoggedToast(ev: LoggedEvent, onUndo: () -> Unit, onTag: (Trigger) -> Unit) {
-    Column(
-        Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(22.dp))
-            .background(Ex.Ink)
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
+private fun LoggedCard(ev: LoggedEvent, onUndo: () -> Unit, onTag: (Trigger) -> Unit) {
+    val c = Ex.colors
+    ExCard(color = c.surfaceHigh) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Logged. ${ev.countAfter} of ${ev.allowance} today.", style = ExType.bodyStrong, color = Ex.Void, modifier = Modifier.weight(1f))
-            Text(
-                "UNDO", style = ExType.eyebrow, color = Ex.Void,
-                modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable(onClick = onUndo).padding(8.dp),
-            )
+            Column(Modifier.weight(1f)) {
+                Text("Logged", style = ExType.headline, color = c.ink)
+                Text("${ev.countAfter} of ${ev.allowance} today", style = ExType.caption, color = c.inkSoft)
+            }
+            ExButton("Undo", onUndo, style = ButtonStyle.Ghost, size = app.exhale.ui.components.ButtonSize.Medium, icon = ExIcons.Undo)
         }
-        Text("What set it off? (optional)", style = ExType.small, color = Ex.Line)
-        Box(Modifier.clip(RoundedCornerShape(50)).background(Ex.Void).padding(6.dp)) {
-            TriggerRow(selected = null, onPick = onTag)
-        }
+        Text("What set it off? Optional.", style = ExType.caption, color = c.inkSoft, modifier = Modifier.padding(top = ExSpace.xxs))
+        TriggerChips(selected = null, onPick = onTag)
     }
 }
 
 /**
- * The ember. Colour follows [heat]; press-and-hold for [HOLD_MS] to log.
- * Releasing early cancels. A TalkBack long-press action logs directly.
+ * The ember. Colour follows heat; press and hold for [HOLD_MS] to log.
+ * Releasing early cancels. TalkBack's long-press action logs directly.
  */
 @Composable
 private fun HoldOrb(heat: Float, onLog: () -> Unit) {
+    val c = Ex.colors
     val haptics = rememberHaptics()
     val scope = rememberCoroutineScope()
     val progress = remember { Animatable(0f) }
     val currentOnLog by rememberUpdatedState(onLog)
     val press by animateFloatAsState(if (progress.value > 0f) 0.92f else 1f, spring(dampingRatio = 0.45f), label = "press")
-
     val breathe = rememberInfiniteTransition(label = "breathe")
     val b by breathe.animateFloat(0f, 1f, infiniteRepeatable(tween(4200, easing = LinearEasing), RepeatMode.Reverse), label = "b")
 
-    val core = lerp(Color.White, Ex.Glow, heat)
-    val mid = lerp(Ex.Oxy, Ex.Sun, heat)
-    val body = Ex.heatColor(heat)
-    val edge = Ex.heatAccent(heat)
+    val core = lerp(lerp(c.oxy, Color.White, 0.55f), lerp(c.sun, Color.White, 0.45f), heat)
+    val body = c.heat(heat)
+    val edge = c.heatAccent(heat)
+    val ring = c.ink
 
     Canvas(
         Modifier
-            .size(260.dp)
+            .size(240.dp)
             .semantics {
                 contentDescription = "Ember. Press and hold to log a cigarette."
                 onLongClick("Log cigarette") { currentOnLog(); true }
@@ -199,35 +204,27 @@ private fun HoldOrb(heat: Float, onLog: () -> Unit) {
             }
     ) {
         val r = size.minDimension / 2f
-        val c = center
-        val s = (1f + 0.06f * b) * press
-        // Halo
-        drawCircle(Brush.radialGradient(listOf(edge.copy(alpha = 0.45f), Color.Transparent), c, r), r, c)
-        scale(s, c) {
+        val center = this.center
+        drawCircle(Brush.radialGradient(listOf(edge.copy(alpha = 0.32f), Color.Transparent), center, r), r, center)
+        scale((1f + 0.05f * b) * press, center) {
             drawCircle(
                 Brush.radialGradient(
                     0f to core,
-                    0.14f to mid,
-                    0.42f to body,
-                    0.64f to edge,
-                    0.72f to Color.Transparent,
-                    center = Offset(c.x - r * 0.06f, c.y - r * 0.08f),
-                    radius = r * 0.92f,
+                    0.22f to body,
+                    0.55f to edge,
+                    0.74f to edge.copy(alpha = 0f),
+                    center = Offset(center.x - r * 0.06f, center.y - r * 0.08f),
+                    radius = r * 0.9f,
                 ),
-                r * 0.92f, c,
+                r * 0.9f, center,
             )
         }
-        // Hold ring
         if (progress.value > 0f) {
-            val inset = 6.dp.toPx()
+            val inset = 4.dp.toPx()
             drawArc(
-                color = Ex.Ink,
-                startAngle = -90f,
-                sweepAngle = 360f * progress.value,
-                useCenter = false,
-                topLeft = Offset(inset, inset),
-                size = androidx.compose.ui.geometry.Size(size.width - inset * 2, size.height - inset * 2),
-                style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round),
+                ring, -90f, 360f * progress.value, false,
+                Offset(inset, inset), Size(size.width - inset * 2, size.height - inset * 2),
+                style = Stroke(3.dp.toPx(), cap = StrokeCap.Round),
             )
         }
     }

@@ -24,6 +24,9 @@ enum class TaperType(val label: String, val description: String) {
 
 enum class UrgeOutcome { SURVIVED, SMOKED }
 
+/** App appearance. SYSTEM follows the phone's dark/light setting. */
+enum class ThemeMode(val label: String) { SYSTEM("System"), LIGHT("Light"), DARK("Dark") }
+
 data class SmokeLog(
     val id: Long,
     val at: Instant,
@@ -55,6 +58,7 @@ data class UserSettings(
     val wakingMinutes: Int = 16 * 60,
     val goalName: String = "Something nice",
     val goalMinor: Long = 30000,
+    val theme: ThemeMode = ThemeMode.SYSTEM,
 ) {
     val pricePerCigMinor: Double get() = packPriceMinor.toDouble() / cigsPerPack.coerceAtLeast(1)
 }

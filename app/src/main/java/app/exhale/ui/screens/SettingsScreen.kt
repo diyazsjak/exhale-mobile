@@ -1,19 +1,11 @@
 package app.exhale.ui.screens
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -21,30 +13,41 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.unit.dp
 import app.exhale.domain.TaperType
+import app.exhale.domain.ThemeMode
 import app.exhale.domain.UserSettings
-import app.exhale.ui.components.Eyebrow
+import app.exhale.ui.components.ButtonStyle
 import app.exhale.ui.components.ExButton
-import app.exhale.ui.components.ExField
-import app.exhale.ui.components.Pill
+import app.exhale.ui.components.ExCard
+import app.exhale.ui.components.ExIconButton
+import app.exhale.ui.components.ExIcons
+import app.exhale.ui.components.ExScreen
+import app.exhale.ui.components.ExTextField
+import app.exhale.ui.components.HeaderLabel
+import app.exhale.ui.components.ListRow
+import app.exhale.ui.components.OptionCard
+import app.exhale.ui.components.Overline
+import app.exhale.ui.components.SegmentedControl
 import app.exhale.ui.theme.Ex
+import app.exhale.ui.theme.ExSize
+import app.exhale.ui.theme.ExSpace
 import app.exhale.ui.theme.ExType
 import java.util.Currency
 import kotlin.math.roundToLong
 
-/** Edit everything set during onboarding. Keeps the original plan start date. */
-@OptIn(ExperimentalLayoutApi::class)
+/** Edit everything set during onboarding. Keeps the original plan start date. Theme applies instantly. */
 @Composable
 fun SettingsScreen(
     current: UserSettings,
     onSave: (UserSettings) -> Unit,
+    onTheme: (ThemeMode) -> Unit,
     onDemo: () -> Unit,
     onErase: () -> Unit,
+    onDesignSystem: () -> Unit,
     onClose: () -> Unit,
 ) {
+    val c = Ex.colors
     var baseline by rememberSaveable { mutableStateOf(current.baselinePerDay.toString()) }
     var perPack by rememberSaveable { mutableStateOf(current.cigsPerPack.toString()) }
     var price by rememberSaveable { mutableStateOf("%.2f".format(current.packPriceMinor / 100.0)) }
@@ -63,45 +66,37 @@ fun SettingsScreen(
     val goalN = goal.replace(',', '.').toDoubleOrNull()?.takeIf { it >= 0 }
     val valid = baselineN != null && perPackN != null && priceN != null && currencyOk && allowanceN != null && goalN != null
 
-    Column(
-        Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 20.dp, vertical = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
+    ExScreen(
+        bottomClearance = ExSpace.xl,
+        header = {
+            ExIconButton(ExIcons.Back, "Back", onClose)
+            HeaderLabel("Settings")
+            Spacer(Modifier.size(ExSize.iconButton))
+        },
     ) {
-        Row {
-            Text("Settings", style = ExType.title, color = Ex.Ink, modifier = Modifier.weight(1f))
-            Text(
-                "CLOSE", style = ExType.eyebrow, color = Ex.Mute,
-                modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable(onClick = onClose).padding(8.dp),
-            )
+        Overline("Appearance")
+        SegmentedControl(ThemeMode.entries.map { it.label }, current.theme.ordinal, { onTheme(ThemeMode.entries[it]) })
+
+        Overline("Your habit", Modifier.paddingTop())
+        ExTextField("Cigarettes a day, before Exhale", baseline, { baseline = it }, type = KeyboardType.Number)
+        Row(horizontalArrangement = Arrangement.spacedBy(ExSpace.sm)) {
+            ExTextField("Pack price", price, { price = it }, Modifier.weight(1f), type = KeyboardType.Decimal)
+            ExTextField("Per pack", perPack, { perPack = it }, Modifier.weight(0.8f), type = KeyboardType.Number)
+            ExTextField("Currency", currency, { currency = it.uppercase().take(3) }, Modifier.weight(0.8f))
         }
 
-        Eyebrow("Your habit")
-        ExField("Cigarettes a day, before Exhale", baseline, { baseline = it }, KeyboardType.Number)
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            ExField("Per pack", perPack, { perPack = it }, KeyboardType.Number, Modifier.weight(1f))
-            ExField("Pack price", price, { price = it }, KeyboardType.Decimal, Modifier.weight(1f))
-            ExField("Currency", currency, { currency = it.uppercase().take(3) }, KeyboardType.Text, Modifier.weight(0.8f))
+        Overline("Plan", Modifier.paddingTop())
+        ExTextField("Starting allowance per day", allowance, { allowance = it }, type = KeyboardType.Number)
+        TaperType.entries.forEach { t -> OptionCard(t.label, t.description, taper == t, { taper = t }) }
+
+        Overline("Goal", Modifier.paddingTop())
+        Row(horizontalArrangement = Arrangement.spacedBy(ExSpace.sm)) {
+            ExTextField("Saving for", goalName, { goalName = it }, Modifier.weight(1.4f))
+            ExTextField("Amount", goal, { goal = it }, Modifier.weight(1f), type = KeyboardType.Decimal)
         }
 
-        Eyebrow("Plan")
-        ExField("Starting allowance per day", allowance, { allowance = it }, KeyboardType.Number)
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            TaperType.entries.forEach { t -> Pill(t.label, taper == t, { taper = t }) }
-        }
-        Text(taper.description, style = ExType.small, color = Ex.Mute)
-
-        Eyebrow("Goal")
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            ExField("Saving for", goalName, { goalName = it }, KeyboardType.Text, Modifier.weight(1.4f))
-            ExField("Amount", goal, { goal = it }, KeyboardType.Decimal, Modifier.weight(1f))
-        }
-
-        Spacer(Modifier.height(4.dp))
         ExButton(
-            "Save",
+            "Save changes",
             {
                 onSave(
                     current.copy(
@@ -116,22 +111,29 @@ fun SettingsScreen(
                     )
                 )
             },
-            Modifier.fillMaxWidth(),
+            Modifier.fillMaxWidth().paddingTop(),
             enabled = valid,
         )
-        if (!valid) Text("Check the numbers above. Currency is a 3-letter code like USD, EUR or KZT.", style = ExType.small, color = Ex.Mute)
+        if (!valid) Text("Check the numbers above. Currency is a 3-letter code like USD, EUR or KZT.", style = ExType.caption, color = c.inkSoft)
 
-        Eyebrow("Prototype tools")
+        Overline("Prototype tools", Modifier.paddingTop())
+        ExCard(padding = ExSpace.sm) {
+            ListRow("Design system", onDesignSystem)
+        }
         Text(
             "Demo data replaces your logs with 30 days of made-up history, so every screen has something to show.",
-            style = ExType.small, color = Ex.Mute,
+            style = ExType.caption, color = c.inkSoft,
         )
-        ExButton("Replace my data with demo data", onDemo, Modifier.fillMaxWidth(), color = Ex.Sky, filled = false)
+        ExButton("Replace my data with demo data", onDemo, Modifier.fillMaxWidth(), style = ButtonStyle.Secondary)
         ExButton(
             if (confirmErase) "Tap again to erase everything" else "Erase all data",
             { if (confirmErase) { onErase(); confirmErase = false } else confirmErase = true },
-            Modifier.fillMaxWidth(), color = Ex.Flare, filled = confirmErase,
+            Modifier.fillMaxWidth(),
+            style = if (confirmErase) ButtonStyle.Accent else ButtonStyle.Ghost,
+            accent = c.flare,
         )
-        Text("Exhale stores everything on this device only. No account, no cloud.", style = ExType.small, color = Ex.Mute)
+        Text("Exhale stores everything on this device only. No account, no cloud.", style = ExType.caption, color = c.inkFaint)
     }
 }
+
+private fun Modifier.paddingTop() = this.padding(top = ExSpace.xs)

@@ -6,9 +6,10 @@ All data stays on the device.
 **Burn less. Exhale more.** Everything about smoking is shown warm; everything about recovery is shown cool.
 As you cut down, the app literally cools.
 
-| Ember | Regulate | Urge Wave | Rhythm | Air | Money |
-|---|---|---|---|---|---|
-| ![](docs/screenshots/1_ember.png) | ![](docs/screenshots/2_regulate.png) | ![](docs/screenshots/3_wave.png) | ![](docs/screenshots/4_rhythm.png) | ![](docs/screenshots/5_air.png) | ![](docs/screenshots/6_money.png) |
+| | Ember | Regulate | Urge Wave | Rhythm | Air | Money |
+|---|---|---|---|---|---|---|
+| Dark | ![](docs/screenshots/1_ember_dark.png) | ![](docs/screenshots/2_regulate_dark.png) | ![](docs/screenshots/3_wave_dark.png) | ![](docs/screenshots/4_rhythm_dark.png) | ![](docs/screenshots/5_air_dark.png) | ![](docs/screenshots/6_money_dark.png) |
+| Light | ![](docs/screenshots/1_ember_light.png) | ![](docs/screenshots/2_regulate_light.png) | ![](docs/screenshots/3_wave_light.png) | ![](docs/screenshots/4_rhythm_light.png) | ![](docs/screenshots/5_air_light.png) | ![](docs/screenshots/6_money_light.png) |
 
 ## Features (prototype v0.1)
 - **Ember** — home orb that cools as time since your last cigarette grows. Press and hold 1.5 s to log, then undo or tag a trigger.
@@ -19,6 +20,9 @@ As you cut down, the app literally cools.
 - **Money** — money not burned vs. your old baseline, with a savings goal.
 - **Quick-settings tile** — log without opening the app.
 - Step-by-step onboarding: habit, cost, plan, optional goal.
+- Dark and light themes (follows the phone, override in Settings).
+- Floating tab bar, big pill buttons, Newsreader + Figtree type.
+- Design system and live UI kit (Settings → Prototype tools → Design system).
 - Demo data loader in Settings for trying every screen.
 
 ## Install on a phone
@@ -51,10 +55,11 @@ APK: `app/build/outputs/apk/debug/app-debug.apk`
 ```
 
 ## Docs
-- [`docs/SPEC.md`](docs/SPEC.md) — product, design language, domain rules, architecture, roadmap.
+- [`docs/SPEC.md`](docs/SPEC.md) — product, domain rules, architecture, roadmap.
+- [`docs/DESIGN-SYSTEM.md`](docs/DESIGN-SYSTEM.md) — colours, type, components and usage rules.
 - [`CLAUDE.md`](CLAUDE.md) / `AGENTS.md` — rules for AI coding agents.
 
 Health facts: WHO, *Health benefits of smoking cessation*; Lindson et al., Cochrane Review 2019.
 Exhale is not medical advice.
 
-Fonts (Bricolage Grotesque, Hanken Grotesk, Martian Mono) are under the SIL Open Font License, see `docs/FONTS-OFL.txt`.
+Fonts (Newsreader, Figtree) are under the SIL Open Font License, see `docs/fonts/`.

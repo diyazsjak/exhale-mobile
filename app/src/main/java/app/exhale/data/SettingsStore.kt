@@ -9,6 +9,7 @@ import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import app.exhale.domain.TaperType
+import app.exhale.domain.ThemeMode
 import app.exhale.domain.UserSettings
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -30,6 +31,7 @@ class SettingsStore(private val context: Context) {
         val waking = intPreferencesKey("waking_minutes")
         val goalName = stringPreferencesKey("goal_name")
         val goalMinor = longPreferencesKey("goal_minor")
+        val theme = stringPreferencesKey("theme")
     }
 
     val settings: Flow<UserSettings> = context.dataStore.data.map { it.toSettings() }
@@ -47,6 +49,7 @@ class SettingsStore(private val context: Context) {
             p[K.waking] = s.wakingMinutes
             p[K.goalName] = s.goalName
             p[K.goalMinor] = s.goalMinor
+            p[K.theme] = s.theme.name
         }
     }
 
@@ -68,6 +71,7 @@ class SettingsStore(private val context: Context) {
             wakingMinutes = this[K.waking] ?: d.wakingMinutes,
             goalName = this[K.goalName] ?: d.goalName,
             goalMinor = this[K.goalMinor] ?: d.goalMinor,
+            theme = this[K.theme]?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() } ?: d.theme,
         )
     }
 }

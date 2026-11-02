@@ -1,6 +1,7 @@
 <resources>
-    <style name="Theme.Exhale" parent="android:Theme.Material.NoActionBar">
-        <item name="android:windowBackground">@color/void_bg</item>
+    <!-- Window colours only show before Compose draws; they match the app background. -->
+    <style name="Theme.Exhale" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/app_bg</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
     </style>

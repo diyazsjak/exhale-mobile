@@ -1,6 +1,6 @@
 # Exhale — agent guide
 
-Read `docs/SPEC.md` before changing behaviour or visuals. It defines the product, the
+Read `docs/SPEC.md` before changing behaviour, and `docs/DESIGN-SYSTEM.md` before changing visuals. It defines the product, the
 "two temperatures" design language, the domain rules and the architecture.
 
 ## Commands
@@ -14,7 +14,10 @@ Read `docs/SPEC.md` before changing behaviour or visuals. It defines the product
 - Local data only (Room + DataStore). Do not add network, analytics or the INTERNET permission.
 - `domain/` stays pure Kotlin (no `android.*` imports) and every rule change gets a unit test in `app/src/test`.
 - Screens are stateless: take `ExhaleState` + callbacks. Derive numbers in `ExhaleViewModel` or `domain/`.
-- Colours only from `Ex` tokens, text only from `ExType`. Warm colours mean smoke, cool colours mean recovery; never swap them.
+- Colours only from `Ex.colors` (`val c = Ex.colors`), text only from `ExType`, spacing/radii/sizes from `ExSpace`/`ExRadius`/`ExSize`. Warm colours mean smoke, cool colours mean recovery; never swap them.
+- Accents (`c.ember`, `c.oxy`, …) are for fills and graphics. Text or small icons in an accent use `c.oxyInk` etc. or `c.inkOf(accent)` (contrast in light theme).
+- Build screens from the kit in `ui/components/` (`ExScreen`, `ExButton`, `ExCard`, `ExChip`, …); add a new component there and to `UiKitScreen` rather than styling inline. Every screen must look right in both themes; screenshot tests render dark and light.
+- Read colours inside Canvas/DrawScope from values captured before the lambda (`val dot = c.ink`), never by calling `Ex.colors` inside it.
 - Copy never shames: no "failed", "relapse", "streak lost". Over allowance is "borrowed from tomorrow".
 - Keep each haptic pattern tied to one meaning (see `Haptics.kt`).
 - Every new screen gets a case in `ScreenshotTest`; update `docs/screenshots/` when visuals change.
