@@ -1,0 +1,60 @@
+package app.exhale.domain
+
+import java.time.Instant
+import java.time.LocalDate
+
+/** Why the user lit up. Optional, asked after the log. */
+enum class Trigger(val label: String) {
+    COFFEE("Coffee"),
+    STRESS("Stress"),
+    AFTER_FOOD("After food"),
+    DRINKS("Drinks"),
+    DRIVING("Driving"),
+    BORED("Bored"),
+    SOCIAL("Social"),
+    OTHER("Other"),
+}
+
+/** How the daily allowance shrinks over time. */
+enum class TaperType(val label: String, val description: String) {
+    MINUS_ONE_WEEKLY("−1 per week", "Allowance drops by one cigarette every week."),
+    TEN_PERCENT_WEEKLY("−10% per week", "Allowance drops by about a tenth every week."),
+    HOLD("Hold steady", "Keep the starting allowance. Good for the first week of tracking."),
+}
+
+enum class UrgeOutcome { SURVIVED, SMOKED }
+
+data class SmokeLog(
+    val id: Long,
+    val at: Instant,
+    val trigger: Trigger?,
+    val fromUrge: Boolean,
+)
+
+data class Urge(
+    val id: Long,
+    val startedAt: Instant,
+    val endedAt: Instant,
+    val outcome: UrgeOutcome,
+    val trigger: Trigger?,
+)
+
+data class UserSettings(
+    val onboarded: Boolean = false,
+    /** Cigarettes per day before using the app. Drives money and the starting allowance. */
+    val baselinePerDay: Int = 15,
+    val cigsPerPack: Int = 20,
+    /** Price per pack in minor units (cents). */
+    val packPriceMinor: Long = 1000,
+    val currencyCode: String = "USD",
+    val taper: TaperType = TaperType.MINUS_ONE_WEEKLY,
+    /** Allowance on plan day 0. Defaults to baseline − 2 at onboarding. */
+    val startAllowance: Int = 13,
+    val planStart: LocalDate = LocalDate.now(),
+    /** Waking minutes the allowance is spread across when computing the interval. */
+    val wakingMinutes: Int = 16 * 60,
+    val goalName: String = "Something nice",
+    val goalMinor: Long = 30000,
+) {
+    val pricePerCigMinor: Double get() = packPriceMinor.toDouble() / cigsPerPack.coerceAtLeast(1)
+}
