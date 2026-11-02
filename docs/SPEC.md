@@ -55,7 +55,7 @@ In short:
 ### Haptics vocabulary (`ui/components/Haptics.kt`)
 | Pattern | Meaning |
 |---|---|
-| `logging()` slow rise | Holding to log |
+| `charge(level)` rising ticks | Holding to log |
 | `logged()` thud | Log committed |
 | `earned()` double tick | Next cigarette earned (Regulate) |
 | `breath()` low tick | Breath phase change (Urge Wave) |
@@ -77,9 +77,14 @@ First launch shows **Onboarding** (§3.7).
 ### 3.1 Ember (home) — `EmberScreen.kt`
 - Header: today's count / allowance (Flare when at/over), Settings link.
 - Hero: time since last cigarette (`Fmt.gap`), subline with time until next earned.
-- **Orb**: radial gradient coloured by `heat`, breathing scale loop.
-- **Hold to log**: press 1.5 s, ring fills, `logging()` haptic; release early cancels.
-  On completion `logged()` haptic and a log is written. TalkBack: long-press action logs directly.
+- **Orb** (`EmberOrb.kt`, concept "Gather" from the Ember Lab): a molten core coloured by `heat`
+  with seven droplets orbiting it. At rest the core pulses every 4 s and the drops drift in and out,
+  sometimes touching the core and merging with a liquid bridge (blur + alpha threshold RenderEffect,
+  Android 12+; plain drops below that).
+- **Hold to log**: press 1.5 s. The drops are pulled in and merge, the core swells and warms, a
+  trail runs around the ember along the heat scale, and 12 `charge()` ticks rise in strength;
+  release early cancels. On completion a `logged()` thud, the drops fling out with a ring and a
+  splash, and a log is written.
 - **Toast** after logging: count, **Undo**, optional trigger chips. Auto-dismisses after 8 s.
 - "I want one. Help me wait." → Urge Wave.
 

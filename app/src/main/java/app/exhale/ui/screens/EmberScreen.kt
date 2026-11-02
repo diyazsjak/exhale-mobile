@@ -72,8 +72,6 @@ import app.exhale.ui.theme.ExType
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-private const val HOLD_MS = 1500
-
 @Composable
 fun EmberScreen(
     state: ExhaleState,
@@ -109,7 +107,7 @@ fun EmberScreen(
                 )
             }
             Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                HoldOrb(heat = heat, onLog = onLog)
+                EmberOrb(heat = heat, onLog = onLog)
             }
             Text(nextLine(state), style = ExType.caption, color = c.inkSoft, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
             ExButton("I want one. Help me wait.", onUrge, Modifier.fillMaxWidth(), style = ButtonStyle.Secondary, icon = ExIcons.Wave)
@@ -154,78 +152,5 @@ private fun LoggedCard(ev: LoggedEvent, onUndo: () -> Unit, onTag: (Trigger) -> 
         }
         Text("What set it off? Optional.", style = ExType.caption, color = c.inkSoft, modifier = Modifier.padding(top = ExSpace.xxs))
         TriggerChips(selected = null, onPick = onTag)
-    }
-}
-
-/**
- * The ember. Colour follows heat; press and hold for [HOLD_MS] to log.
- * Releasing early cancels. TalkBack's long-press action logs directly.
- */
-@Composable
-private fun HoldOrb(heat: Float, onLog: () -> Unit) {
-    val c = Ex.colors
-    val haptics = rememberHaptics()
-    val scope = rememberCoroutineScope()
-    val progress = remember { Animatable(0f) }
-    val currentOnLog by rememberUpdatedState(onLog)
-    val press by animateFloatAsState(if (progress.value > 0f) 0.92f else 1f, spring(dampingRatio = 0.45f), label = "press")
-    val breathe = rememberInfiniteTransition(label = "breathe")
-    val b by breathe.animateFloat(0f, 1f, infiniteRepeatable(tween(4200, easing = LinearEasing), RepeatMode.Reverse), label = "b")
-
-    val core = lerp(lerp(c.oxy, Color.White, 0.55f), lerp(c.sun, Color.White, 0.45f), heat)
-    val body = c.heat(heat)
-    val edge = c.heatAccent(heat)
-    val ring = c.ink
-
-    Canvas(
-        Modifier
-            .size(240.dp)
-            .semantics {
-                contentDescription = "Ember. Press and hold to log a cigarette."
-                onLongClick("Log cigarette") { currentOnLog(); true }
-            }
-            .pointerInput(Unit) {
-                detectTapGestures(onPress = {
-                    haptics.logging()
-                    val job = scope.launch {
-                        progress.snapTo(0f)
-                        progress.animateTo(1f, tween(HOLD_MS, easing = LinearEasing))
-                        haptics.logged()
-                        currentOnLog()
-                        progress.animateTo(0f, tween(250))
-                    }
-                    tryAwaitRelease()
-                    if (progress.value < 1f && job.isActive) {
-                        job.cancel()
-                        haptics.cancel()
-                        scope.launch { progress.animateTo(0f, tween(200)) }
-                    }
-                })
-            }
-    ) {
-        val r = size.minDimension / 2f
-        val center = this.center
-        drawCircle(Brush.radialGradient(listOf(edge.copy(alpha = 0.32f), Color.Transparent), center, r), r, center)
-        scale((1f + 0.05f * b) * press, center) {
-            drawCircle(
-                Brush.radialGradient(
-                    0f to core,
-                    0.22f to body,
-                    0.55f to edge,
-                    0.74f to edge.copy(alpha = 0f),
-                    center = Offset(center.x - r * 0.06f, center.y - r * 0.08f),
-                    radius = r * 0.9f,
-                ),
-                r * 0.9f, center,
-            )
-        }
-        if (progress.value > 0f) {
-            val inset = 4.dp.toPx()
-            drawArc(
-                ring, -90f, 360f * progress.value, false,
-                Offset(inset, inset), Size(size.width - inset * 2, size.height - inset * 2),
-                style = Stroke(3.dp.toPx(), cap = StrokeCap.Round),
-            )
-        }
     }
 }

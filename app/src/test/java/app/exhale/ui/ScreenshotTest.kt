@@ -26,6 +26,9 @@ import app.exhale.ui.components.ExIcons
 import app.exhale.ui.components.FloatingTabBar
 import app.exhale.ui.components.TabItem
 import app.exhale.ui.screens.UiKitScreen
+import app.exhale.ui.screens.EmberOrbCanvas
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.unit.dp
 import app.exhale.domain.ThemeMode
 import androidx.compose.ui.Alignment
 import app.exhale.ui.theme.ExhaleTheme
@@ -145,6 +148,27 @@ class ScreenshotTest {
     @Test fun onboardingPlanDark() = shot("0d_onboarding_plan", true) { OnboardingScreen({}, initialStep = 3) }
     @Test fun onboardingPlanLight() = shot("0d_onboarding_plan", false) { OnboardingScreen({}, initialStep = 3) }
     @Test fun onboardingGoalDark() = shot("0e_onboarding_goal", true) { OnboardingScreen({}, initialStep = 4) }
+
+    @Composable
+    private fun OrbMoments() {
+        androidx.compose.foundation.layout.Column(
+            Modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceEvenly,
+        ) {
+            androidx.compose.foundation.layout.Row {
+                EmberOrbCanvas(heat = 0.05f, hold = 0f, burst = 0f, breathe = 0.6f, phase = 3f, modifier = Modifier.size(200.dp))
+                EmberOrbCanvas(heat = 0.95f, hold = 0f, burst = 0f, breathe = 0.2f, phase = 9f, modifier = Modifier.size(200.dp))
+            }
+            androidx.compose.foundation.layout.Row {
+                EmberOrbCanvas(heat = 0.1f, hold = 0.6f, burst = 0f, breathe = 0f, phase = 5f, modifier = Modifier.size(200.dp))
+                EmberOrbCanvas(heat = 0.9f, hold = 0.3f, burst = 0.35f, breathe = 0f, phase = 7f, modifier = Modifier.size(200.dp))
+            }
+        }
+    }
+
+    @Test fun orbDark() = shot("9_ember_orb", true) { OrbMoments() }
+    @Test fun orbLight() = shot("9_ember_orb", false) { OrbMoments() }
 
     @Config(qualifiers = "w411dp-h4600dp-xxhdpi")
     @Test fun uiKitDark() = shot("8_uikit", true) { UiKitScreen(ThemeMode.DARK, {}, {}) }
