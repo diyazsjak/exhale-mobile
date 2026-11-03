@@ -103,9 +103,8 @@ First launch shows **Onboarding** (§3.7). Regulate is no longer a tab: its coun
   `charge()` ticks rise in strength; release early cancels. On completion a `logged()` thud, the
   drops fling out with a ring and a splash, and a log is written.
 - **Reactive hint** under the ember, one line that slides to its next state: "Hold the ember to log"
-  (rest), "Keep holding…" (pressed), "Logged · 8 of 10 today" (after a log, 2.6 s; a log that
-  goes over says "1 over · borrowed from tomorrow" in pink, with a pink burst and a `loggedOver()`
-  double thud),
+  (rest), "Keep holding…" (pressed), back to rest after a log (the Logged card reports it; a log
+  that goes over gets a pink burst and a `loggedOver()` double thud),
   "Hold a little longer" (released early), and on a quick tap the ember wobbles and the hint repeats
   "Hold the ember to log".
 - **Logged card** after logging: count, **Undo**, optional trigger chips. Auto-dismisses after 8 s.

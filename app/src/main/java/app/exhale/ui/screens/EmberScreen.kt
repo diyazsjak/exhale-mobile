@@ -148,8 +148,9 @@ fun EmberScreen(
     LaunchedEffect(hint) {
         if (hint == EmberHint.TooShort || hint == EmberHint.Tapped) { delay(2000); hint = EmberHint.Idle }
     }
+    // After a log the hint simply returns to rest; the Logged card says what happened.
     LaunchedEffect(logged?.logId) {
-        if (logged != null) { hint = EmberHint.Logged; delay(2600); hint = EmberHint.Idle }
+        if (logged != null) hint = EmberHint.Idle
     }
 
     Box(Modifier.fillMaxSize()) {
@@ -243,7 +244,7 @@ fun EmberScreen(
 }
 
 /** What the hint under the ember is saying. */
-private enum class EmberHint { Idle, Holding, Logged, TooShort, Tapped }
+private enum class EmberHint { Idle, Holding, TooShort, Tapped }
 
 /** One line under the ember that reacts to the gesture; each change slides in from below. */
 @Composable
@@ -261,17 +262,12 @@ private fun EmberHintLine(hint: EmberHint, state: ExhaleState) {
         val (text, color) = when (h) {
             EmberHint.Idle -> "Hold the ember to log" to c.inkFaint
             EmberHint.Holding -> "Keep holding…" to c.inkSoft
-            EmberHint.Logged -> {
-                val over = state.todayCount - state.allowance
-                if (over > 0) "$over over · borrowed from tomorrow" to c.flareInk
-                else "Logged · ${state.todayCount} of ${state.allowance} today" to c.emberInk
-            }
             EmberHint.TooShort -> "Hold a little longer" to c.inkSoft
             EmberHint.Tapped -> "Hold the ember to log" to c.inkSoft
         }
         Text(
             text,
-            style = if (h == EmberHint.Logged) ExType.labelSmall else ExType.body.copy(fontSize = ExType.labelSmall.fontSize),
+            style = ExType.body.copy(fontSize = ExType.labelSmall.fontSize),
             color = color, textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Polite },
         )
