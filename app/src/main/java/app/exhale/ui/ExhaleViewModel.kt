@@ -142,8 +142,8 @@ class ExhaleViewModel(private val repo: ExhaleRepository) : ViewModel() {
 
     fun finishUrge(started: Instant, outcome: UrgeOutcome, trigger: Trigger?) {
         viewModelScope.launch {
+            // The urge is recorded either way. A cigarette is only ever logged by holding the ember.
             repo.recordUrge(started, Instant.now(), outcome, trigger)
-            if (outcome == UrgeOutcome.SMOKED) repo.logCigarette(trigger = trigger, fromUrge = true)
         }
     }
 

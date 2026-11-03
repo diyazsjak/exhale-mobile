@@ -10,6 +10,8 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -20,6 +22,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.BlendMode
@@ -68,6 +71,9 @@ private const val BURST_MS = 900
 private const val RELEASE_MS = 450
 
 private const val TAU = (2 * PI).toFloat()
+
+/** Drawing area around the ember, as a multiple of its size, so flung droplets aren't clipped. */
+private const val OVERDRAW = 1.4f
 
 /** The ember's drawing size. */
 val EmberSize: Dp = 300.dp
@@ -206,19 +212,22 @@ fun EmberOrbCanvas(heat: Float, hold: Float, burst: Float, breathe: Float, phase
 
     fun coreRadius(s: Float) = s * 0.2f * (1f + 0.03f * breathe) * (1f + 0.22f * pull)
 
-    Box(modifier) {
+    // Layers draw in an area OVERDRAW× the ember's size, centred on it: flung droplets travel up to
+    // ~0.66 of the ember's width from its centre and would be clipped at its own bounds.
+    BoxWithConstraints(modifier, contentAlignment = Alignment.Center) {
+        val layer = Modifier.requiredSize(minOf(maxWidth, maxHeight) * OVERDRAW)
         // Soft glow underneath. Pastels on a light background need more alpha to read the same.
-        Canvas(Modifier.matchParentSize()) {
-            val r = coreRadius(size.minDimension)
+        Canvas(layer) {
+            val r = coreRadius((size.minDimension / OVERDRAW))
             drawCircle(
                 Brush.radialGradient(listOf(body.copy(alpha = if (c.isDark) 0.18f else 0.3f), body.copy(alpha = 0f)), center, r * 2.1f),
                 r * 2.1f, center,
             )
         }
         // Liquid: flat shapes through the goo effect, then one lighting pass clipped to them.
-        Box(Modifier.matchParentSize().graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }) {
+        Box(layer.graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }) {
             Canvas(Modifier.matchParentSize().graphicsLayer { renderEffect = goo }) {
-                val s = size.minDimension
+                val s = (size.minDimension / OVERDRAW)
                 val r = coreRadius(s)
                 drawCircle(Color.White, r, center)
                 DROPS.forEach { d ->
@@ -228,7 +237,7 @@ fun EmberOrbCanvas(heat: Float, hold: Float, burst: Float, breathe: Float, phase
                 }
             }
             Canvas(Modifier.matchParentSize()) {
-                val r = coreRadius(size.minDimension)
+                val r = coreRadius((size.minDimension / OVERDRAW))
                 drawRect(
                     Brush.radialGradient(
                         0f to lerp(body, Color.White, 0.5f),
@@ -236,15 +245,15 @@ fun EmberOrbCanvas(heat: Float, hold: Float, burst: Float, breathe: Float, phase
                         0.7f to lerp(accent, shade, 0.2f),
                         1f to lerp(accent, shade, 0.4f),
                         center = center + Offset(-0.4f * r, -0.45f * r),
-                        radius = size.minDimension * 0.55f,
+                        radius = (size.minDimension / OVERDRAW) * 0.55f,
                     ),
                     blendMode = BlendMode.SrcIn,
                 )
             }
         }
         // Highlight, charge trail and the completion burst, drawn crisp on top.
-        Canvas(Modifier.matchParentSize()) {
-            val s = size.minDimension
+        Canvas(layer) {
+            val s = (size.minDimension / OVERDRAW)
             val r = coreRadius(s)
             val spec = center + Offset(-0.38f * r, -0.42f * r)
             drawCircle(

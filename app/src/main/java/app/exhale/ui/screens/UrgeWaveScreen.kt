@@ -133,7 +133,7 @@ fun UrgeWaveScreen(
         Spacer(Modifier.weight(1f))
         if (done) {
             ExButton("No. I rode it out.", { onFinish(started, UrgeOutcome.SURVIVED, trigger) }, Modifier.fillMaxWidth(), style = ButtonStyle.Accent)
-            ExButton("Yes, log one", { onFinish(started, UrgeOutcome.SMOKED, trigger) }, Modifier.fillMaxWidth(), style = ButtonStyle.Secondary)
+            ExButton("Yes, smoke anyway", { onFinish(started, UrgeOutcome.SMOKED, trigger) }, Modifier.fillMaxWidth(), style = ButtonStyle.Secondary)
         } else {
             Row(horizontalArrangement = Arrangement.spacedBy(ExSpace.sm)) {
                 ExButton("I'm okay now", { onFinish(started, UrgeOutcome.SURVIVED, trigger) }, Modifier.weight(1f), style = ButtonStyle.Accent)

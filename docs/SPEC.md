@@ -103,13 +103,14 @@ First launch shows **Onboarding** (§3.7).
   its duration; the next ("then hold · 2s") waits below and brightens in the final second; on a
   change it glides up and grows into place. The wave dot's halo swells and shrinks with the breath.
 - Optional trigger selection.
-- Before end: "I'm okay now" (SURVIVED) / "Smoke anyway" (SMOKED + log).
-  After end: "No. I rode it out." / "Yes, log one". "Close" records nothing.
+- Before end: "I'm okay now" (SURVIVED) / "Smoke anyway". After end: "No. I rode it out." /
+  "Yes, smoke anyway". Smoking records the urge as SMOKED but never logs a cigarette: it returns to
+  the Ember screen, where the user logs it by holding the ember. "Close" records nothing.
 
 ### 3.4 Rhythm — `RhythmScreen.kt`
 - 24-hour radial heatmap ("Smoke Clock"), hour 0 at top, clockwise. Wedge heat = avg per day.
 - Toggles: Last 30 days / 30 days before; All / Weekdays / Weekends.
-- Tap a wedge → hour card with per-day average, top trigger and an if-then suggestion.
+- Tap a wedge → hour card with per-day average and top trigger.
 - Trigger bar list; count of craving waves ridden out in the period.
 
 ### 3.5 Air — `AirScreen.kt`
@@ -120,6 +121,8 @@ First launch shows **Onboarding** (§3.7).
 ### 3.6 Money — `MoneyScreen.kt`
 Same background as every screen; money is carried by `sun` accents.
 - Saved = (baseline × days since plan start − cigarettes smoked since) × price per cigarette, floored at 0.
+  Shown on one line: the digits, then the currency symbol or code at 45% ("12,345 KZT"), shrinking
+  from 88sp to fit. All money text puts the currency after the number.
 - Sticks row: fraction of the current hundred not smoked.
 - Goal card with progress and weeks-to-goal at current pace.
 

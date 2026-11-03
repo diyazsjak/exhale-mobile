@@ -127,7 +127,6 @@ private fun HourCard(hour: Int, perDay: Float, top: Trigger?) {
         Text("%.1f a day".format(perDay), style = ExType.headline, color = c.ink)
         if (top != null) {
             Text("Mostly ${top.label.lowercase()}.", style = ExType.body, color = c.inkSoft)
-            Text("Plan: if ${top.label.lowercase()} around $label, then 10 slow breaths first.", style = ExType.body, color = c.oxyInk)
         }
     }
 }

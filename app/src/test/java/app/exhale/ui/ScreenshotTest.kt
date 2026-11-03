@@ -140,6 +140,10 @@ class ScreenshotTest {
     @Test fun airLight() = shot("5_air", false, 3) { AirScreen(sampleState()) }
     @Test fun moneyDark() = shot("6_money", true, 4) { MoneyScreen(sampleState()) }
     @Test fun moneyLight() = shot("6_money", false, 4) { MoneyScreen(sampleState()) }
+    @Test fun moneyBigKztDark() = shot("6b_money_kzt", true, 4) {
+        val st = sampleState()
+        MoneyScreen(st.copy(settings = st.settings.copy(currencyCode = "KZT", goalMinor = 25_000_000), savedMinor = 1_234_500))
+    }
     @Test fun settingsDark() = shot("7_settings", true) { SettingsScreen(sampleState().settings, {}, {}, {}, {}, {}, {}) }
     @Test fun settingsLight() = shot("7_settings", false) { SettingsScreen(sampleState().settings, {}, {}, {}, {}, {}, {}) }
 

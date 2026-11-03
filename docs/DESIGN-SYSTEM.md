@@ -39,7 +39,7 @@ Neutrals carry the UI; accents carry meaning.
 
 ## Navigation
 
-A **floating tab bar**: a `chrome` pill hovering 12px above the system navigation bar with a 20px gutter, icons only (each with an accessibility label). `chrome` is a step lighter than cards in dark (with a `line` outline) and white in light. It is solid and content scrolls underneath it. Light: a soft elevation shadow. Dark: no shadow; the lighter tone and hairline outline lift it (tonal elevation). The selected tab sits in a `chrome-selected` inner pill and takes its meaning colour: Ember (heat), Regulate (`sky`), Rhythm (`flare`), Air (`oxy`), Money (`sun`). Screens under it leave `tab-bar-clearance` at the bottom. Full-screen flows (Urge Wave, Settings, Onboarding) hide it and use a round back or close button in the header instead.
+A **floating tab bar**: a `chrome` pill hovering 12px above the system navigation bar with a 20px gutter, icons only (each with an accessibility label). `chrome` is a step lighter than cards in dark (with a `line` outline) and white in light. It is solid and content scrolls underneath it, darkening gradually from 88px above the bar to the screen edge (black at up to 40% in dark, `ink` at up to 12% in light). Light: a soft elevation shadow. Dark: no shadow; the lighter tone and hairline outline lift it (tonal elevation). The selected tab sits in a `chrome-selected` inner pill and takes its meaning colour: Ember (heat), Regulate (`sky`), Rhythm (`flare`), Air (`oxy`), Money (`sun`). Screens under it leave `tab-bar-clearance` at the bottom. Full-screen flows (Urge Wave, Settings, Onboarding) hide it and use a round back or close button in the header instead.
 
 ## Iconography
 

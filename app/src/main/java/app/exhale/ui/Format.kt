@@ -29,12 +29,15 @@ object Fmt {
 
     fun mmss(seconds: Long): String = "%02d:%02d".format(seconds / 60, seconds % 60)
 
+    /** Money as "12,345 KZT" / "62 $" / "10.00 $": the number first, then the currency symbol or code. */
     fun money(minor: Long, currencyCode: String, decimals: Boolean = false): String {
-        val nf = NumberFormat.getCurrencyInstance(Locale.getDefault())
-        runCatching { nf.currency = Currency.getInstance(currencyCode) }
-        val digits = if (decimals) nf.currency?.defaultFractionDigits?.coerceAtLeast(0) ?: 2 else 0
-        nf.maximumFractionDigits = digits
-        nf.minimumFractionDigits = digits
-        return nf.format(minor / 100.0)
+        val currency = runCatching { Currency.getInstance(currencyCode) }.getOrNull()
+        val digits = if (decimals) currency?.defaultFractionDigits?.coerceAtLeast(0) ?: 2 else 0
+        val nf = NumberFormat.getNumberInstance(Locale.getDefault()).apply {
+            maximumFractionDigits = digits
+            minimumFractionDigits = digits
+        }
+        val symbol = currency?.getSymbol(Locale.getDefault()) ?: currencyCode
+        return nf.format(if (decimals) minor / 100.0 else (minor / 100).toDouble()) + "\u00A0" + symbol
     }
 }

@@ -22,6 +22,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import app.exhale.domain.UrgeOutcome
 import app.exhale.ui.components.ExIcons
 import app.exhale.ui.components.FloatingTabBar
 import app.exhale.ui.components.TabItem
@@ -136,7 +137,15 @@ private fun MainNav(state: ExhaleState, logged: LoggedEvent?, vm: ExhaleViewMode
             composable(Tab.MONEY.route) { MoneyScreen(state) }
             composable(WAVE) {
                 UrgeWaveScreen(
-                    onFinish = { started, outcome, trigger -> vm.finishUrge(started, outcome, trigger); nav.popBackStack() },
+                    onFinish = { started, outcome, trigger ->
+                        vm.finishUrge(started, outcome, trigger)
+                        if (outcome == UrgeOutcome.SMOKED) {
+                            // Back to the ember: the user logs it themselves by holding it.
+                            if (!nav.popBackStack(Tab.EMBER.route, inclusive = false)) nav.navigate(Tab.EMBER.route)
+                        } else {
+                            nav.popBackStack()
+                        }
+                    },
                     onClose = { nav.popBackStack() },
                 )
             }
