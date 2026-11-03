@@ -210,8 +210,9 @@ fun EmberScreen(
                 .navigationBarsPadding()
                 .padding(horizontal = ExSpace.sm)
                 .padding(bottom = ExSize.tabBar + ExSpace.lg),
-            enter = slideInVertically(spring(dampingRatio = 0.7f, stiffness = 400f)) { it },
-            exit = slideOutVertically { it } + fadeOut(),
+            // Unhurried: it arrives after the log's burst has played out.
+            enter = slideInVertically(tween(650, delayMillis = 250, easing = FastOutSlowInEasing)) { it } + fadeIn(tween(500, delayMillis = 250)),
+            exit = slideOutVertically(tween(450, easing = FastOutSlowInEasing)) { it } + fadeOut(tween(350)),
         ) {
             val ev = shown ?: return@AnimatedVisibility
             LaunchedEffect(ev.logId) { delay(8000); onDismissLogged() }
@@ -232,8 +233,9 @@ fun EmberScreen(
                 .statusBarsPadding()
                 .padding(top = ExSpace.xs + ExSize.iconButton + ExSpace.xs)
                 .padding(horizontal = ExSpace.sm),
-            enter = fadeIn(tween(180)) + scaleIn(tween(320, easing = FastOutSlowInEasing), initialScale = 0.92f, transformOrigin = TransformOrigin(0.12f, 0f)),
-            exit = fadeOut(tween(160)) + scaleOut(tween(200), targetScale = 0.96f, transformOrigin = TransformOrigin(0.12f, 0f)),
+            // Quick: it answers a tap.
+            enter = fadeIn(tween(100)) + scaleIn(tween(170, easing = FastOutSlowInEasing), initialScale = 0.94f, transformOrigin = TransformOrigin(0.12f, 0f)),
+            exit = fadeOut(tween(100)) + scaleOut(tween(130), targetScale = 0.97f, transformOrigin = TransformOrigin(0.12f, 0f)),
         ) {
             TodayPopover(state)
         }
