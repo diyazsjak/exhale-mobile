@@ -32,6 +32,7 @@ class SettingsStore(private val context: Context) {
         val goalName = stringPreferencesKey("goal_name")
         val goalMinor = longPreferencesKey("goal_minor")
         val theme = stringPreferencesKey("theme")
+        val borrowSeen = longPreferencesKey("borrow_notice_seen_day")
     }
 
     val settings: Flow<UserSettings> = context.dataStore.data.map { it.toSettings() }
@@ -50,6 +51,7 @@ class SettingsStore(private val context: Context) {
             p[K.goalName] = s.goalName
             p[K.goalMinor] = s.goalMinor
             p[K.theme] = s.theme.name
+            p[K.borrowSeen] = s.borrowNoticeSeenDay
         }
     }
 
@@ -72,6 +74,7 @@ class SettingsStore(private val context: Context) {
             goalName = this[K.goalName] ?: d.goalName,
             goalMinor = this[K.goalMinor] ?: d.goalMinor,
             theme = this[K.theme]?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() } ?: d.theme,
+            borrowNoticeSeenDay = this[K.borrowSeen] ?: d.borrowNoticeSeenDay,
         )
     }
 }

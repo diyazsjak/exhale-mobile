@@ -148,7 +148,8 @@ fun SegmentedControl(options: List<String>, selected: Int, onSelect: (Int) -> Un
     ) {
         val w = maxWidth / options.size
         val x by animateDpAsState(w * selected, spring(dampingRatio = 0.8f, stiffness = 500f), label = "thumb")
-        Box(Modifier.offset(x = x).width(w).fillMaxHeight().clip(ExRadius.pill).background(thumb))
+        // selected outside the options (e.g. -1) means nothing is selected: no thumb.
+        if (selected in options.indices) Box(Modifier.offset(x = x).width(w).fillMaxHeight().clip(ExRadius.pill).background(thumb))
         Row(Modifier.fillMaxWidth()) {
             options.forEachIndexed { i, label ->
                 Box(

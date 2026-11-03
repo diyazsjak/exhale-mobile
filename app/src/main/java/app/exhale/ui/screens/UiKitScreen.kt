@@ -171,7 +171,7 @@ fun UiKitScreen(theme: ThemeMode, onTheme: (ThemeMode) -> Unit, onClose: () -> U
         Box(Modifier.fillMaxWidth().clip(ExRadius.lg).border(1.dp, c.line, ExRadius.lg)) {
             FloatingTabBar(
                 listOf(
-                    TabItem(ExIcons.Ember, "Ember", c.ember), TabItem(ExIcons.Regulate, "Regulate", c.sky),
+                    TabItem(ExIcons.Ember, "Ember", c.ember),
                     TabItem(ExIcons.Rhythm, "Rhythm", c.flare), TabItem(ExIcons.Air, "Air", c.oxy), TabItem(ExIcons.Money, "Money", c.sun),
                 ),
                 tab, { tab = it },

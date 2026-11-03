@@ -59,6 +59,8 @@ data class UserSettings(
     val goalName: String = "Something nice",
     val goalMinor: Long = 30000,
     val theme: ThemeMode = ThemeMode.SYSTEM,
+    /** Epoch day on which the user opened the "borrowed from yesterday" note; hides the badge dot. */
+    val borrowNoticeSeenDay: Long = -1,
 ) {
     val pricePerCigMinor: Double get() = packPriceMinor.toDouble() / cigsPerPack.coerceAtLeast(1)
 }

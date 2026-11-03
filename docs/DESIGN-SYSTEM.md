@@ -39,7 +39,7 @@ Neutrals carry the UI; accents carry meaning.
 
 ## Navigation
 
-A **floating tab bar**: a `chrome` pill hovering 12px above the system navigation bar with a 20px gutter, icons only (each with an accessibility label). `chrome` is a step lighter than cards in dark (with a `line` outline) and white in light. It is solid and content scrolls underneath it, darkening gradually from 88px above the bar to the screen edge (black at up to 40% in dark, `ink` at up to 12% in light). Light: a soft elevation shadow. Dark: no shadow; the lighter tone and hairline outline lift it (tonal elevation). The selected tab sits in a `chrome-selected` inner pill and takes its meaning colour: Ember (heat), Regulate (`sky`), Rhythm (`flare`), Air (`oxy`), Money (`sun`). Screens under it leave `tab-bar-clearance` at the bottom. Full-screen flows (Urge Wave, Settings, Onboarding) hide it and use a round back or close button in the header instead.
+A **floating tab bar**: a `chrome` pill hovering 12px above the system navigation bar with a 20px gutter, icons only (each with an accessibility label). `chrome` is a step lighter than cards in dark (with a `line` outline) and white in light. It is solid and content scrolls underneath it, darkening gradually from 88px above the bar to the screen edge (black at up to 40% in dark, `ink` at up to 12% in light). Light: a soft elevation shadow. Dark: no shadow; the lighter tone and hairline outline lift it (tonal elevation). The selected tab sits in a `chrome-selected` inner pill and takes its meaning colour: Ember (heat), Rhythm (`flare`), Air (`oxy`), Money (`sun`). Screens under it leave `tab-bar-clearance` at the bottom. Full-screen flows (Urge Wave, Settings, Onboarding) hide it and use a round back or close button in the header instead.
 
 ## Iconography
 
@@ -52,7 +52,7 @@ Exhale's own line icons: 24px grid, 1.8 stroke, round caps and joins, no fills. 
 - The craving screen's breathing guide is text only. The current instruction fills with colour letter by letter over its duration; centred under the wave; the next waits below, small and faded ("then hold · 2s"), and brightens and lifts in the last second; on a change it glides up and grows into place while the old one floats away. The halo around the wave's dot swells and shrinks continuously with the breath.
 - Ambient loops are slow (orb breathing 4.2s, particles drifting) and stop when the screen leaves.
 - The Ember ("Gather") is a molten core that pulses every 4s with four droplets orbiting slowly, each touching and merging with it about a third of the time. Holding pulls the drops in and runs a trail around it along the heat scale; logging flings them out with a ring and a splash.
-- Each haptic has one meaning: rising ticks = charging the hold (12 over 1.5s), thud = logged, double tick = next one earned, low tick = breath phase change. Every pattern checks that the phone supports it and falls back to plain vibration, so it works on Samsung and Xiaomi phones too.
+- Each haptic has one meaning: rising ticks = charging the hold (12 over 1.5s), thud = logged, two soft thuds = a log that goes over today's allowance, double tick = next one earned, low tick = breath phase change. Every pattern checks that the phone supports it and falls back to plain vibration, so it works on Samsung and Xiaomi phones too.
 
 ## Themes
 
@@ -179,7 +179,7 @@ Segmented progress bar for multi-step flows; filled segments cool from ember to 
 
 ### GradientRing
 
-Thick progress ring with a sky-to-oxygen sweep and content in the middle; the Regulate countdown.
+Thick progress ring with a sky-to-oxygen sweep and content in the middle. (The Ember screen draws its own thinner countdown ring around the ember.)
 
 Track `surface`, 28px stroke, round caps, fills clockwise from 12 o'clock. Colours run `sky` → `oxy` (time being earned back). The centre holds a `number-large` value and a caption.
 
@@ -191,7 +191,7 @@ S M T W T F S row of circles: each past day shows its count, tinted oxygen withi
 
 40px circles. Within allowance: oxygen tint with `oxy-ink` count. Over: ember tint with `ember-ink` count. Today: 1.5px `ink` ring and an `ink` weekday letter. Future days are empty `surface` circles. First day follows the locale.
 
-- Compose: `WeekStrip(days, today)` with `DayDot(date, count, allowance)`.
+- Compose: `WeekStrip(days, today)` with `DayDot(date, count, allowance)`; pass `selected` and `onSelect` to make past days tappable (Rhythm), which moves the outline from today to the picked day.
 
 ### ListRow
 

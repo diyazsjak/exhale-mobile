@@ -1,6 +1,12 @@
 package app.exhale.ui.screens
 
 import androidx.compose.foundation.Canvas
+import java.util.Locale
+import java.time.format.TextStyle
+import java.time.LocalDate
+import app.exhale.ui.components.WeekStrip
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
@@ -56,17 +62,21 @@ import kotlin.math.hypot
 import kotlin.math.sin
 
 @Composable
-fun RhythmScreen(state: ExhaleState) {
+fun RhythmScreen(state: ExhaleState, initialDay: LocalDate? = null) {
     val c = Ex.colors
     val zone = ZoneId.systemDefault()
     var period by remember { mutableIntStateOf(0) }
     var filter by remember { mutableIntStateOf(0) }
     var selected by remember { mutableStateOf<Int?>(null) }
+    // A day picked in the week strip filters the clock and hour detail to that day.
+    var day by remember { mutableStateOf(initialDay) }
 
     val offset = if (period == 0) 0 else 30
-    val hours = remember(state.logs, period, filter, state.today) {
+    val periodHours = remember(state.logs, period, filter, state.today) {
         Stats.hourly(state.logs, state.now, zone, 30, offset, DayFilter.entries[filter])
     }
+    val dayLogs = day?.let { d -> state.logs.filter { it.at.atZone(zone).toLocalDate() == d } }
+    val hours = dayLogs?.let { logs -> FloatArray(24).also { h -> logs.forEach { h[it.at.atZone(zone).hour] += 1f } } } ?: periodHours
     val windowStart = state.now.minus(Duration.ofDays((30 + offset).toLong()))
     val windowEnd = state.now.minus(Duration.ofDays(offset.toLong()))
     val windowLogs = state.logs.filter { it.at >= windowStart && it.at < windowEnd }
@@ -76,19 +86,34 @@ fun RhythmScreen(state: ExhaleState) {
         header = {
             Overline("Rhythm · 30 days")
             Fill()
-            ExBadge("avg %.1f a day".format(hours.sum()))
+            ExBadge("avg %.1f a day".format(periodHours.sum()))
         },
     ) {
         ScreenTitle("When you light up")
-        SegmentedControl(listOf("Last 30 days", "30 days before"), period, { period = it; selected = null })
-        SegmentedControl(DayFilter.entries.map { it.label }, filter, { filter = it; selected = null })
+        if (state.week.isNotEmpty()) {
+            Column(verticalArrangement = Arrangement.spacedBy(ExSpace.xs)) {
+                Row {
+                    Text("This week", style = ExType.caption, color = c.inkSoft, modifier = Modifier.weight(1f))
+                    val d = day
+                    val dot = state.week.firstOrNull { it.date == d }
+                    Text(
+                        if (d == null || dot == null) "Tap a day to see it"
+                        else "${if (d == state.today) "Today" else d.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.getDefault())} · ${dot.count} of ${dot.allowance}",
+                        style = ExType.caption, color = if (d == null) c.inkFaint else c.ink,
+                    )
+                }
+                WeekStrip(state.week, state.today, selected = day, onSelect = { d -> day = if (day == d) null else d; selected = null })
+            }
+        }
+        SegmentedControl(listOf("Last 30 days", "30 days before"), if (day == null) period else -1, { period = it; selected = null; day = null })
+        SegmentedControl(DayFilter.entries.map { it.label }, if (day == null) filter else -1, { filter = it; selected = null; day = null })
         SmokeClock(hours, selected, Modifier.padding(vertical = ExSpace.xs)) { selected = if (selected == it) null else it }
 
         val sel = selected
         if (sel != null) {
-            val top = windowLogs.filter { it.at.atZone(zone).hour == sel && it.trigger != null }
+            val top = (dayLogs ?: windowLogs).filter { it.at.atZone(zone).hour == sel && it.trigger != null }
                 .groupingBy { it.trigger!! }.eachCount().maxByOrNull { it.value }?.key
-            HourCard(sel, hours[sel], top)
+            HourCard(sel, hours[sel], top, singleDay = day != null)
         } else {
             Text("Tap an hour on the clock to see it up close.", style = ExType.caption, color = c.inkSoft)
         }
@@ -119,12 +144,16 @@ fun RhythmScreen(state: ExhaleState) {
 }
 
 @Composable
-private fun HourCard(hour: Int, perDay: Float, top: Trigger?) {
+private fun HourCard(hour: Int, perDay: Float, top: Trigger?, singleDay: Boolean = false) {
     val c = Ex.colors
     val label = hourLabel(hour)
     ExCard {
         Overline("$label – ${hourLabel((hour + 1) % 24)}")
-        Text("%.1f a day".format(perDay), style = ExType.headline, color = c.ink)
+        val n = perDay.toInt()
+        Text(
+            if (singleDay) "$n cigarette${if (n == 1) "" else "s"}" else "%.1f a day".format(perDay),
+            style = ExType.headline, color = c.ink,
+        )
         if (top != null) {
             Text("Mostly ${top.label.lowercase()}.", style = ExType.body, color = c.inkSoft)
         }

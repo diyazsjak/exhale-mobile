@@ -17,7 +17,6 @@ import app.exhale.ui.screens.AirScreen
 import app.exhale.ui.screens.EmberScreen
 import app.exhale.ui.screens.MoneyScreen
 import app.exhale.ui.screens.OnboardingScreen
-import app.exhale.ui.screens.RegulateScreen
 import app.exhale.ui.screens.RhythmScreen
 import app.exhale.ui.screens.SettingsScreen
 import app.exhale.ui.screens.UrgeWaveScreen
@@ -110,8 +109,7 @@ class ScreenshotTest {
                     if (tab != null) {
                         FloatingTabBar(
                             listOf(
-                                TabItem(ExIcons.Ember, "Ember", c.heat(0.2f)), TabItem(ExIcons.Regulate, "Regulate", c.sky),
-                                TabItem(ExIcons.Rhythm, "Rhythm", c.flare), TabItem(ExIcons.Air, "Air", c.oxy),
+                                TabItem(ExIcons.Ember, "Ember", c.heat(0.2f)), TabItem(ExIcons.Rhythm, "Rhythm", c.flare), TabItem(ExIcons.Air, "Air", c.oxy),
                                 TabItem(ExIcons.Money, "Money", c.sun),
                             ),
                             tab, {}, Modifier.align(Alignment.BottomCenter),
@@ -126,21 +124,27 @@ class ScreenshotTest {
 
     @Test fun emberDark() = shot("1_ember", true, 0) { EmberScreen(sampleState(), null, {}, {}, { _, _ -> }, {}, {}, {}) }
     @Test fun emberLight() = shot("1_ember", false, 0) { EmberScreen(sampleState(), null, {}, {}, { _, _ -> }, {}, {}, {}) }
+    @Test fun emberWaitingDark() = shot("1c_ember_waiting", true, 0) { EmberScreen(sampleState(38), null, {}, {}, { _, _ -> }, {}, {}, {}) }
+    @Test fun emberWaitingLight() = shot("1c_ember_waiting", false, 0) { EmberScreen(sampleState(38), null, {}, {}, { _, _ -> }, {}, {}, {}) }
+    @Test fun rhythmDayDark() = shot("4b_rhythm_day", true, 1) { val st = sampleState(); RhythmScreen(st, initialDay = st.today.minusDays(1)) }
+    private fun overState() = sampleState(38).copy(todayCount = 12, allowance = 8, borrowedToday = 2)
+    @Test fun emberOverDark() = shot("1d_ember_over", true, 0) { EmberScreen(overState(), null, {}, {}, { _, _ -> }, {}, {}, {}) }
+    @Test fun emberTodayDark() = shot("1e_ember_today", true, 0) { EmberScreen(overState(), null, {}, {}, { _, _ -> }, {}, {}, {}, initialTodayOpen = true) }
+    @Test fun emberTodayLight() = shot("1e_ember_today", false, 0) { EmberScreen(overState(), null, {}, {}, { _, _ -> }, {}, {}, {}, initialTodayOpen = true) }
+    @Test fun emberTodayWithinLight() = shot("1f_ember_today_within", false, 0) { EmberScreen(sampleState(38), null, {}, {}, { _, _ -> }, {}, {}, {}, initialTodayOpen = true) }
     @Test fun emberHotDark() = shot("1b_ember_logged", true, 0) { EmberScreen(sampleState(4), LoggedEvent(1, 5, 12), {}, {}, { _, _ -> }, {}, {}, {}) }
     @Test fun emberHotLight() = shot("1b_ember_logged", false, 0) { EmberScreen(sampleState(4), LoggedEvent(1, 5, 12), {}, {}, { _, _ -> }, {}, {}, {}) }
-    @Test fun regulateDark() = shot("2_regulate", true, 1) { RegulateScreen(sampleState(41)) {} }
-    @Test fun regulateLight() = shot("2_regulate", false, 1) { RegulateScreen(sampleState(41)) {} }
     @Test fun waveDark() = shot("3_wave", true) { UrgeWaveScreen({ _, _, _ -> }, {}, startAt = 1.5f) }
     @Test fun waveLight() = shot("3_wave", false) { UrgeWaveScreen({ _, _, _ -> }, {}, startAt = 1.5f) }
     @Test fun waveReadyDark() = shot("3b_wave_get_ready", true) { UrgeWaveScreen({ _, _, _ -> }, {}, startAt = 63.4f) }
     @Test fun waveHoldLight() = shot("3c_wave_hold", false) { UrgeWaveScreen({ _, _, _ -> }, {}, startAt = 64.6f) }
-    @Test fun rhythmDark() = shot("4_rhythm", true, 2) { RhythmScreen(sampleState()) }
-    @Test fun rhythmLight() = shot("4_rhythm", false, 2) { RhythmScreen(sampleState()) }
-    @Test fun airDark() = shot("5_air", true, 3) { AirScreen(sampleState()) }
-    @Test fun airLight() = shot("5_air", false, 3) { AirScreen(sampleState()) }
-    @Test fun moneyDark() = shot("6_money", true, 4) { MoneyScreen(sampleState()) }
-    @Test fun moneyLight() = shot("6_money", false, 4) { MoneyScreen(sampleState()) }
-    @Test fun moneyBigKztDark() = shot("6b_money_kzt", true, 4) {
+    @Test fun rhythmDark() = shot("4_rhythm", true, 1) { RhythmScreen(sampleState()) }
+    @Test fun rhythmLight() = shot("4_rhythm", false, 1) { RhythmScreen(sampleState()) }
+    @Test fun airDark() = shot("5_air", true, 2) { AirScreen(sampleState()) }
+    @Test fun airLight() = shot("5_air", false, 2) { AirScreen(sampleState()) }
+    @Test fun moneyDark() = shot("6_money", true, 3) { MoneyScreen(sampleState()) }
+    @Test fun moneyLight() = shot("6_money", false, 3) { MoneyScreen(sampleState()) }
+    @Test fun moneyBigKztDark() = shot("6b_money_kzt", true, 3) {
         val st = sampleState()
         MoneyScreen(st.copy(settings = st.settings.copy(currencyCode = "KZT", goalMinor = 25_000_000), savedMinor = 1_234_500))
     }
@@ -163,12 +167,12 @@ class ScreenshotTest {
             verticalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceEvenly,
         ) {
             androidx.compose.foundation.layout.Row {
-                EmberOrbCanvas(heat = 0.05f, hold = 0f, burst = 0f, breathe = 0.6f, phase = 3f, modifier = Modifier.size(200.dp))
-                EmberOrbCanvas(heat = 0.95f, hold = 0f, burst = 0f, breathe = 0.2f, phase = 9f, modifier = Modifier.size(200.dp))
+                EmberOrbCanvas(heat = 0.05f, hold = 0f, burst = 0f, breathe = 0.6f, phase = 3f, modifier = Modifier.size(200.dp), ring = 1f)
+                EmberOrbCanvas(heat = 0.95f, hold = 0f, burst = 0f, breathe = 0.2f, phase = 9f, modifier = Modifier.size(200.dp), ring = 0.05f)
             }
             androidx.compose.foundation.layout.Row {
-                EmberOrbCanvas(heat = 0.1f, hold = 0.6f, burst = 0f, breathe = 0f, phase = 5f, modifier = Modifier.size(200.dp))
-                EmberOrbCanvas(heat = 0.9f, hold = 0.3f, burst = 0.35f, breathe = 0f, phase = 7f, modifier = Modifier.size(200.dp))
+                EmberOrbCanvas(heat = 0.1f, hold = 0.6f, burst = 0f, breathe = 0f, phase = 5f, modifier = Modifier.size(200.dp), ring = 0.4f)
+                EmberOrbCanvas(heat = 0.9f, hold = 0.3f, burst = 0.35f, breathe = 0f, phase = 7f, modifier = Modifier.size(200.dp), ring = 0f)
             }
         }
     }

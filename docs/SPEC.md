@@ -28,7 +28,7 @@ Many have tried and slipped before. They are sensitive to judgement.
 | Finding | Design consequence |
 |---|---|
 | Cravings peak and fade within ~3–5 min (NHS, CDC guidance) | Urge Wave: a timed 4-minute wave with paced breathing |
-| Reduce-to-quit ≈ abrupt quitting in quit rates (Lindson et al., Cochrane 2019) | Regulate mode is first-class, not a fallback |
+| Reduce-to-quit ≈ abrupt quitting in quit rates (Lindson et al., Cochrane 2019) | Cutting down is first-class: allowance, countdown ring and taper plan |
 | Self-monitoring reduces automatic smoking | One-gesture logging on every surface |
 | Triggers are predictable; if-then plans help | Optional trigger tags + hour heatmap + if-then suggestion |
 | Abstinence-violation effect: one slip → giving up | **No streak resets, no shame copy, no red error states for smoking** |
@@ -57,7 +57,8 @@ In short:
 |---|---|
 | `charge(level)` rising ticks | Holding to log |
 | `logged()` thud | Log committed |
-| `earned()` double tick | Next cigarette earned (Regulate) |
+| `loggedOver()` two soft thuds | A log that goes over today's allowance |
+| `earned()` double tick | Next cigarette earned (Ember ring completes) |
 | `breath()` low tick | Breath phase change (Urge Wave) |
 Don't reuse a pattern for a different meaning.
 
@@ -71,29 +72,44 @@ Don't reuse a pattern for a different meaning.
 
 ## 3. Screens
 
-Floating tab bar (icons only): **Ember · Regulate · Rhythm · Air · Money**. Full-screen routes: **Urge Wave**, **Settings**.
-First launch shows **Onboarding** (§3.7).
+Floating tab bar (icons only): **Ember · Rhythm · Air · Money**. Full-screen routes: **Urge Wave**, **Settings**.
+First launch shows **Onboarding** (§3.7). Regulate is no longer a tab: its countdown lives on Ember
+(the ring) and the week lives on Rhythm; the plan is edited in Settings.
 
 ### 3.1 Ember (home) — `EmberScreen.kt`
-- Header: today's count / allowance (Flare when at/over), Settings link.
-- Hero: time since last cigarette (`Fmt.gap`), subline with time until next earned.
+- Header: Settings button and the **Today badge** ("7 of 10 today", 14sp, a touch larger than other
+  badges). It turns pink (flare tint, flare ink) while today is over the allowance; the text doesn't
+  change. A small sun-coloured dot appears on days whose allowance was lowered by yesterday's
+  overage, until the user opens the popover that day (`borrowNoticeSeenDay`). No week row.
+- **Today popover**: tapping the badge opens a card just below it, full width within the gutter:
+  the count, today's sticks (used ember, next dashed oxygen, over flare, remaining empty), and the
+  lines that apply: "N over today. It's borrowed from tomorrow, so tomorrow starts at X instead of
+  Y." / "N left today. Going over isn't failing…" / "That's all for today…", plus "Today is A
+  instead of B: N were borrowed yesterday." on a lowered day, and a footer with this week's and next
+  week's allowance. Tap outside, press Back or start holding the ember to close it.
+- Hero, one number that switches meaning: while waiting, time **until** the next one is earned
+  ("58m · until your next one"); once earned, time **since** the last one ("2h 41m · since your last
+  one · next one earned"). Before any log: "—" and "nothing logged yet".
 - **Orb** (`EmberOrb.kt`, concept "Gather" from the Ember Lab): a molten core coloured by `heat`
   with four droplets orbiting it. At rest the core pulses every 4 s and the drops drift in and out,
   sometimes touching the core and merging with a liquid bridge (blur + alpha threshold RenderEffect,
   Android 12+; plain drops below that).
-- **Hold to log**: press 1.5 s. The drops are pulled in and merge, the core swells and warms, a
-  trail runs around the ember along the heat scale, and 12 `charge()` ticks rise in strength;
-  release early cancels. On completion a `logged()` thud, the drops fling out with a ring and a
-  splash, and a log is written.
-- **Toast** after logging: count, **Undo**, optional trigger chips. Auto-dismisses after 8 s.
+- **Countdown ring** around the ember (6dp, radius 0.47 of the ember): fills sky → oxygen as the gap
+  (waking minutes / allowance) is earned; once earned it is a full oxygen ring with a soft glow that
+  breathes with the ember. `earned()` haptic when it completes while on screen. The drops orbit
+  inside it.
+- **Hold to log**: press 1.5 s. The ring hands over to the charge, which runs around the same
+  ring along the heat scale; the drops are pulled in and merge, the core swells and warms, and 12
+  `charge()` ticks rise in strength; release early cancels. On completion a `logged()` thud, the
+  drops fling out with a ring and a splash, and a log is written.
+- **Reactive hint** under the ember, one line that slides to its next state: "Hold the ember to log"
+  (rest), "Keep holding…" (pressed), "Logged · 8 of 10 today" (after a log, 2.6 s; a log that
+  goes over says "1 over · borrowed from tomorrow" in pink, with a pink burst and a `loggedOver()`
+  double thud),
+  "Hold a little longer" (released early), and on a quick tap the ember wobbles and the hint repeats
+  "Hold the ember to log".
+- **Logged card** after logging: count, **Undo**, optional trigger chips. Auto-dismisses after 8 s.
 - "I want one. Help me wait." → Urge Wave.
-
-### 3.2 Regulate — `RegulateScreen.kt`
-- Ring = elapsed / interval since last cigarette, with 60 ticks. Centre: countdown or "Now".
-- Allowance sticks: used (Sun→Ember), next slot (dashed Oxy), over-allowance (Flare), remaining (Line).
-- Borrowed note when yesterday went over.
-- Plan card: this week's base allowance and next week's.
-- `earned()` haptic when the countdown reaches zero while on screen.
 
 ### 3.3 Urge Wave — `UrgeWaveScreen.kt`
 - 240 s wave; crest at ~46 % (minute ~2). Dot rides the curve.
@@ -108,6 +124,10 @@ First launch shows **Onboarding** (§3.7).
   the Ember screen, where the user logs it by holding the ember. "Close" records nothing.
 
 ### 3.4 Rhythm — `RhythmScreen.kt`
+- **This week** under the title: the week strip (S M T W T F S, first day per locale), each past
+  day's count tinted oxygen within the allowance and ember when over. Tap a day to filter the clock
+  and the hour card to that day ("Sunday · 11 of 10"); tap it again, or a period toggle, to go back
+  to 30 days. While a day is picked the toggles show nothing selected.
 - 24-hour radial heatmap ("Smoke Clock"), hour 0 at top, clockwise. Wedge heat = avg per day.
 - Toggles: Last 30 days / 30 days before; All / Weekdays / Weekends.
 - Tap a wedge → hour card with per-day average and top trigger.

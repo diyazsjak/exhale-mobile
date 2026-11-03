@@ -151,6 +151,12 @@ class ExhaleViewModel(private val repo: ExhaleRepository) : ViewModel() {
 
     fun setTheme(mode: ThemeMode) { saveSettings(state.value.settings.copy(theme = mode)) }
 
+    /** The user opened today's "borrowed from yesterday" note: hide the badge dot until next time. */
+    fun markBorrowNoticeSeen() {
+        val st = state.value
+        if (st.settings.borrowNoticeSeenDay != st.today.toEpochDay()) saveSettings(st.settings.copy(borrowNoticeSeenDay = st.today.toEpochDay()))
+    }
+
     fun loadDemo() { viewModelScope.launch { repo.seedDemo() } }
 
     fun eraseAll() { viewModelScope.launch { repo.eraseAll() } }

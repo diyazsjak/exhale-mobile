@@ -16,6 +16,7 @@ import androidx.compose.ui.platform.LocalView
  * The haptic vocabulary (see docs/DESIGN-SYSTEM.md, Motion and haptics). One meaning per pattern:
  * - [charge]: short ticks of rising strength while holding the ember
  * - [logged]: firm thud when a log commits
+ * - [loggedOver]: two soft thuds when a log goes over today's allowance
  * - [earned]: soft double tick when the interval is earned
  * - [breath]: low tick on a breath phase change
  *
@@ -65,6 +66,15 @@ class Haptics(context: Context, private val view: View?) {
         supported(thud) -> primitive(thud, 1f)
         supported(click) -> primitive(click, 1f)
         hasMotor -> oneShot(45, 1f)
+        else -> { view?.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS); Unit }
+    }
+
+    /** A log that goes over today's allowance: two soft thuds, distinct but not alarming. */
+    fun loggedOver() = when {
+        supported(thud) -> primitive(thud, 0.8f, delayMs = 70, repeat = 2)
+        supported(click) -> primitive(click, 0.8f, delayMs = 70, repeat = 2)
+        amplitude -> vibrator!!.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 30, 70, 30), intArrayOf(0, 200, 0, 200), -1))
+        hasMotor -> vibrator!!.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 30, 70, 30), -1))
         else -> { view?.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS); Unit }
     }
 

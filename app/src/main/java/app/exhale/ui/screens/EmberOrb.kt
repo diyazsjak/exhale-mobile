@@ -17,6 +17,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
@@ -72,6 +73,13 @@ private const val RELEASE_MS = 450
 
 private const val TAU = (2 * PI).toFloat()
 
+/** Countdown ring around the ember: radius as a fraction of the ember's size, and stroke. */
+private const val RING_RADIUS = 0.47f
+private val RING_WIDTH = 6.dp
+
+/** A release before this much of the hold counts as a tap. */
+private const val TAP_THRESHOLD = 0.08f
+
 /** Drawing area around the ember, as a multiple of its size, so flung droplets aren't clipped. */
 private const val OVERDRAW = 1.4f
 
@@ -99,14 +107,33 @@ private fun easeInOut(t: Float) = if (t < 0.5f) 4f * t * t * t else 1f - (-2f * 
  * The ember: press and hold to log a cigarette. Releasing early cancels.
  * 12 haptic ticks rise in strength during the hold; a thud when it logs.
  * TalkBack's long-press action logs directly.
+ *
+ * [ring]: progress 0..1 of the countdown ring drawn around the ember (null: no ring). The charge
+ * runs on the same ring while holding. [onHoldStart] fires on press; [onHoldEnd] on an early
+ * release with how far the hold got (0..1), so the screen can react ("Hold a little longer").
+ * A quick tap makes the ember wobble.
  */
 @Composable
-fun EmberOrb(heat: Float, onLog: () -> Unit, modifier: Modifier = Modifier) {
+fun EmberOrb(
+    heat: Float,
+    onLog: () -> Unit,
+    modifier: Modifier = Modifier,
+    ring: Float? = null,
+    /** True when the next log goes over today's allowance: pink burst and a double thud. */
+    nextLogIsOver: Boolean = false,
+    onHoldStart: () -> Unit = {},
+    onHoldEnd: (held: Float) -> Unit = {},
+) {
     val haptics = rememberHaptics()
     val scope = rememberCoroutineScope()
     val hold = remember { Animatable(0f) }
     val burst = remember { Animatable(0f) }
+    val wobble = remember { Animatable(1f) }
     val currentOnLog by rememberUpdatedState(onLog)
+    val currentOnHoldStart by rememberUpdatedState(onHoldStart)
+    val currentOnHoldEnd by rememberUpdatedState(onHoldEnd)
+    val currentNextLogIsOver by rememberUpdatedState(nextLogIsOver)
+    var burstOver by remember { mutableStateOf(false) }
 
     // One frame clock: `clock` drives the pulse, `phase` the drops (faster while held).
     var clock by remember { mutableFloatStateOf(0f) }
@@ -128,12 +155,18 @@ fun EmberOrb(heat: Float, onLog: () -> Unit, modifier: Modifier = Modifier) {
         hold.animateTo(0f, tween((RELEASE_MS * hold.value).toInt().coerceAtLeast(1), easing = LinearEasing))
     }
 
+    // Tap feedback: a short damped wobble of the core.
+    val w = wobble.value
+    val wobbleScale = if (w < 1f) sin(w * PI.toFloat() * 4f) * (1f - w) * 0.06f else 0f
+
     EmberOrbCanvas(
         heat = heat,
         hold = hold.value,
         burst = burst.value,
-        breathe = breathe,
+        breathe = breathe + wobbleScale / 0.03f,
         phase = phase,
+        ring = ring,
+        burstOver = burstOver,
         modifier = modifier
             .size(EmberSize)
             .semantics {
@@ -142,6 +175,7 @@ fun EmberOrb(heat: Float, onLog: () -> Unit, modifier: Modifier = Modifier) {
             }
             .pointerInput(Unit) {
                 detectTapGestures(onPress = {
+                    currentOnHoldStart()
                     var committed = false
                     val job = scope.launch {
                         val ticks = launch {
@@ -153,7 +187,8 @@ fun EmberOrb(heat: Float, onLog: () -> Unit, modifier: Modifier = Modifier) {
                         hold.animateTo(1f, tween((HOLD_MS * (1f - hold.value)).toInt().coerceAtLeast(1), easing = LinearEasing))
                         ticks.cancel()
                         committed = true
-                        haptics.logged()
+                        burstOver = currentNextLogIsOver
+                        if (burstOver) haptics.loggedOver() else haptics.logged()
                         currentOnLog()
                         launch {
                             burst.snapTo(0f)
@@ -164,9 +199,12 @@ fun EmberOrb(heat: Float, onLog: () -> Unit, modifier: Modifier = Modifier) {
                     }
                     tryAwaitRelease()
                     if (!committed) {
+                        val held = hold.value
                         job.cancel()
                         haptics.cancel()
                         release()
+                        if (held < TAP_THRESHOLD) scope.launch { wobble.snapTo(0f); wobble.animateTo(1f, tween(600, easing = LinearEasing)) }
+                        currentOnHoldEnd(held)
                     }
                 })
             },
@@ -200,7 +238,16 @@ private fun rememberGoo(blur: Dp): androidx.compose.ui.graphics.RenderEffect? {
  * [heat] 0..1 cool → hot, [hold] and [burst] 0..1, [breathe] 0..1 pulse, [phase] drop clock in seconds.
  */
 @Composable
-fun EmberOrbCanvas(heat: Float, hold: Float, burst: Float, breathe: Float, phase: Float, modifier: Modifier = Modifier) {
+fun EmberOrbCanvas(
+    heat: Float,
+    hold: Float,
+    burst: Float,
+    breathe: Float,
+    phase: Float,
+    modifier: Modifier = Modifier,
+    ring: Float? = null,
+    burstOver: Boolean = false,
+) {
     val c = Ex.colors
     val goo = rememberGoo(EmberSize * 0.035f)
     val h = heat + (1f - heat) * hold
@@ -210,7 +257,11 @@ fun EmberOrbCanvas(heat: Float, hold: Float, burst: Float, breathe: Float, phase
     val pull = easeInOut(hold)
     val fling = if (burst > 0f && burst < 1f) sin(burst * PI.toFloat()) * 0.6f else 0f
 
-    fun coreRadius(s: Float) = s * 0.2f * (1f + 0.03f * breathe) * (1f + 0.22f * pull)
+    // With a ring the core is smaller so the drops orbit inside it.
+    val coreK = if (ring != null) 0.155f else 0.2f
+    fun coreRadius(s: Float) = s * coreK * (1f + 0.03f * breathe) * (1f + 0.22f * pull)
+    val track = if (c.isDark) c.surface else lerp(c.line, Color.White, 0.3f)
+    val ringPulse = (breathe.coerceIn(0f, 1f))
 
     // Layers draw in an area OVERDRAW× the ember's size, centred on it: flung droplets travel up to
     // ~0.66 of the ember's width from its centre and would be clipped at its own bounds.
@@ -260,14 +311,46 @@ fun EmberOrbCanvas(heat: Float, hold: Float, burst: Float, breathe: Float, phase
                 Brush.radialGradient(listOf(Color.White.copy(alpha = if (c.isDark) 0.42f else 0.55f), Color.White.copy(alpha = 0f)), spec, r * 0.5f),
                 r * 0.5f, spec,
             )
-            comet(c, s * 0.44f, hold, heat, (hold * 6f).coerceIn(0f, 1f) * (1f - burst) * 0.7f)
-            burstFx(c, s, r, burst)
+            if (ring != null) {
+                countdownRing(c, s * RING_RADIUS, ring, track, show = 1f - (hold * 4f).coerceIn(0f, 1f), pulse = ringPulse)
+                comet(c, s * RING_RADIUS, hold, heat, (hold * 5f).coerceIn(0f, 1f) * (1f - burst), width = RING_WIDTH.toPx())
+            } else {
+                comet(c, s * 0.44f, hold, heat, (hold * 6f).coerceIn(0f, 1f) * (1f - burst) * 0.7f)
+            }
+            burstFx(c, s, r, burst, over = burstOver)
+        }
+    }
+}
+
+/**
+ * Countdown ring: a track, then sky → oxygen as the gap is earned. Once earned it's a full
+ * oxygen ring with a soft glow that breathes with the ember. [show] fades it while charging.
+ */
+private fun DrawScope.countdownRing(c: ExColors, radius: Float, p: Float, track: Color, show: Float, pulse: Float) {
+    val w = RING_WIDTH.toPx()
+    val tl = center - Offset(radius, radius)
+    val sz = androidx.compose.ui.geometry.Size(radius * 2, radius * 2)
+    drawCircle(track, radius, center, style = Stroke(w))
+    if (show <= 0f) return
+    if (p >= 1f) {
+        drawCircle(c.oxy.copy(alpha = (0.12f + 0.1f * pulse) * show), radius, center, style = Stroke(w * 3.2f))
+        drawCircle(c.oxy.copy(alpha = show), radius, center, style = Stroke(w))
+    } else if (p > 0f) {
+        val steps = (120 * p).toInt().coerceAtLeast(2)
+        for (i in 0 until steps) {
+            val f0 = i.toFloat() / steps * p
+            val f1 = (i + 1f) / steps * p
+            drawArc(
+                lerp(c.sky, c.oxy, (i + 1f) / steps).copy(alpha = show),
+                -90f + f0 * 360f, (f1 - f0) * 360f + 0.6f, false, tl, sz,
+                style = Stroke(w, cap = if (i == 0 || i == steps - 1) StrokeCap.Round else StrokeCap.Butt),
+            )
         }
     }
 }
 
 /** Progress trail around a circle, brightest at its head, coloured along the heat scale. */
-private fun DrawScope.comet(c: ExColors, radius: Float, p: Float, h0: Float, alpha: Float) {
+private fun DrawScope.comet(c: ExColors, radius: Float, p: Float, h0: Float, alpha: Float, width: Float? = null) {
     if (p <= 0f || alpha <= 0f) return
     val steps = (160 * p).toInt().coerceAtLeast(2)
     fun at(f: Float): Offset { val a = -TAU / 4f + f * TAU; return center + Offset(cos(a), sin(a)) * radius }
@@ -277,7 +360,7 @@ private fun DrawScope.comet(c: ExColors, radius: Float, p: Float, h0: Float, alp
         val k = (i + 1f) / steps
         drawLine(
             c.heat(h0 + (1f - h0) * f1).copy(alpha = alpha * (0.15f + 0.85f * k * k)),
-            at(f0), at(f1), strokeWidth = (1f + 2f * k).dp.toPx(), cap = StrokeCap.Round,
+            at(f0), at(f1), strokeWidth = width ?: (1f + 2f * k).dp.toPx(), cap = StrokeCap.Round,
         )
     }
     val head = at(p)
@@ -287,10 +370,10 @@ private fun DrawScope.comet(c: ExColors, radius: Float, p: Float, h0: Float, alp
 }
 
 /** Completion: a ring expanding past the drops and a splash of small droplets. */
-private fun DrawScope.burstFx(c: ExColors, s: Float, r: Float, b: Float) {
+private fun DrawScope.burstFx(c: ExColors, s: Float, r: Float, b: Float, over: Boolean = false) {
     if (b <= 0f || b >= 1f) return
     val e = easeOut(b)
-    drawCircle(c.ember.copy(alpha = 0.6f * (1f - b)), r + (s * 0.47f - r) * e, center, style = Stroke((1f + 3f * (1f - b)).dp.toPx()))
+    drawCircle((if (over) c.flare else c.ember).copy(alpha = 0.6f * (1f - b)), r + (s * 0.47f - r) * e, center, style = Stroke((1f + 3f * (1f - b)).dp.toPx()))
     for (i in 0 until 12) {
         val a = i / 12f * TAU + 0.7f
         val d = r + s * (0.1f + 0.08f * ((i * 7) % 3)) * e

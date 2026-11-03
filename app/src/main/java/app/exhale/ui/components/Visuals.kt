@@ -3,6 +3,7 @@ package app.exhale.ui.components
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -26,6 +27,8 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -86,30 +89,52 @@ data class DayDot(val date: LocalDate, val count: Int?, val allowance: Int)
 
 /**
  * S M T W T F S row of circles. Each past day shows its count, tinted oxygen when within
- * the allowance and ember when over. Today gets an outline.
+ * the allowance and ember when over. Without [onSelect], today gets an outline. With it, days up
+ * to today are tappable and the [selected] one gets the outline; today keeps an ink letter.
  */
 @Composable
-fun WeekStrip(days: List<DayDot>, today: LocalDate, modifier: Modifier = Modifier) {
+fun WeekStrip(
+    days: List<DayDot>,
+    today: LocalDate,
+    modifier: Modifier = Modifier,
+    selected: LocalDate? = null,
+    onSelect: ((LocalDate) -> Unit)? = null,
+) {
     val c = Ex.colors
     Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
         days.forEach { d ->
             val over = d.count != null && d.count > d.allowance
             val accent = if (over) c.ember else c.oxy
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            val past = !d.date.isAfter(today)
+            val isSelected = d.date == selected
+            val outlined = if (onSelect == null) d.date == today else isSelected
+            val name = d.date.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.getDefault())
+            Column(
+                Modifier
+                    .clip(ExRadius.md)
+                    .then(
+                        if (onSelect != null && past) Modifier
+                            .clickable(role = Role.Button, onClickLabel = "Show $name") { onSelect(d.date) }
+                            .semantics { this.selected = isSelected }
+                        else Modifier
+                    )
+                    .padding(horizontal = 2.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
                 Text(
                     d.date.dayOfWeek.getDisplayName(TextStyle.NARROW, Locale.getDefault()),
-                    style = ExType.overline, color = if (d.date == today) c.ink else c.inkFaint,
+                    style = ExType.overline, color = if (d.date == today || d.date == selected) c.ink else c.inkFaint,
                 )
                 Box(
                     Modifier
                         .padding(top = 6.dp)
                         .clip(ExRadius.pill)
                         .background(if (d.count != null && d.count > 0) c.tint(accent) else c.surface)
-                        .then(if (d.date == today) Modifier.border(1.5.dp, c.ink, ExRadius.pill) else Modifier)
+                        .then(if (outlined) Modifier.border(1.5.dp, c.ink, ExRadius.pill) else Modifier)
                         .size(40.dp),
                     contentAlignment = Alignment.Center,
                 ) {
-                    if (d.count != null && !d.date.isAfter(today)) {
+                    if (d.count != null && past) {
                         Text("${d.count}", style = ExType.numberSmall, color = if (d.count > 0) c.inkOf(accent) else c.inkFaint)
                     }
                 }

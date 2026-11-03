@@ -30,7 +30,6 @@ import app.exhale.ui.screens.AirScreen
 import app.exhale.ui.screens.EmberScreen
 import app.exhale.ui.screens.MoneyScreen
 import app.exhale.ui.screens.OnboardingScreen
-import app.exhale.ui.screens.RegulateScreen
 import app.exhale.ui.screens.RhythmScreen
 import app.exhale.ui.screens.SettingsScreen
 import app.exhale.ui.screens.UiKitScreen
@@ -40,14 +39,12 @@ import app.exhale.ui.theme.ExColors
 
 private enum class Tab(val route: String, val label: String, val icon: ImageVector) {
     EMBER("ember", "Ember", ExIcons.Ember),
-    REGULATE("regulate", "Regulate", ExIcons.Regulate),
     RHYTHM("rhythm", "Rhythm", ExIcons.Rhythm),
     AIR("air", "Air", ExIcons.Air),
     MONEY("money", "Money", ExIcons.Money);
 
     fun tint(c: ExColors, heat: Float) = when (this) {
         EMBER -> c.heatInk(heat)
-        REGULATE -> c.sky
         RHYTHM -> c.flare
         AIR -> c.oxy
         MONEY -> c.sun
@@ -129,9 +126,9 @@ private fun MainNav(state: ExhaleState, logged: LoggedEvent?, vm: ExhaleViewMode
                     onDismissLogged = vm::dismissLogged,
                     onUrge = { nav.navigate(WAVE) },
                     onSettings = { nav.navigate(SETTINGS) },
+                    onBorrowNoticeSeen = vm::markBorrowNoticeSeen,
                 )
             }
-            composable(Tab.REGULATE.route) { RegulateScreen(state, onUrge = { nav.navigate(WAVE) }) }
             composable(Tab.RHYTHM.route) { RhythmScreen(state) }
             composable(Tab.AIR.route) { AirScreen(state) }
             composable(Tab.MONEY.route) { MoneyScreen(state) }
