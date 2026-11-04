@@ -46,7 +46,10 @@ import app.exhale.ui.theme.ExRadius
 
 import app.exhale.ui.theme.ExType
 
-/** Filled text field: label above, soft surface box, accent ring while focused. */
+/**
+ * Filled text field: label above, soft surface box, accent ring while focused. With [maxLength],
+ * input is cut at that many characters and a "12 / 40" counter sits beside the label.
+ */
 @Composable
 fun ExTextField(
     label: String,
@@ -55,15 +58,19 @@ fun ExTextField(
     modifier: Modifier = Modifier,
     type: KeyboardType = KeyboardType.Text,
     placeholder: String? = null,
+    maxLength: Int? = null,
 ) {
     val c = Ex.colors
     val source = remember { MutableInteractionSource() }
     val focused by source.collectIsFocusedAsState()
     Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(label, style = ExType.caption, color = c.inkSoft)
+        Row {
+            Text(label, style = ExType.caption, color = c.inkSoft, modifier = Modifier.weight(1f))
+            if (maxLength != null) Text("${value.length} / $maxLength", style = ExType.caption, color = c.inkFaint)
+        }
         BasicTextField(
             value = value,
-            onValueChange = onChange,
+            onValueChange = { onChange(if (maxLength != null) it.take(maxLength) else it) },
             singleLine = true,
             textStyle = ExType.body.copy(color = c.ink),
             cursorBrush = SolidColor(c.ink),

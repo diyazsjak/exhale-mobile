@@ -9,6 +9,8 @@ import app.exhale.ExhaleApp
 import app.exhale.data.ExhaleRepository
 import app.exhale.domain.History
 import app.exhale.domain.Milestones
+import app.exhale.domain.Money
+import app.exhale.domain.MoneySummary
 import app.exhale.domain.PlanMath
 import app.exhale.domain.SmokeLog
 import app.exhale.domain.Stats
@@ -50,6 +52,8 @@ data class ExhaleState(
     val borrowedToday: Int = 0,
     val notSmoked: Int = 0,
     val savedMinor: Long = 0,
+    /** Everything the Money screen shows. */
+    val money: MoneySummary? = null,
     val urgesSurvived: Int = 0,
     val longestGapWeek: Duration = Duration.ZERO,
     val clearFraction: Float = 1f,
@@ -93,9 +97,8 @@ class ExhaleViewModel(private val repo: ExhaleRepository) : ViewModel() {
         val interval = PlanMath.intervalMinutes(allowance, s.wakingMinutes)
         val last = logs.lastOrNull()
         val sinceLast = last?.let { Duration.between(it.at, now) }
-        val planStartInstant = s.planStart.atStartOfDay(zone).toInstant()
-        val smokedSince = logs.count { it.at >= planStartInstant }
-        val notSmoked = Stats.notSmoked(s.baselinePerDay, planStartInstant, now, smokedSince)
+        val money = Money.summary(s, logs, now, zone)
+        val notSmoked = money.notSmoked
         val dataStart = Stats.dataStart(s.planStart, logs, zone)
         return ExhaleState(
             loaded = true,
@@ -113,7 +116,8 @@ class ExhaleViewModel(private val repo: ExhaleRepository) : ViewModel() {
             heat = Stats.heat(now, last?.at, interval),
             borrowedToday = PlanMath.debt(s, today.minusDays(1), yesterdayCount),
             notSmoked = notSmoked,
-            savedMinor = Stats.moneySavedMinor(notSmoked, s.pricePerCigMinor),
+            savedMinor = money.keptMinor,
+            money = money,
             urgesSurvived = urges.count { it.outcome == UrgeOutcome.SURVIVED },
             longestGapWeek = Stats.longestGap(logs, now, Duration.ofDays(7)),
             clearFraction = Milestones.clearFraction(sinceLast),

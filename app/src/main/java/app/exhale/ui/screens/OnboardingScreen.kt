@@ -36,6 +36,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import app.exhale.domain.Money
 import app.exhale.domain.PlanMath
 import app.exhale.domain.TaperType
 import app.exhale.domain.UserSettings
@@ -293,7 +294,7 @@ private fun GoalStep(
 ) {
     val c = Ex.colors
     StepTitle("Goal · optional", "What will the money go to?", "Something you'd like. The Money screen tracks how close you are.")
-    ExTextField("Saving for", goalName, onName, placeholder = "New headphones")
+    ExTextField("Saving for", goalName, onName, placeholder = "New headphones", maxLength = Money.GOAL_NAME_MAX)
     ExTextField("Amount", goal, onGoal, type = KeyboardType.Decimal, placeholder = "300")
     if (fourWeeksMinor > 0) {
         Text(

@@ -14,6 +14,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
+import app.exhale.domain.Money
 import app.exhale.domain.TaperType
 import app.exhale.domain.ThemeMode
 import app.exhale.domain.UserSettings
@@ -91,7 +92,7 @@ fun SettingsScreen(
 
         Overline("Goal", Modifier.paddingTop())
         Row(horizontalArrangement = Arrangement.spacedBy(ExSpace.sm)) {
-            ExTextField("Saving for", goalName, { goalName = it }, Modifier.weight(1.4f))
+            ExTextField("Saving for", goalName, { goalName = it }, Modifier.weight(1.4f), maxLength = Money.GOAL_NAME_MAX)
             ExTextField("Amount", goal, { goal = it }, Modifier.weight(1f), type = KeyboardType.Decimal)
         }
 

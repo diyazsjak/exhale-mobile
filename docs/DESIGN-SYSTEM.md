@@ -33,7 +33,7 @@ Neutrals carry the UI; accents carry meaning.
 ## Shape, space and size
 
 - 4px spacing scale; screens use a 20px side gutter (`space-lg`) and 16px between blocks (`space-md`).
-- Radii: `radius-pill` for anything tappable that is a single line (buttons, chips, badges, tab bar, segmented control), `radius-md` for inputs and option cards, `radius-lg` for cards.
+- Radii: `radius-pill` for anything tappable that is a single line (buttons, chips, badges, tab bar, segmented control), `radius-md` for inputs and option cards, `radius-lg` for cards, `radius-xs` (6) for small drawn objects such as Money's pack icons.
 - Sizes: `button-large` 60, `button-medium` 48, `icon-button` 48, `chip` 40, `tab-bar` 68. Touch targets are never under 44.
 - Elevation: flat. The only shadow is a soft one on the floating tab bar in light. Dark uses tone and a `line` outline instead of shadows.
 
@@ -159,7 +159,8 @@ Filled text field with the label above and a soft focus ring.
 
 Label in `caption`/`ink-soft` above a 56px `surface` box with `radius-md`; text in `body`/`ink`, placeholder in `ink-faint`. Focus draws a 1.5px `sky` ring. Put related short fields side by side with `space-sm` gaps. Validation messages go in a caption below the group, not in red.
 
-- Compose: `ExTextField("Pack price", value, onChange, type = KeyboardType.Decimal, placeholder = "10.00")`.
+- With `maxLength`, input is cut at that length and a "12 / 40" counter in `ink-faint` sits beside the label (goal names).
+- Compose: `ExTextField("Pack price", value, onChange, type = KeyboardType.Decimal, placeholder = "10.00")`; `maxLength = Money.GOAL_NAME_MAX`.
 
 ### Stepper
 
@@ -199,7 +200,14 @@ Thick progress ring with a sky-to-oxygen sweep and content in the middle. (The E
 
 Track `surface`, 28px stroke, round caps, fills clockwise from 12 o'clock. Colours run `sky` → `oxy` (time being earned back). The centre holds a `number-large` value and a caption.
 
+- On a tinted card pass `track = c.tint(accent)`, e.g. the 104px `sun` goal ring on Money (12px stroke).
 - Compose: `GradientRing(progress, listOf(c.sky, c.oxy)) { Text(...) }`.
+
+### Dialog
+
+A small centred card over the system scrim for something that didn't fit where it was, such as a long goal name. Content plus a Tonal "Close" button; tap outside or Back also closes it.
+
+- Compose: `ExDialog(onDismiss) { Overline("Saving for"); Text(name, style = ExType.headline) }`.
 
 ### WeekStrip
 
@@ -243,4 +251,4 @@ iOS-style floating pill tab bar, icons only; the selected tab sits in a lighter 
 
 - The web previews are static HTML/CSS renditions written by hand from the Compose components; they are not generated from the Kotlin code.
 - Animated and chart components (the Ember orb, the Urge Wave, the particle field, the Smoke Clock) are screen-specific and are not in this kit.
-- Link, ActiveFilter, MonthCalendar, LegendItem, the Tonal button and the outlined card are in the in-app catalogue but have no web preview yet.
+- Link, ActiveFilter, MonthCalendar, LegendItem, Dialog, the Tonal button, the outlined card and the capped text field are in the in-app catalogue but have no web preview yet.

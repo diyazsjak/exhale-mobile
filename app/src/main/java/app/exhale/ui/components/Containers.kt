@@ -142,3 +142,21 @@ fun RowScope.Fill() = Spacer(Modifier.weight(1f))
 fun RowScope.HeaderLabel(text: String) {
     Text(text, style = ExType.labelSmall, color = Ex.colors.inkSoft, modifier = Modifier.weight(1f).padding(horizontal = ExSpace.xs), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
 }
+
+/**
+ * A small centred card over a scrim, for something that didn't fit where it was, such as a long
+ * goal name. Tap outside, press Back or the button to close.
+ */
+@Composable
+fun ExDialog(onDismiss: () -> Unit, modifier: Modifier = Modifier, action: String = "Close", content: @Composable ColumnScope.() -> Unit) {
+    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
+        ExCard(modifier) {
+            content()
+            ExButton(
+                action, onDismiss,
+                Modifier.fillMaxWidth().padding(top = ExSpace.sm),
+                style = ButtonStyle.Tonal, size = ButtonSize.Medium,
+            )
+        }
+    }
+}

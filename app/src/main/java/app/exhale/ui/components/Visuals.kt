@@ -45,7 +45,8 @@ import java.util.Locale
 
 /**
  * Thick ring with a soft gradient sweep, like a check-in ring.
- * [progress] 0..1 fills clockwise from the top. [content] sits in the middle.
+ * [progress] 0..1 fills clockwise from the top. [content] sits in the middle. [track] defaults to
+ * `surface`; on a tinted card pass a tint of the accent instead.
  */
 @Composable
 fun GradientRing(
@@ -54,9 +55,10 @@ fun GradientRing(
     modifier: Modifier = Modifier,
     stroke: Dp = 28.dp,
     contentDescription: String? = null,
+    track: Color? = null,
     content: @Composable BoxScope.() -> Unit = {},
 ) {
-    val track = Ex.colors.surface
+    val track = track ?: Ex.colors.surface
     Box(
         modifier.fillMaxWidth().aspectRatio(1f).then(
             if (contentDescription != null) Modifier.semantics { this.contentDescription = contentDescription } else Modifier

@@ -7,6 +7,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onRoot
+import app.exhale.domain.Money
 import app.exhale.domain.PlanMath
 import app.exhale.domain.SmokeLog
 import app.exhale.domain.Stats
@@ -129,15 +130,15 @@ class ScreenshotTest {
         val interval = PlanMath.intervalMinutes(allowance, settings.wakingMinutes)
         val last = logs.last()
         val start = settings.planStart.atStartOfDay(zone).toInstant()
-        val notSmoked = Stats.notSmoked(settings.baselinePerDay, start, now, logs.count { it.at >= start })
         val dataStart = Stats.dataStart(settings.planStart, logs, zone)
+        val money = Money.summary(settings, logs, now, zone)
         return ExhaleState(
             loaded = true, now = now, settings = settings, logs = logs, urges = urges, today = today,
             todayCount = todayCount, allowance = allowance, intervalMinutes = interval,
             lastLog = last, sinceLast = Duration.between(last.at, now),
             nextAllowedAt = last.at.plus(Duration.ofMinutes(interval.toLong())),
             heat = Stats.heat(now, last.at, interval),
-            notSmoked = notSmoked, savedMinor = Stats.moneySavedMinor(notSmoked, settings.pricePerCigMinor),
+            notSmoked = money.notSmoked, savedMinor = money.keptMinor, money = money,
             longestGapWeek = Stats.longestGap(logs, now, Duration.ofDays(7)),
             clearFraction = 0.4f,
             dataStart = dataStart,
@@ -201,8 +202,16 @@ class ScreenshotTest {
     @Test fun moneyDark() = shot("6_money", true, 3) { MoneyScreen(sampleState()) }
     @Test fun moneyLight() = shot("6_money", false, 3) { MoneyScreen(sampleState()) }
     @Test fun moneyBigKztDark() = shot("6b_money_kzt", true, 3) {
+        // A pack of 20 at 19,900 KZT: six-figure amounts must still fit on one line.
         val st = sampleState()
-        MoneyScreen(st.copy(settings = st.settings.copy(currencyCode = "KZT", goalMinor = 25_000_000), savedMinor = 1_234_500))
+        val s = st.settings.copy(currencyCode = "KZT", packPriceMinor = 1_990_000, goalMinor = 25_000_000)
+        MoneyScreen(st.copy(settings = s, money = Money.summary(s, st.logs, now, zone)))
+    }
+    @Test fun moneyLongGoalDark() = shot("6c_money_long", true, 3) {
+        // 60 days in (packs, both recent amounts, pace) and a goal name too long for two lines.
+        val st = longState()
+        val s = st.settings.copy(goalName = "A weekend trip to the mountains with family", goalMinor = 105_000)
+        MoneyScreen(st.copy(settings = s, money = Money.summary(s, st.logs, now, zone)))
     }
     @Test fun settingsDark() = shot("7_settings", true) { SettingsScreen(sampleState().settings, {}, {}, {}, {}, {}, {}) }
     @Test fun settingsLight() = shot("7_settings", false) { SettingsScreen(sampleState().settings, {}, {}, {}, {}, {}, {}) }

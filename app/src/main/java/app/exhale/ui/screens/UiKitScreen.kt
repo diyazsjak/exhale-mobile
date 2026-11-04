@@ -39,6 +39,7 @@ import app.exhale.ui.components.ExBadge
 import app.exhale.ui.components.ExButton
 import app.exhale.ui.components.ExCard
 import app.exhale.ui.components.ExChip
+import app.exhale.ui.components.ExDialog
 import app.exhale.ui.components.ExIconButton
 import app.exhale.ui.components.ExIcons
 import app.exhale.ui.components.ExLink
@@ -140,6 +141,8 @@ fun UiKitScreen(theme: ThemeMode, onTheme: (ThemeMode) -> Unit, onClose: () -> U
         Section("Inputs")
         var text by remember { mutableStateOf("") }
         ExTextField("Text field", text, { text = it }, placeholder = "Placeholder")
+        var capped by remember { mutableStateOf("New headphones") }
+        ExTextField("With a length cap", capped, { capped = it }, maxLength = 40)
         var n by remember { mutableIntStateOf(12) }
         Stepper(n, { n = it }, 0..60, "stepper")
         var seg by remember { mutableIntStateOf(0) }
@@ -157,6 +160,9 @@ fun UiKitScreen(theme: ThemeMode, onTheme: (ThemeMode) -> Unit, onClose: () -> U
             Overline("Card · overline")
             Row { Stat("13", "a day this week", Modifier.weight(1f)); Stat("12", "next week", Modifier.weight(1f), color = c.oxyInk) }
         }
+        var dialog by remember { mutableStateOf(false) }
+        ExButton("Open a dialog", { dialog = true }, Modifier.fillMaxWidth(), style = ButtonStyle.Secondary, size = ButtonSize.Medium)
+        if (dialog) ExDialog({ dialog = false }) { Overline("Saving for"); Text("A weekend trip to the mountains with my family", style = ExType.headline, color = c.ink) }
         var lit by remember { mutableStateOf(true) }
         ExCard(onClick = { lit = !lit }, outlined = lit) { Text("Tappable card, outlined while on", style = ExType.body, color = c.ink) }
 
@@ -164,6 +170,11 @@ fun UiKitScreen(theme: ThemeMode, onTheme: (ThemeMode) -> Unit, onClose: () -> U
         StepProgress(2, 4, Modifier.fillMaxWidth())
         GradientRing(0.62f, listOf(c.sky, c.oxy), Modifier.padding(horizontal = 64.dp), stroke = 20.dp) {
             Text("62%", style = ExType.number, color = c.ink)
+        }
+        ExCard(color = c.tint(c.sun)) {
+            GradientRing(0.31f, listOf(c.sun, c.sun), Modifier.size(104.dp), stroke = 12.dp, track = c.tint(c.sun)) {
+                Text("31%", style = ExType.numberSmall, color = c.ink)
+            }
         }
         val today = LocalDate.now()
         WeekStrip((0..6).map { i -> val d = today.minusDays((6 - i).toLong()); DayDot(d, listOf(9, 11, 8, 14, 10, 7, 5)[i], 10) }, today)

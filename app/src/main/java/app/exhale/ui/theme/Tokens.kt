@@ -19,6 +19,8 @@ object ExSpace {
 }
 
 object ExRadius {
+    /** Small drawn objects, e.g. the pack icons on Money. */
+    val xs = RoundedCornerShape(6.dp)
     val sm = RoundedCornerShape(12.dp)
     val md = RoundedCornerShape(20.dp)
     val lg = RoundedCornerShape(28.dp)

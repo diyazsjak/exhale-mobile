@@ -164,14 +164,26 @@ Shows the last 30 days (today and the 29 before), or one picked day. Order:
 - WHO milestones list; locked ones show a countdown. Source line at the bottom.
 
 ### 3.6 Money — `MoneyScreen.kt`
-Same background as every screen; money is carried by `sun` accents.
-- Saved = (baseline × days since plan start − cigarettes smoked since) × price per cigarette, floored at 0.
-  Shown on one line: the digits, then the currency symbol or code at 45% ("12,345 KZT"), shrinking
-  from 88sp to fit. All money text puts the currency after the number.
-- Sticks row: progress to the next hundred not smoked (60 sticks stand for 100), captioned "24
-  toward your next hundred."
-- Goal card with progress, what's still to go and weeks at the current pace ("537 $ to go · about 37
-  weeks at this pace"); the amount kept is the hero, so the card doesn't repeat it.
+Same background as every screen; money is carried by `sun` accents. All numbers come from
+`Money.summary` (§4), so the amount, recent amounts, pace, packs and goal agree.
+- Header: "Money · since 4 September" (the plan start).
+- **Hero**: the amount kept since the plan started on one line (digits, then the currency at 45%,
+  shrinking from 88sp to fit; all money text puts the currency after the number), "kept since you
+  started", and "You used to smoke 18 a day. Since you started, you've smoked 372 fewer than that."
+  (before any: "Every one you skip from here adds up.").
+- **Recent pills** under the hero: "35 $ in the last 7 days", "130 $ in the last 30 days", each only
+  once the plan is older than that window (before then it would equal the total).
+- **Packs you didn't buy**: "18 packs you didn't buy", one icon per pack (up to 39, then "+N"), the
+  next pack filling up, "The last one is filling up: 12 of 20." ("Your first pack is filling up…"
+  before the first).
+- **At this pace** (when the pace is above 0): "If the next weeks go like your last 7 days (35 $ a
+  week), you'll keep:" then in a month (30 days), 6 months (182) and a year (365). Under a week in,
+  the pace is the average week so far ("your days so far").
+- **Goal card** on a sun tint: progress ring with the percentage, "Saving for", the name (two lines
+  at most, then "…") and its price, then "413 $ still to go" and "~12 weeks at this pace" (the same
+  pace), or "Reached · go get it". When the name is cut, tapping the card opens it in full in a
+  dialog. Goal names are capped at 40 characters where they are typed (Onboarding, Settings).
+- Footer: "A pack of 20 costs 10.00 $, so each one is 0.50 $. Change it in Settings."
 
 ### 3.7 Onboarding — `OnboardingScreen.kt`
 One question per screen. Nothing is saved until the last step; system Back goes to the previous step.
@@ -225,6 +237,14 @@ Full-screen route from Rhythm's "All history ›" (back button, no tab bar).
 
 ### Other stats — `Stats`
 - `notSmoked(baseline, since, now, smokedSince)` uses fractional days.
+
+### Money — `Money`
+- Kept over a stretch = (baseline × days in it − smoked in it) × price of one, floored at 0, only
+  counting time since the plan start (`notSmokedBetween`). `summary(...)` gives the total, the last
+  7 and 30 days (null until the plan is older than the window), the weekly pace (last 7 days, else
+  the average week so far once a day in), packs and remainder, goal left, progress and weeks to it
+  (`ceil(left / weekly)`, 0 once reached, null at a pace of 0). Projections are `weekly × days / 7`.
+- Goal names: at most `GOAL_NAME_MAX` (40) characters.
 - `hourly(logs, period, now, zone, dataStart)` returns 24 per-day averages. A `Period` is a range of
   calendar days (the last 30 is today and the 29 before it) plus a day filter. Each hour is averaged
   over the days on which it has started by `now` and that are on or after `dataStart` (earlier of
