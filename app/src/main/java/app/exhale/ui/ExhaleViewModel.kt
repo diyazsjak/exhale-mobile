@@ -12,6 +12,8 @@ import app.exhale.domain.Milestones
 import app.exhale.domain.Money
 import app.exhale.domain.MoneySummary
 import app.exhale.domain.PlanMath
+import app.exhale.domain.Recovery
+import app.exhale.domain.RecoverySummary
 import app.exhale.domain.SmokeLog
 import app.exhale.domain.Stats
 import app.exhale.domain.ThemeMode
@@ -55,8 +57,9 @@ data class ExhaleState(
     /** Everything the Money screen shows. */
     val money: MoneySummary? = null,
     val urgesSurvived: Int = 0,
-    val longestGapWeek: Duration = Duration.ZERO,
     val clearFraction: Float = 1f,
+    /** Everything the Air screen shows besides [sinceLast]. */
+    val recovery: RecoverySummary? = null,
     /** When tracking began: the plan start, or the first log if earlier. Null with neither. */
     val dataStart: LocalDate? = null,
     /** The last 7 days, today last, for the week strip on Rhythm. */
@@ -119,8 +122,8 @@ class ExhaleViewModel(private val repo: ExhaleRepository) : ViewModel() {
             savedMinor = money.keptMinor,
             money = money,
             urgesSurvived = urges.count { it.outcome == UrgeOutcome.SURVIVED },
-            longestGapWeek = Stats.longestGap(logs, now, Duration.ofDays(7)),
             clearFraction = Milestones.clearFraction(sinceLast),
+            recovery = Recovery.summary(s, logs, now, zone),
             dataStart = dataStart,
             week = weekDays(s, logs, today, zone, dataStart),
         )

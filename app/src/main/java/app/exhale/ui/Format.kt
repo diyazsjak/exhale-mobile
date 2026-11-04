@@ -4,6 +4,7 @@ import java.text.NumberFormat
 import java.time.Duration
 import java.util.Currency
 import java.util.Locale
+import kotlin.math.roundToInt
 
 object Fmt {
     /** "2h 41m", "14m", "3d 2h". */
@@ -17,6 +18,20 @@ object Fmt {
             days > 0 -> "${days}d ${h}h"
             h > 0 -> "${h}h ${m}m"
             else -> "${m}m"
+        }
+    }
+
+    /**
+     * A wait in round terms, for things hours to years away: "9h 19m" under two days, then
+     * "13 days", "11 months", "1 year", "5 years".
+     */
+    fun roughly(d: Duration): String {
+        val days = d.toDays()
+        return when {
+            days < 2 -> gap(d)
+            days < 60 -> "$days days"
+            days < 335 -> "${days / 30} months"
+            else -> (days / 365.0).roundToInt().coerceAtLeast(1).let { if (it == 1) "1 year" else "$it years" }
         }
     }
 

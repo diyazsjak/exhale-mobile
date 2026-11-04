@@ -159,9 +159,39 @@ Shows the last 30 days (today and the 29 before), or one picked day. Order:
   lines fades; the comparison and plan cards fade and fold in or out.
 
 ### 3.5 Air — `AirScreen.kt`
-- Particle field: ash-grey particles turn Oxygen as `clearFraction` (progress to 12 h) rises.
-- Time since last; longest gap in 7 days.
-- WHO milestones list; locked ones show a countdown. Source line at the bottom.
+What the body gets back after each cigarette, built so that **nothing resets**: a gap counts from
+its last cigarette, and a milestone that any gap has reached stays reached. Order:
+- **Header**: "Recovery · if you stop now". Particle field behind everything: ash-grey particles
+  turn oxygen as `clearFraction` (progress to 12 h) rises.
+- **Hero**: time since the last one ("2h 41m", `oxy-ink`), "since your last one", and "Right now: …"
+  with what the body is doing on the way to the next milestone (`Milestone.underway`). Before any
+  log: "Nothing logged yet." and how the map works.
+- **Sky**: a dashed path from the last cigarette (ember dot) through every milestone; 5, 10 and 15
+  years are one small cluster, "5–15 years · The long road". A milestone is a lit oxygen dot with a
+  halo once any gap has reached it, and stays lit; the next one is an oxygen ring; the rest are small
+  grey dots. The current gap is a ringed dot with an oxygen trail behind it, placed by
+  `Milestones.position`; it glides back to the start after a log. Every point is labelled, so
+  nothing needs a tap: "12 h · reached Thursday / Carbon monoxide normal". A key below:
+  "reached at least once" (only once something is) and "this gap".
+- **Scrolling**: the sky rises at 35% of the scroll speed, by at most 120dp, and dims to 30% over
+  360dp; its labels and key fade out in the first 80dp, drifting up 8dp. Everything after it scrolls
+  normally over it, so the dimmed sky stays behind the cards. The hero scrolls away.
+- **Next card**: a sky→oxygen ring of the way to the next milestone with the time to go in the
+  middle ("9h 19m", then "13 days", "11 months", "1 year"), "Next · 12 hours", the milestone and when
+  ("Today at 23:40", "Tomorrow at 09:10", "Saturday at 10:00", "On 18 Nov").
+- **Today's air**: today's gaps as oxygen blocks on a 24-hour line, the taller the longer (log scale
+  with dashed lines at 20 min and 12 h); ember ticks are today's cigarettes. The running gap is solid
+  with a dot at its top and a dashed outline of where it reaches 12 hours. The night counts in full
+  from yesterday's last one. Under it: "5 gaps past 20 minutes today. Longest: 9h 43m.", or, while
+  no gap has reached 20 minutes, when this one will; with nothing today, how long this gap has run.
+- **Body recovery**: every milestone on a vertical line: the last one, milestones this gap reached
+  (filled with a check, "Reached at 12:19"), "You are here · 2h 41m", the next ("12 hours · in 9h
+  19m"), then the rest with WHO's range and how far off. A milestone reached in an earlier gap gets a
+  "You've been here · Thursday" badge. 5, 10 and 15 years fold into "The long road" until this gap is
+  past a year. Source line at the bottom.
+- **Cutting down**: on an oxygen tint, "30 fewer than your old 16 a day in the last 7 days" (or
+  "since you started" under a week in), "Cutting down clears the air too." Hidden at 0.
+- Times follow the phone's 12/24-hour setting.
 
 ### 3.6 Money — `MoneyScreen.kt`
 Same background as every screen; money is carried by `sun` accents. All numbers come from
@@ -267,6 +297,20 @@ Full-screen route from Rhythm's "All history ›" (back button, no tab bar).
 
 ### Milestones — `Milestones`
 WHO timeline; lower bound of each range unlocks it. `clearFraction` = progress to 12 h, min 0.05.
+- `next(since)`: the first milestone not reached; null with no logs or once all are. `reached(since)`
+  counts the ones reached.
+- `position(since)`: where the current gap sits on the sky's path, 0 (last cigarette) to 8: linear up
+  to 20 minutes, then a log scale between milestones (2 h is halfway from 20 min to 12 h).
+
+### Recovery — `Recovery`
+- `lastReached(logs, now)`: per milestone, the most recent moment a gap reached it (its start +
+  the milestone's time), counting gaps between consecutive logs and last log → now. The stretch
+  before the first log counts for nothing. Once reached it stays set.
+- `day(logs, now, zone)`: today's gaps, oldest first: the one ending with today's first log when an
+  earlier log starts it (kept at full length), the ones between today's logs, and the running one to
+  now. With no log today, the running gap is the only one.
+- `summary(...).fewer`: `Money.notSmokedBetween` against the baseline over the last 7 days, or from
+  the plan start when that is newer; null under a day in.
 
 ---
 

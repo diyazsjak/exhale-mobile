@@ -9,6 +9,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onRoot
 import app.exhale.domain.Money
 import app.exhale.domain.PlanMath
+import app.exhale.domain.Recovery
 import app.exhale.domain.SmokeLog
 import app.exhale.domain.Stats
 import app.exhale.domain.TaperType
@@ -139,8 +140,8 @@ class ScreenshotTest {
             nextAllowedAt = last.at.plus(Duration.ofMinutes(interval.toLong())),
             heat = Stats.heat(now, last.at, interval),
             notSmoked = money.notSmoked, savedMinor = money.keptMinor, money = money,
-            longestGapWeek = Stats.longestGap(logs, now, Duration.ofDays(7)),
             clearFraction = 0.4f,
+            recovery = Recovery.summary(settings, logs, now, zone),
             dataStart = dataStart,
             week = weekDays(settings, logs, today, zone, dataStart),
         )
@@ -199,6 +200,21 @@ class ScreenshotTest {
     @Test fun rhythmLight() = shot("4_rhythm", false, 1) { RhythmScreen(longState()) }
     @Test fun airDark() = shot("5_air", true, 2) { AirScreen(sampleState()) }
     @Test fun airLight() = shot("5_air", false, 2) { AirScreen(sampleState()) }
+    // Scrolled past the sky: it has risen a little, dimmed and dropped its labels; cards scroll over it.
+    @Test fun airScrolledDark() = shot("5b_air_scrolled", true, 2) { AirScreen(sampleState(), initialScroll = 1300) }
+    @Test fun airScrolledLight() = shot("5b_air_scrolled", false, 2) { AirScreen(sampleState(), initialScroll = 1300) }
+    // Four minutes after a cigarette: the gap starts again, but milestones reached before stay lit.
+    @Test fun airLoggedDark() = shot("5c_air_logged", true, 2) { AirScreen(sampleState(4)) }
+    @Test fun airLoggedLight() = shot("5c_air_logged", false, 2) { AirScreen(sampleState(4)) }
+    // The whole screen at once: sky, next milestone, today's gaps, timeline and the cutting-down card.
+    @Config(qualifiers = "w411dp-h2000dp-xxhdpi")
+    @Test fun airFullDark() = shot("5e_air_full", true) { AirScreen(sampleState()) }
+    @Config(qualifiers = "w411dp-h2000dp-xxhdpi")
+    @Test fun airFullLight() = shot("5e_air_full", false) { AirScreen(sampleState()) }
+    @Test fun airNewDark() = shot("5d_air_new", true, 2) {
+        val st = sampleState()
+        AirScreen(st.copy(logs = emptyList(), lastLog = null, sinceLast = null, recovery = Recovery.summary(st.settings, emptyList(), now, zone)))
+    }
     @Test fun moneyDark() = shot("6_money", true, 3) { MoneyScreen(sampleState()) }
     @Test fun moneyLight() = shot("6_money", false, 3) { MoneyScreen(sampleState()) }
     @Test fun moneyBigKztDark() = shot("6b_money_kzt", true, 3) {
