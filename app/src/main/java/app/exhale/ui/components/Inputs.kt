@@ -174,7 +174,7 @@ fun SegmentedControl(options: List<String>, selected: Int, onSelect: (Int) -> Un
     }
 }
 
-/** Segmented progress for multi-step flows. Filled segments cool from ember to oxygen. */
+/** Segmented progress for multi-step flows. Done segments are `ink`, the rest `surfaceHigh`. */
 @Composable
 fun StepProgress(step: Int, total: Int, modifier: Modifier = Modifier) {
     val c = Ex.colors
@@ -188,7 +188,7 @@ fun StepProgress(step: Int, total: Int, modifier: Modifier = Modifier) {
                     .weight(1f)
                     .height(4.dp)
                     .clip(ExRadius.pill)
-                    .background(if (i < step) c.heat(1f - i / (total - 1f).coerceAtLeast(1f)) else c.surfaceHigh)
+                    .background(if (i < step) c.ink else c.surfaceHigh)
             )
         }
     }

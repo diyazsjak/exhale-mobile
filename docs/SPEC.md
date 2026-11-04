@@ -187,7 +187,7 @@ Same background as every screen; money is carried by `sun` accents. All numbers 
 
 ### 3.7 Onboarding — `OnboardingScreen.kt`
 One question per screen. Nothing is saved until the last step; system Back goes to the previous step.
-A segmented progress bar (steps 1–4) fills with colours that cool from Ember to Oxygen.
+A segmented progress bar (steps 1–4) fills in one colour (`ink`).
 
 | Step | Asks | Notes |
 |---|---|---|

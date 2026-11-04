@@ -188,9 +188,9 @@ Same 44px track as the segmented control. The filter is named in `label-small`/`
 
 ### StepProgress
 
-Segmented progress bar for multi-step flows; filled segments cool from ember to oxygen.
+Segmented progress bar for multi-step flows; filled segments are one neutral colour.
 
-4px pill segments with 6px gaps. Done segments take the heat scale from warm (first) to cool (last), so finishing onboarding literally cools the bar. Pair with a "2 / 4" badge.
+4px pill segments with 6px gaps. Done segments are `ink`, the rest `surface-high`. It only shows progress, so it stays out of the warm/cool meaning colours. Pair with a "2 / 4" badge.
 
 - Compose: `StepProgress(step, total)`.
 
