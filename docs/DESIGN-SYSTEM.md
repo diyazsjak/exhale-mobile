@@ -25,7 +25,7 @@ Neutrals carry the UI; accents carry meaning.
 
 ## Type
 
-- **Newsreader** (serif, optical size 48) for what you feel: big states (`display`), screen titles and step questions (`title`), soft italic asides (`title-italic`), card titles (`headline`).
+- **Newsreader** (serif, optical size 48) for what you feel: big states (`display`), screen titles and step questions (`title`), soft italic asides (`title-italic`), card titles (`headline`), and lines in the user's own voice such as an if-then plan (`headline-italic`).
 - **Figtree** (sans) for what you read and tap: `body`, `label` on buttons, `label-small` on chips, `caption`, uppercase `overline` labels.
 - **Numbers that change** (timers, counts) use the `number-*` styles with tabular digits (`font-feature-settings: "tnum"`) so they don't jitter.
 - Serif headlines are sentence case and short; break a two-line title with a deliberate line break, as in "The air / is clearing."
@@ -64,7 +64,7 @@ Plain, short, second person. A cigarette is information: "Logged. 8 of 12 today.
 
 ## Components
 
-Button, IconButton, Chip, Badge, Card, OptionCard, TextField, Stepper, SegmentedControl, StepProgress, GradientRing, WeekStrip, ListRow and FloatingTabBar. Each card below has guidelines and a live web rendition styled by `components/bundle.css`. In the app they are Compose functions in `ui/components/` (`ExButton`, `ExIconButton`, `ExChip`, `ExBadge`, `ExCard`, `OptionCard`, `ExTextField`, `Stepper`, `SegmentedControl`, `StepProgress`, `GradientRing`, `WeekStrip`, `ListRow`, `FloatingTabBar`). Every screen sits in `ExScreen`, which applies `bg`, the status-bar inset, the gutter and the tab-bar clearance. The app also has a live catalogue: Settings → Prototype tools → Design system.
+Button, IconButton, Link, Chip, Badge, Card, OptionCard, TextField, Stepper, SegmentedControl, ActiveFilter, StepProgress, GradientRing, WeekStrip, MonthCalendar, LegendItem, ListRow and FloatingTabBar. Each card below has guidelines and a live web rendition styled by `components/bundle.css`. In the app they are Compose functions in `ui/components/` (`ExButton`, `ExIconButton`, `ExLink`, `ExChip`, `ExBadge`, `ExCard`, `OptionCard`, `ExTextField`, `Stepper`, `SegmentedControl`, `ActiveFilter`, `StepProgress`, `GradientRing`, `WeekStrip`, `MonthCalendar`, `LegendItem`, `ListRow`, `FloatingTabBar`). Every screen sits in `ExScreen`, which applies `bg`, the status-bar inset, the gutter and the tab-bar clearance. The app also has a live catalogue: Settings → Prototype tools → Design system.
 
 ## Colour tokens
 
@@ -96,9 +96,9 @@ Button, IconButton, Chip, Badge, Card, OptionCard, TextField, Stepper, Segmented
 
 ### Button
 
-Pill button in four styles; Large (60) is the default and spans the width for screen actions.
+Pill button in five styles; Large (60) is the default and spans the width for screen actions.
 
-Use **Primary** for the one main action of a screen (`primary` fill, `on-primary` label). **Secondary** (`surface`) for other actions, optionally with a leading icon. **Accent** for an action with meaning, such as "I'm okay now" in the Urge Wave: `oxy` in dark, `oxy-ink` in light so the white label stays 5.7:1. **Ghost** for skip or cancel.
+Use **Primary** for the one main action of a screen (`primary` fill, `on-primary` label). **Secondary** (`surface`) for other actions, optionally with a leading icon. **Tonal** (`surface-high`) is Secondary inside a card, where `surface` would disappear, such as "Help me wait" on Rhythm's plan card. **Accent** for an action with meaning, such as "I'm okay now" in the Urge Wave: `oxy` in dark, `oxy-ink` in light so the white label stays 5.7:1. **Ghost** for skip or cancel.
 
 - Sizes: Large `button-large` (60) with `label`; Medium `button-medium` (48) with `label-small`.
 - Disabled: `surface-high` fill, `ink-faint` label. Explain why nearby in a caption.
@@ -112,6 +112,14 @@ Round 48px icon button for headers: back, close, settings.
 `surface` circle with an `ink` icon at 24px. The plain variant drops the fill for low-emphasis spots. Always give it an accessibility label ("Back", "Close", "Settings").
 
 - Compose: `ExIconButton(ExIcons.Back, "Back", onClick)`; `filled = false` for plain.
+
+### Link
+
+Inline way onward from a line of text, such as "All history ›" beside Rhythm's "Last 7 days".
+
+`label-small` in `ink` with a 16px chevron, no fill. Keeps a 40px touch height without adding visual weight. Use it for navigation, never for an action that changes data.
+
+- Compose: `ExLink("All history", onClick)`.
 
 ### Chip
 
@@ -133,9 +141,9 @@ Neutral by default (`surface`, `ink-soft`). With an accent: a tint fill and the 
 
 Rounded surface that groups related content: an overline, a headline or stats, and supporting text.
 
-`surface` fill, `radius-lg`, `space-lg` padding, `space-xs` between children. No borders or shadows. Over a busy background (the Air particles) the fill may drop to 88% opacity. On the logged card use `surface-high` so `surface` chips inside stay visible.
+`surface` fill, `radius-lg`, `space-lg` padding, `space-xs` between children. No borders or shadows. Over a busy background (the Air particles) the fill may drop to 88% opacity. On the logged card use `surface-high` so `surface` chips inside stay visible. A whole card can be tappable; when tapping switches something on (Rhythm's comparison card lighting up the clock's lines) it is `outlined` with a 1.5px `ink` ring while on. A stat that is good news, such as craving waves ridden out, may sit on an oxygen tint card with its number in `oxy-ink`.
 
-- Compose: `ExCard { Overline("Plan · −1 per week"); Row { Stat(...) } }`.
+- Compose: `ExCard { Overline("Plan · −1 per week"); Row { Stat(...) } }`; `ExCard(onClick = …, outlined = on)`; `ExCard(color = c.tint(c.oxy))`.
 
 ### OptionCard
 
@@ -169,6 +177,14 @@ iOS-style segmented control with a sliding thumb for switching views or modes.
 
 - Compose: `SegmentedControl(listOf("System", "Light", "Dark"), selected, onSelect)`.
 
+### ActiveFilter
+
+Takes a segmented control's place while something more specific filters the screen, such as a day picked in Rhythm's week strip.
+
+Same 44px track as the segmented control. The filter is named in `label-small`/`ink` ("Sunday · 10, 2 borrowed") and a thumb-coloured pill button on the right clears it ("Back to 30 days").
+
+- Compose: `ActiveFilter(text, action = "Back to 30 days", onAction)`.
+
 ### StepProgress
 
 Segmented progress bar for multi-step flows; filled segments cool from ember to oxygen.
@@ -187,11 +203,25 @@ Track `surface`, 28px stroke, round caps, fills clockwise from 12 o'clock. Colou
 
 ### WeekStrip
 
-S M T W T F S row of circles: each past day shows its count, tinted oxygen within the allowance and ember when over.
+Row of seven day circles (Rhythm shows the last 7 days, today last): each tracked day shows its count, tinted oxygen within the allowance and ember when over.
 
-40px circles. Within allowance: oxygen tint with `oxy-ink` count. Over: ember tint with `ember-ink` count. Today: 1.5px `ink` ring and an `ink` weekday letter. Future days are empty `surface` circles. First day follows the locale.
+40px circles. Within allowance: oxygen tint with `oxy-ink` count. Over: ember tint with `ember-ink` count. Before the plan started (no allowance): `surface-high` with an `ink` count. Zero: `surface` with an `ink-faint` 0. Before tracking began: a hairline `line` ring, no count, not tappable. Future days: no circle. Today: 1.5px `ink` ring and an `ink` weekday letter.
 
-- Compose: `WeekStrip(days, today)` with `DayDot(date, count, allowance)`; pass `selected` and `onSelect` to make past days tappable (Rhythm), which moves the outline from today to the picked day.
+- Compose: `WeekStrip(days, today)` with `DayDot(date, count, allowance)` (`count` null = not tracked, `allowance` null = before the plan); pass `selected` and `onSelect` to make tracked days tappable (Rhythm), which moves the outline from today to the picked day.
+
+### MonthCalendar
+
+One month of the same day circles in a 7-column grid, for History.
+
+Weekday letters (`overline`, `ink-faint`, first day per locale), then per day its date (`overline`) above a WeekStrip circle. Today has the `ink` ring and an `ink` date. Future days show only their date, and weeks that are entirely still to come are left out. Tracked days are tappable.
+
+- Compose: `MonthCalendar(month, days, today, onSelect = { date -> … })`.
+
+### LegendItem
+
+Colour key entry: a 12px dot in the accent and its meaning in `caption`/`ink-soft`. Use the full accent for the dot (not the tint) so it reads in dark.
+
+- Compose: `Row { LegendItem(c.oxy, "Within allowance"); LegendItem(c.ember, "Borrowed from the next day") }`.
 
 ### ListRow
 
@@ -212,4 +242,5 @@ iOS-style floating pill tab bar, icons only; the selected tab sits in a lighter 
 ## Not synced
 
 - The web previews are static HTML/CSS renditions written by hand from the Compose components; they are not generated from the Kotlin code.
-- Animated components (the Ember orb, the Urge Wave, the particle field, the Smoke Clock heatmap) are screen-specific and are not in this kit.
+- Animated and chart components (the Ember orb, the Urge Wave, the particle field, the Smoke Clock) are screen-specific and are not in this kit.
+- Link, ActiveFilter, MonthCalendar, LegendItem, the Tonal button and the outlined card are in the in-app catalogue but have no web preview yet.

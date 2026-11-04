@@ -101,6 +101,45 @@ class StatsTest {
         assertFalse(split.mostly)
     }
 
+    @Test fun coveredDays_countsFilteredStartedDaysSinceTrackingBegan() {
+        // Last 30 days with tracking from 5 days ago: 5 days, today included.
+        assertEquals(5, Stats.coveredDays(Period.lastDays(today, 30), now, ZoneOffset.UTC, today.minusDays(4)))
+        // Weekends only in the same span (Sat 7th, Sun 8th).
+        assertEquals(2, Stats.coveredDays(Period.lastDays(today, 30, filter = DayFilter.WEEKENDS), now, ZoneOffset.UTC, today.minusDays(4)))
+        // The 30 days before that: nothing tracked yet.
+        assertEquals(0, Stats.coveredDays(Period.lastDays(today, 30, offsetDays = 30), now, ZoneOffset.UTC, today.minusDays(4)))
+        assertEquals(30, Stats.coveredDays(Period.lastDays(today, 30), now, ZoneOffset.UTC, LocalDate.parse("2025-01-01")))
+        assertEquals(0, Stats.coveredDays(Period.lastDays(today, 30), now, ZoneOffset.UTC, null))
+    }
+
+    @Test fun peaks_busiestThenASecondFarEnoughAndBusyEnough() {
+        val h = FloatArray(24)
+        h[8] = 1.6f; h[9] = 1.5f; h[13] = 1.2f; h[19] = 1.1f
+        assertEquals(listOf(8, 13), Stats.peaks(h)) // 9 is too close, 13 is 75% as busy
+        h[13] = 1.0f
+        assertEquals(listOf(8), Stats.peaks(h)) // 13 (62%) and 19 (69%) are not busy enough
+        h[19] = 1.2f
+        assertEquals(listOf(8, 19), Stats.peaks(h))
+    }
+
+    @Test fun peaks_wrapAroundMidnightAndEmpty() {
+        val h = FloatArray(24)
+        h[23] = 2f; h[1] = 1.9f
+        assertEquals(listOf(23), Stats.peaks(h)) // 1 am is only 2 hours from 11 pm
+        assertEquals(emptyList<Int>(), Stats.peaks(FloatArray(24)))
+    }
+
+    @Test fun longestGapBetween_clipsToTheWindow() {
+        val from = now.minus(Duration.ofHours(10))
+        val to = now
+        // Anchor 12h ago, logs 6h and 1h ago: stretches 4h (clipped from 10h), 5h, 1h.
+        val logs = listOf(log(12 * 60), log(6 * 60), log(60))
+        assertEquals(Duration.ofHours(5), Stats.longestGapBetween(logs, from, to))
+        assertEquals(Duration.ZERO, Stats.longestGapBetween(emptyList(), from, to))
+        // Nothing inside but an earlier log: the whole window.
+        assertEquals(Duration.ofHours(10), Stats.longestGapBetween(listOf(log(12 * 60)), from, to))
+    }
+
     @Test fun period_containsOnlyItsFilteredDays() {
         val p = Period.lastDays(today, 7, filter = DayFilter.WEEKDAYS)
         assertTrue(p.contains(at("2026-03-09", 10).at, ZoneOffset.UTC))

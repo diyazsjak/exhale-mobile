@@ -47,6 +47,8 @@ object ExType {
     val title = serif.copy(fontSize = 34.sp, lineHeight = 1.12.em)
     val titleItalic = title.copy(fontStyle = FontStyle.Italic)
     val headline = serif.copy(fontSize = 24.sp, lineHeight = 1.2.em, fontWeight = FontWeight(500))
+    /** A line in the user's own voice, e.g. an if-then plan. */
+    val headlineItalic = headline.copy(fontStyle = FontStyle.Italic, fontWeight = FontWeight(400), lineHeight = 1.25.em)
 
     val body = sans.copy(fontSize = 16.sp, lineHeight = 1.5.em)
     val bodyStrong = body.copy(fontWeight = FontWeight(600))

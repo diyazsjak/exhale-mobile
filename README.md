@@ -15,7 +15,8 @@ As you cut down, the app literally cools.
 - **Ember** — home: a molten ember with orbiting droplets inside a countdown ring. Hold it 1.5 s to log; a hint under it reacts to the gesture.
 - **Countdown ring** around the ember — the gap to your next one under a tapering daily allowance. Going over borrows from tomorrow.
 - **Urge Wave** — ride a 4-minute craving wave with paced breathing and haptics.
-- **Rhythm** — this week's days (tap one to filter), a 24-hour radial heatmap of when you smoke, and triggers.
+- **Rhythm** — when you smoke: the last 7 days (tap one to filter), a 24-hour clock compared with the 30 days before, an if-then plan for your busiest hour, and triggers.
+- **History** — every day so far as a calendar, from Rhythm's "All history".
 - **Air** — WHO recovery milestones over a particle field that clears.
 - **Money** — money not burned vs. your old baseline, with a savings goal.
 - **Quick-settings tile** — log without opening the app.

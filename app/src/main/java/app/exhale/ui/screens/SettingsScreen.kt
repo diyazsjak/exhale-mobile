@@ -121,7 +121,7 @@ fun SettingsScreen(
             ListRow("Design system", onDesignSystem)
         }
         Text(
-            "Demo data replaces your logs with 30 days of made-up history, so every screen has something to show.",
+            "Demo data replaces your logs with 60 days of made-up history, so every screen has something to show.",
             style = ExType.caption, color = c.inkSoft,
         )
         ExButton("Replace my data with demo data", onDemo, Modifier.fillMaxWidth(), style = ButtonStyle.Secondary)

@@ -31,6 +31,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import app.exhale.domain.ThemeMode
 import app.exhale.domain.Trigger
+import app.exhale.ui.components.ActiveFilter
 import app.exhale.ui.components.ButtonSize
 import app.exhale.ui.components.ButtonStyle
 import app.exhale.ui.components.DayDot
@@ -40,6 +41,9 @@ import app.exhale.ui.components.ExCard
 import app.exhale.ui.components.ExChip
 import app.exhale.ui.components.ExIconButton
 import app.exhale.ui.components.ExIcons
+import app.exhale.ui.components.ExLink
+import app.exhale.ui.components.LegendItem
+import app.exhale.ui.components.MonthCalendar
 import app.exhale.ui.components.ExScreen
 import app.exhale.ui.components.ExTextField
 import app.exhale.ui.components.FloatingTabBar
@@ -61,6 +65,7 @@ import app.exhale.ui.theme.ExSize
 import app.exhale.ui.theme.ExSpace
 import app.exhale.ui.theme.ExType
 import java.time.LocalDate
+import java.time.YearMonth
 
 /**
  * Living catalogue of the design system: every token and component, interactive, in the
@@ -101,6 +106,7 @@ fun UiKitScreen(theme: ThemeMode, onTheme: (ThemeMode) -> Unit, onClose: () -> U
         TypeRow("title · Newsreader 34", ExType.title, "When you light up")
         TypeRow("titleItalic", ExType.titleItalic, "since your last one")
         TypeRow("headline · Newsreader 24", ExType.headline, "Logged")
+        TypeRow("headlineItalic", ExType.headlineItalic, "then I ride one wave first.")
         TypeRow("body · Figtree 16", ExType.body, "Going over is borrowed from tomorrow.")
         TypeRow("label · Figtree 16 semibold", ExType.label, "Continue")
         TypeRow("caption · Figtree 13", ExType.caption, "Hold the ember to log.")
@@ -111,6 +117,7 @@ fun UiKitScreen(theme: ThemeMode, onTheme: (ThemeMode) -> Unit, onClose: () -> U
         ExButton("Primary · large", {}, Modifier.fillMaxWidth())
         ExButton("Secondary", {}, Modifier.fillMaxWidth(), style = ButtonStyle.Secondary, icon = ExIcons.Wave)
         ExButton("Accent", {}, Modifier.fillMaxWidth(), style = ButtonStyle.Accent)
+        ExCard(padding = ExSpace.sm) { ExButton("Tonal · inside a card", {}, Modifier.fillMaxWidth(), style = ButtonStyle.Tonal, size = ButtonSize.Medium) }
         ExButton("Disabled", {}, Modifier.fillMaxWidth(), enabled = false)
         Row(horizontalArrangement = Arrangement.spacedBy(ExSpace.sm), verticalAlignment = Alignment.CenterVertically) {
             ExButton("Medium", {}, size = ButtonSize.Medium)
@@ -118,6 +125,7 @@ fun UiKitScreen(theme: ThemeMode, onTheme: (ThemeMode) -> Unit, onClose: () -> U
             ExIconButton(ExIcons.Settings, "Icon button", {})
             ExIconButton(ExIcons.Close, "Icon button, plain", {}, filled = false)
         }
+        ExLink("Text link", {})
 
         Section("Chips & badges")
         var chip by remember { mutableStateOf<Trigger?>(Trigger.COFFEE) }
@@ -136,6 +144,7 @@ fun UiKitScreen(theme: ThemeMode, onTheme: (ThemeMode) -> Unit, onClose: () -> U
         Stepper(n, { n = it }, 0..60, "stepper")
         var seg by remember { mutableIntStateOf(0) }
         SegmentedControl(listOf("One", "Two", "Three"), seg, { seg = it })
+        ActiveFilter("Sunday · 10, 2 borrowed", "Back to 30 days", {})
 
         Section("Selection & lists")
         var opt by remember { mutableIntStateOf(0) }
@@ -148,6 +157,8 @@ fun UiKitScreen(theme: ThemeMode, onTheme: (ThemeMode) -> Unit, onClose: () -> U
             Overline("Card · overline")
             Row { Stat("13", "a day this week", Modifier.weight(1f)); Stat("12", "next week", Modifier.weight(1f), color = c.oxyInk) }
         }
+        var lit by remember { mutableStateOf(true) }
+        ExCard(onClick = { lit = !lit }, outlined = lit) { Text("Tappable card, outlined while on", style = ExType.body, color = c.ink) }
 
         Section("Progress & data")
         StepProgress(2, 4, Modifier.fillMaxWidth())
@@ -156,6 +167,23 @@ fun UiKitScreen(theme: ThemeMode, onTheme: (ThemeMode) -> Unit, onClose: () -> U
         }
         val today = LocalDate.now()
         WeekStrip((0..6).map { i -> val d = today.minusDays((6 - i).toLong()); DayDot(d, listOf(9, 11, 8, 14, 10, 7, 5)[i], 10) }, today)
+        val month = YearMonth.from(today)
+        MonthCalendar(
+            month,
+            (1..month.lengthOfMonth()).map { d ->
+                val date = month.atDay(d)
+                when {
+                    date.isAfter(today) -> DayDot(date, null, null)
+                    d < 3 -> DayDot(date, null, null)
+                    d < 5 -> DayDot(date, 12, null)
+                    else -> DayDot(date, 8 + (d * 7) % 5, 10)
+                }
+            },
+            today,
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(ExSpace.md)) {
+            LegendItem(c.oxy, "Within allowance"); LegendItem(c.ember, "Borrowed")
+        }
 
         Section("Icons")
         FlowRow(horizontalArrangement = Arrangement.spacedBy(ExSpace.md), verticalArrangement = Arrangement.spacedBy(ExSpace.md)) {

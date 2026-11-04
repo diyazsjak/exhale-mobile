@@ -67,6 +67,40 @@ object Stats {
         return out
     }
 
+    /**
+     * How many days of [period] count toward its averages: accepted by its filter, on or after
+     * [dataStart], and already begun by [now].
+     */
+    fun coveredDays(period: Period, now: Instant, zone: ZoneId, dataStart: LocalDate?): Int {
+        if (dataStart == null) return 0
+        val today = now.atZone(zone).toLocalDate()
+        var n = 0
+        var d = maxOf(period.first, dataStart)
+        while (!d.isAfter(period.last) && !d.isAfter(today)) {
+            if (period.filter.accepts(d.dayOfWeek)) n++
+            d = d.plusDays(1)
+        }
+        return n
+    }
+
+    /**
+     * Up to two peak hours, busiest first: the busiest hour, plus the next busiest one that is at
+     * least [PEAK_APART] hours away (round the clock) and at least [PEAK_SHARE] as busy. Empty when
+     * nothing was smoked.
+     */
+    fun peaks(hours: FloatArray): List<Int> {
+        val order = hours.indices.sortedWith(compareByDescending<Int> { hours[it] }.thenBy { it })
+        val top = order.firstOrNull()?.takeIf { hours[it] > 0f } ?: return emptyList()
+        val second = order.drop(1).firstOrNull { h ->
+            val apart = minOf((h - top + 24) % 24, (top - h + 24) % 24)
+            apart >= PEAK_APART && hours[h] >= hours[top] * PEAK_SHARE
+        }
+        return listOfNotNull(top, second)
+    }
+
+    const val PEAK_APART = 3
+    const val PEAK_SHARE = 0.7f
+
     /** When tracking began: the plan start, or the first log if that is earlier. Null with neither. */
     fun dataStart(planStart: LocalDate?, logs: List<SmokeLog>, zone: ZoneId): LocalDate? {
         val first = logs.minOfOrNull { it.at }?.atZone(zone)?.toLocalDate()
@@ -99,14 +133,22 @@ object Stats {
      * Longest gap between consecutive logs, or last log → now, within the window.
      * The gap before the first log only counts when an earlier log exists to anchor it.
      */
-    fun longestGap(logs: List<SmokeLog>, now: Instant, window: Duration): Duration {
-        val since = now.minus(window)
-        val inWindow = logs.map { it.at }.filter { it >= since }.sorted()
-        val before = logs.map { it.at }.filter { it < since }.maxOrNull()
-        val points = listOfNotNull(before) + inWindow + now
+    fun longestGap(logs: List<SmokeLog>, now: Instant, window: Duration): Duration =
+        longestGapBetween(logs, now.minus(window), now)
+
+    /**
+     * Longest stretch without a log inside [from, to): between consecutive logs, and from the last
+     * log to [to]. The stretch before the first log only counts when an earlier log anchors it, and
+     * it is clipped at [from].
+     */
+    fun longestGapBetween(logs: List<SmokeLog>, from: Instant, to: Instant): Duration {
+        val inWindow = logs.map { it.at }.filter { it >= from && it < to }.sorted()
+        val before = logs.map { it.at }.filter { it < from }.maxOrNull()
+        if (inWindow.isEmpty() && before == null) return Duration.ZERO
+        val points = listOfNotNull(before) + inWindow + to
         var best = Duration.ZERO
         for (i in 1 until points.size) {
-            val g = Duration.between(maxOf(points[i - 1], since), points[i])
+            val g = Duration.between(maxOf(points[i - 1], from), points[i])
             if (g > best) best = g
         }
         return best

@@ -12,9 +12,12 @@ import app.exhale.domain.SmokeLog
 import app.exhale.domain.Stats
 import app.exhale.domain.TaperType
 import app.exhale.domain.Trigger
+import app.exhale.domain.Urge
+import app.exhale.domain.UrgeOutcome
 import app.exhale.domain.UserSettings
 import app.exhale.ui.screens.AirScreen
 import app.exhale.ui.screens.EmberScreen
+import app.exhale.ui.screens.HistoryScreen
 import app.exhale.ui.screens.MoneyScreen
 import app.exhale.ui.screens.OnboardingScreen
 import app.exhale.ui.screens.RhythmScreen
@@ -79,6 +82,47 @@ class ScreenshotTest {
         listOf(8 * 60 + 5L, 9 * 60 + 40L, 11 * 60L).forEach { logs += SmokeLog(id++, today.atStartOfDay(zone).toInstant().plusSeconds(it * 60), Trigger.COFFEE, false) }
         logs += SmokeLog(id++, now.minus(Duration.ofMinutes(minutesSinceLast)), Trigger.AFTER_FOOD, false)
         logs.sortBy { it.at }
+        return build(settings, logs, emptyList())
+    }
+
+    /**
+     * 60 days that follow the plan down from 16 to about 8, now and then over, so Rhythm has a "30 days before" and
+     * History has two full months. Some cravings ridden out along the way.
+     */
+    private fun longState(): ExhaleState {
+        val today = now.atZone(zone).toLocalDate()
+        val settings = UserSettings(
+            onboarded = true, baselinePerDay = 18, startAllowance = 16, taper = TaperType.MINUS_ONE_WEEKLY,
+            planStart = today.minusDays(59), goalName = "New headphones", goalMinor = 59900,
+        )
+        val r = Random(5)
+        val weights = floatArrayOf(.1f, 0f, 0f, 0f, 0f, 0f, .2f, .9f, 1.6f, .9f, .5f, .6f, .7f, 1.3f, .6f, .5f, .7f, .8f, 1.2f, 1.1f, .9f, 1f, .7f, .3f)
+        val logs = mutableListOf<SmokeLog>()
+        val urges = mutableListOf<Urge>()
+        var id = 0L
+        for (back in 59 downTo 1) {
+            val day = today.minusDays(back.toLong())
+            val i = 59 - back
+            // Mornings ease off faster than evenings as the weeks go by.
+            val w = weights.copyOf().also { it[8] *= 1f - i / 120f; it[7] *= 1f - i / 150f }
+            repeat((16 - i / 7) + r.nextInt(-2, 2)) {
+                var x = r.nextFloat() * w.sum(); var h = 0
+                while (x > w[h] && h < 23) { x -= w[h]; h++ }
+                val trig = when (h) { in 6..9 -> Trigger.COFFEE; in 12..14 -> Trigger.AFTER_FOOD; in 15..17 -> Trigger.STRESS; else -> Trigger.DRINKS }
+                logs += SmokeLog(id++, day.atTime(h, r.nextInt(60)).atZone(zone).toInstant(), if (r.nextFloat() < 0.7f) trig else null, false)
+            }
+            if (r.nextFloat() < 0.35f) {
+                val t = day.atTime(10 + r.nextInt(10), r.nextInt(60)).atZone(zone).toInstant()
+                urges += Urge(id++, t, t.plusSeconds(240), if (r.nextFloat() < 0.8f) UrgeOutcome.SURVIVED else UrgeOutcome.SMOKED, Trigger.STRESS)
+            }
+        }
+        listOf(8 * 60 + 5L, 9 * 60 + 40L, 11 * 60L).forEach { logs += SmokeLog(id++, today.atStartOfDay(zone).toInstant().plusSeconds(it * 60), Trigger.COFFEE, false) }
+        logs.sortBy { it.at }
+        return build(settings, logs, urges)
+    }
+
+    private fun build(settings: UserSettings, logs: List<SmokeLog>, urges: List<Urge>): ExhaleState {
+        val today = now.atZone(zone).toLocalDate()
         val todayCount = Stats.countOn(logs, today, zone)
         val y = Stats.countOn(logs, today.minusDays(1), zone)
         val allowance = PlanMath.allowance(settings, today, y)
@@ -86,8 +130,9 @@ class ScreenshotTest {
         val last = logs.last()
         val start = settings.planStart.atStartOfDay(zone).toInstant()
         val notSmoked = Stats.notSmoked(settings.baselinePerDay, start, now, logs.count { it.at >= start })
+        val dataStart = Stats.dataStart(settings.planStart, logs, zone)
         return ExhaleState(
-            loaded = true, now = now, settings = settings, logs = logs, today = today,
+            loaded = true, now = now, settings = settings, logs = logs, urges = urges, today = today,
             todayCount = todayCount, allowance = allowance, intervalMinutes = interval,
             lastLog = last, sinceLast = Duration.between(last.at, now),
             nextAllowedAt = last.at.plus(Duration.ofMinutes(interval.toLong())),
@@ -95,7 +140,8 @@ class ScreenshotTest {
             notSmoked = notSmoked, savedMinor = Stats.moneySavedMinor(notSmoked, settings.pricePerCigMinor),
             longestGapWeek = Stats.longestGap(logs, now, Duration.ofDays(7)),
             clearFraction = 0.4f,
-            week = weekDays(settings, logs, today, zone),
+            dataStart = dataStart,
+            week = weekDays(settings, logs, today, zone, dataStart),
         )
     }
 
@@ -126,7 +172,17 @@ class ScreenshotTest {
     @Test fun emberLight() = shot("1_ember", false, 0) { EmberScreen(sampleState(), null, {}, {}, { _, _ -> }, {}, {}, {}) }
     @Test fun emberWaitingDark() = shot("1c_ember_waiting", true, 0) { EmberScreen(sampleState(38), null, {}, {}, { _, _ -> }, {}, {}, {}) }
     @Test fun emberWaitingLight() = shot("1c_ember_waiting", false, 0) { EmberScreen(sampleState(38), null, {}, {}, { _, _ -> }, {}, {}, {}) }
-    @Test fun rhythmDayDark() = shot("4b_rhythm_day", true, 1) { val st = sampleState(); RhythmScreen(st, initialDay = st.today.minusDays(1)) }
+    @Test fun rhythmDayDark() = shot("4b_rhythm_day", true, 1) { val st = longState(); RhythmScreen(st, day = st.today.minusDays(1)) }
+    @Test fun rhythmHourDark() = shot("4c_rhythm_hour", true, 1) { RhythmScreen(longState(), initialHour = 8) }
+    @Test fun rhythmLinesLight() = shot("4d_rhythm_lines", false, 1) { RhythmScreen(longState(), initialLines = true) }
+    @Test fun rhythmNewDark() = shot("4e_rhythm_new", true, 1) {
+        val st = sampleState()
+        val start = st.today.minusDays(4)
+        val logs = st.logs.filter { !it.at.atZone(zone).toLocalDate().isBefore(start) }
+        RhythmScreen(st.copy(logs = logs, dataStart = start, settings = st.settings.copy(planStart = start), week = weekDays(st.settings.copy(planStart = start), logs, st.today, zone, start)))
+    }
+    @Test fun historyDark() = shot("10_history", true) { HistoryScreen(longState(), {}, {}) }
+    @Test fun historyLight() = shot("10_history", false) { HistoryScreen(longState(), {}, {}) }
     private fun overState() = sampleState(38).copy(todayCount = 12, allowance = 8, borrowedToday = 2)
     @Test fun emberOverDark() = shot("1d_ember_over", true, 0) { EmberScreen(overState(), null, {}, {}, { _, _ -> }, {}, {}, {}) }
     @Test fun emberTodayDark() = shot("1e_ember_today", true, 0) { EmberScreen(overState(), null, {}, {}, { _, _ -> }, {}, {}, {}, initialTodayOpen = true) }
@@ -138,8 +194,8 @@ class ScreenshotTest {
     @Test fun waveLight() = shot("3_wave", false) { UrgeWaveScreen({ _, _, _ -> }, {}, startAt = 1.5f) }
     @Test fun waveReadyDark() = shot("3b_wave_get_ready", true) { UrgeWaveScreen({ _, _, _ -> }, {}, startAt = 63.4f) }
     @Test fun waveHoldLight() = shot("3c_wave_hold", false) { UrgeWaveScreen({ _, _, _ -> }, {}, startAt = 64.6f) }
-    @Test fun rhythmDark() = shot("4_rhythm", true, 1) { RhythmScreen(sampleState()) }
-    @Test fun rhythmLight() = shot("4_rhythm", false, 1) { RhythmScreen(sampleState()) }
+    @Test fun rhythmDark() = shot("4_rhythm", true, 1) { RhythmScreen(longState()) }
+    @Test fun rhythmLight() = shot("4_rhythm", false, 1) { RhythmScreen(longState()) }
     @Test fun airDark() = shot("5_air", true, 2) { AirScreen(sampleState()) }
     @Test fun airLight() = shot("5_air", false, 2) { AirScreen(sampleState()) }
     @Test fun moneyDark() = shot("6_money", true, 3) { MoneyScreen(sampleState()) }

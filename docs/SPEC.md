@@ -72,7 +72,7 @@ Don't reuse a pattern for a different meaning.
 
 ## 3. Screens
 
-Floating tab bar (icons only): **Ember · Rhythm · Air · Money**. Full-screen routes: **Urge Wave**, **Settings**.
+Floating tab bar (icons only): **Ember · Rhythm · Air · Money**. Full-screen routes: **Urge Wave**, **Settings**, **History**.
 First launch shows **Onboarding** (§3.7). Regulate is no longer a tab: its countdown lives on Ember
 (the ring) and the week lives on Rhythm; the plan is edited in Settings.
 
@@ -123,24 +123,39 @@ First launch shows **Onboarding** (§3.7). Regulate is no longer a tab: its coun
   the Ember screen, where the user logs it by holding the ember. "Close" records nothing.
 
 ### 3.4 Rhythm — `RhythmScreen.kt`
-- Header overline names what is shown ("Rhythm · Last 30 days", "Rhythm · 30 days before",
-  "Rhythm · Sunday"); the badge is the average a day for the period and day filter ("avg 11.8 a
-  weekday"), or "N that day" while a day is picked.
-- **This week** under the title: the week strip (S M T W T F S, first day per locale), each past
-  day's count tinted oxygen within the allowance and ember when over. Tap a day to filter the whole
-  screen to that day ("Sunday · 6 of 8", or "Sunday · 10, 2 borrowed" when over); tap it again, or a
-  period toggle, to go back to 30 days. While a day is picked the toggles show nothing selected.
-- 24-hour radial heatmap ("Smoke Clock"), hour 0 at top, clockwise. Wedge heat = avg per day; any
-  hour with smoking is tinted, only hours with none are empty. Hour labels follow the phone's
-  12/24-hour setting.
-- Toggles: Last 30 days / 30 days before; All / Weekdays / Weekends.
-- Tap a wedge → hour card with per-day average ("None in this hour" when empty) and the top trigger
-  once at least 3 logs in it are tagged ("Mostly coffee · 7 of 12 tagged.", "Most often …" when it is
-  not a majority).
-- Trigger bar list with coverage ("64 of 340 tagged."); craving waves ridden out ("1 craving wave
-  ridden out in this period."), or an invitation to use "Help me wait" when there are none.
-- Everything on the screen (clock, hour card, triggers, waves) follows the same period, day filter
-  and picked day.
+Shows the last 30 days (today and the 29 before), or one picked day. Order:
+- **Header**: overline names what is shown ("Rhythm · Last 30 days", "Rhythm · Sunday"); the badge is
+  the average a day for the day filter ("avg 9.3 a weekday"), or "N that day" while a day is picked.
+- **Title and insight**: "When you light up", then one sentence: "Busiest around 6 pm and 1 pm.
+  Drinks come up most." (up to two peaks, `Stats.peaks`; the trigger once 3+ logs are tagged).
+  Under a week of history: "5 days in. Your rhythm gets clearer after a week or two." Day picked:
+  "On Sunday, busiest around 7 am."
+- **Last 7 days** (rolling, today last) with an **All history ›** link to History (§3.10). Each
+  tracked day is tinted oxygen within the allowance and ember when over; days before tracking began
+  are empty rings and not tappable. Tap a day to filter the whole screen to it; tap again, or "Back
+  to 30 days", to return. The picked day is hoisted in `ExhaleNav` so History can set it.
+- **Filter**: All days / Weekdays / Weekends. While a day is picked it is replaced by an
+  `ActiveFilter`: "Sunday · 6 of 8" or "Sunday · 10, 2 borrowed", with "Back to 30 days".
+- **Smoke Clock**: 24 hours, midnight at top, clockwise. Each hour's bar length and warmth is its
+  average a day (any smoking shows; the top quarter is flare). A **thin line** on each hour marks
+  where it was in the 30 days before. The centre shows the busiest hour ("Busiest · 6 pm · 1.2 a
+  day · Tap an hour"); tapping an hour shows it there instead ("8–9 am · 0.8 a day · Mostly coffee
+  · 16 of 16 tagged", trigger once 3+ are tagged), with an ink outline and its thin line in full
+  ink. Tap the centre or the same hour to clear. Labels follow the phone's 12/24-hour setting.
+  Screen readers get a summary and Next/Previous/Clear hour actions.
+- **Comparison card** (when the 30 days before hold at least 7 tracked days, not on a picked day):
+  "4.6 fewer a day than the 30 days before (14.0)." in oxygen when fewer, plain ink when more or
+  about the same; with an hour picked it narrows to that hour: "8–9 am: 1.1 fewer a day than the 30
+  days before (1.9)." Tapping the card lights up the thin lines (bars dim, lines turn full ink,
+  card outlined) and explains them; tapping again goes back. Without enough history: "Your first
+  month. In N days you'll see how each hour compares with the 30 days before."
+- **Plan card** (a week of history, not on a picked day): "A plan for 6 pm", why ("A drink comes
+  with most of your 6 pm ones."), and an if-then in the user's voice: "If it's a drink at 6 pm, /
+  then I ride one wave first." "Help me wait" opens the Urge Wave; "Another idea" cycles the then-line.
+- **Triggers**: bars for the period with coverage ("181 of 275 tagged.").
+- **Craving waves**: "8 craving waves ridden out in the last 30 days." on an oxygen tint, or an
+  invitation to use "Help me wait" when there are none.
+- Everything on the screen follows the same period, day filter and picked day.
 
 ### 3.5 Air — `AirScreen.kt`
 - Particle field: ash-grey particles turn Oxygen as `clearFraction` (progress to 12 h) rises.
@@ -172,11 +187,23 @@ No demo data in onboarding.
 ### 3.8 Settings — `SettingsScreen.kt`
 Appearance (System / Light / Dark, applies instantly) and all onboarding fields in one form; keeps the original plan start.
 Prototype tools: Design system (opens `UiKitScreen`, the live component catalogue).
-Prototype tools: replace data with 30 days of demo data (explained in-screen), erase all data (two-tap confirm).
+Prototype tools: replace data with 60 days of demo data (explained in-screen; 60 so Rhythm has a "30 days
+before" to compare with), erase all data (two-tap confirm).
 
 ### 3.9 Outside the app
 - **Quick-settings tile** — `tile/LogTileService.kt`: tap to log; subtitle shows today's count.
 - Planned: Glance home-screen widget, Wear OS tile, smart nudges (see §6).
+
+### 3.10 History — `HistoryScreen.kt`
+Full-screen route from Rhythm's "All history ›" (back button, no tab bar).
+- "Every day so far", "Since 4 September. Tap a day to see it on Rhythm.", and a key: within
+  allowance (oxygen), borrowed from the next day (ember).
+- One `MonthCalendar` per month, newest first, from the month tracking began. Each tracked day shows
+  its count, tinted like the week strip; days before tracking began are empty rings; days before the
+  plan start are neutral; future days show only their date and weeks still to come are left out.
+  The current month says "N days so far", the first "from the 4th, when you started".
+- Under each month: average a day, "N of M days within your allowance", and the longest gap.
+- Tapping a day opens Rhythm filtered to that day.
 
 ---
 
@@ -202,6 +229,17 @@ Prototype tools: replace data with 30 days of demo data (explained in-screen), e
   plan start and first log), so a new user's average isn't diluted by days before they started and
   today's unfinished hours don't count. A one-day period gives that day's counts.
 - `topTrigger` needs at least 3 tagged logs; `triggers` also reports how many were tagged.
+- `coveredDays(period, now, zone, dataStart)`: days of a period that count (filter, tracking began,
+  started). Rhythm compares with the 30 days before only when that period covers 7+ days.
+- `peaks(hours)`: the busiest hour, plus the next busiest at least 3 hours away (round the clock)
+  and at least 70% as busy.
+- `longestGapBetween(logs, from, to)`: as `longestGap`, for any window (History's months).
+
+### History — `History`
+- `months(...)`: every month from the one tracking began in to today's, newest first. Each day is
+  null before tracking began or after today; otherwise its count and allowance (`PlanMath.allowance`
+  with the day before's count), null before the plan start. Per month: average over tracked days
+  (today counts so far), planned days, days within the allowance, longest gap clipped to the month.
 - `longestGap(...)` = longest gap between consecutive logs or last log → now inside the window;
   the gap before the first in-window log counts only if an earlier log anchors it.
 

@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
@@ -38,6 +39,8 @@ enum class ButtonStyle {
     Primary,
     /** Other actions. Surface fill. */
     Secondary,
+    /** Secondary inside a card (which is already `surface`): `surfaceHigh` fill. */
+    Tonal,
     /** Accent fill for a meaningful action (e.g. "I rode it out" in oxygen). */
     Accent,
     /** Low emphasis text button: skip, cancel. */
@@ -71,6 +74,7 @@ fun ExButton(
         !enabled -> c.surfaceHigh to c.inkFaint
         style == ButtonStyle.Primary -> c.primary to c.onPrimary
         style == ButtonStyle.Secondary -> c.surface to c.ink
+        style == ButtonStyle.Tonal -> c.surfaceHigh to c.ink
         style == ButtonStyle.Accent -> c.inkOf(accentColor) to (if (c.isDark) c.bg else Color.White)
         else -> Color.Transparent to c.inkSoft
     }
@@ -113,5 +117,26 @@ fun ExIconButton(
         contentAlignment = Alignment.Center,
     ) {
         Icon(icon, contentDescription, Modifier.size(ExSize.icon), tint = tint ?: c.ink)
+    }
+}
+
+/**
+ * Inline text link for a way onward from a row of text, e.g. "All history ›". `labelSmall` in
+ * `ink` with a chevron; keeps a 40dp touch height without adding visual weight.
+ */
+@Composable
+fun ExLink(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val c = Ex.colors
+    Row(
+        modifier
+            .heightIn(min = ExSize.chip)
+            .clip(ExRadius.pill)
+            .clickable(role = Role.Button, onClick = onClick)
+            .padding(start = 8.dp, end = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        Text(text, style = ExType.labelSmall, color = c.ink)
+        Icon(ExIcons.Forward, null, Modifier.size(16.dp), tint = c.ink)
     }
 }

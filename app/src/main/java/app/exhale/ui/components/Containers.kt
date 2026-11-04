@@ -1,6 +1,7 @@
 package app.exhale.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -76,13 +77,17 @@ fun ExScreen(
     }
 }
 
-/** Grouped content on a surface. Optional [onClick] makes the whole card tappable. */
+/**
+ * Grouped content on a surface. Optional [onClick] makes the whole card tappable; [outlined]
+ * draws a 1.5dp `ink` ring, e.g. while a tappable card is switched on.
+ */
 @Composable
 fun ExCard(
     modifier: Modifier = Modifier,
     color: Color? = null,
     onClick: (() -> Unit)? = null,
     padding: Dp = ExSpace.lg,
+    outlined: Boolean = false,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val c = Ex.colors
@@ -93,6 +98,7 @@ fun ExCard(
             .then(if (onClick != null) Modifier.scale(pressScale(source)) else Modifier)
             .clip(ExRadius.lg)
             .background(color ?: c.surface)
+            .then(if (outlined) Modifier.border(1.5.dp, c.ink, ExRadius.lg) else Modifier)
             .then(if (onClick != null) Modifier.clickable(source, ripple(), onClick = onClick) else Modifier)
             .padding(padding),
         verticalArrangement = Arrangement.spacedBy(ExSpace.xs),

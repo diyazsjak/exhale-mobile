@@ -65,15 +65,16 @@ class ExhaleRepository(
         db.logs().clear()
         db.urges().clear()
         val today = LocalDate.now(zone)
-        val start = today.minusDays(29)
+        // 60 days, so Rhythm has a "30 days before" to compare with.
+        val start = today.minusDays(59)
         saveSettings(
             UserSettings(
                 onboarded = true,
-                baselinePerDay = 16,
+                baselinePerDay = 18,
                 cigsPerPack = 20,
                 packPriceMinor = 1000,
                 currencyCode = "USD",
-                startAllowance = 14,
+                startAllowance = 16,
                 planStart = start,
                 goalName = "New headphones",
                 goalMinor = 59900,
@@ -96,10 +97,10 @@ class ExhaleRepository(
         val now = Instant.now()
         val logs = mutableListOf<SmokeLogEntity>()
         val urges = mutableListOf<UrgeEntity>()
-        for (i in 0..29) {
+        for (i in 0..59) {
             val day = start.plusDays(i.toLong())
-            // Slowly trending down from ~15 to ~10.
-            val target = (15 - i / 6) + random.nextInt(-1, 2)
+            // Following the plan down from ~16 to ~8: mostly within, now and then over.
+            val target = (16 - i / 7) + random.nextInt(-2, 2)
             repeat(target) {
                 val hour = pickWeighted(weights, random)
                 val t = day.atTime(hour, random.nextInt(60)).atZone(zone).toInstant()

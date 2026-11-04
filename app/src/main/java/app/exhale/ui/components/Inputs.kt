@@ -187,3 +187,39 @@ fun StepProgress(step: Int, total: Int, modifier: Modifier = Modifier) {
     }
 }
 
+
+/**
+ * Stands in for a [SegmentedControl] while something more specific is filtering the screen
+ * (e.g. a day picked in the week strip): same track and height, the filter's [text], and a thumb
+ * button that clears it.
+ */
+@Composable
+fun ActiveFilter(text: String, action: String, onAction: () -> Unit, modifier: Modifier = Modifier) {
+    val c = Ex.colors
+    val track = if (c.isDark) c.surface else c.surfaceHigh
+    val thumb = if (c.isDark) c.surfaceHigh else c.surface
+    val source = remember { MutableInteractionSource() }
+    Row(
+        modifier
+            .fillMaxWidth()
+            .height(44.dp)
+            .clip(ExRadius.pill)
+            .background(track)
+            .padding(start = 16.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(text, style = ExType.labelSmall, color = c.ink, modifier = Modifier.weight(1f))
+        Box(
+            Modifier
+                .scale(pressScale(source))
+                .fillMaxHeight()
+                .clip(ExRadius.pill)
+                .background(thumb)
+                .clickable(source, ripple(), role = Role.Button, onClick = onAction)
+                .padding(horizontal = 14.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(action, style = ExType.labelSmall, color = c.ink)
+        }
+    }
+}

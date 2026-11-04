@@ -13,6 +13,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -28,6 +31,7 @@ import app.exhale.ui.components.FloatingTabBar
 import app.exhale.ui.components.TabItem
 import app.exhale.ui.screens.AirScreen
 import app.exhale.ui.screens.EmberScreen
+import app.exhale.ui.screens.HistoryScreen
 import app.exhale.ui.screens.MoneyScreen
 import app.exhale.ui.screens.OnboardingScreen
 import app.exhale.ui.screens.RhythmScreen
@@ -36,6 +40,7 @@ import app.exhale.ui.screens.UiKitScreen
 import app.exhale.ui.screens.UrgeWaveScreen
 import app.exhale.ui.theme.Ex
 import app.exhale.ui.theme.ExColors
+import java.time.LocalDate
 
 private enum class Tab(val route: String, val label: String, val icon: ImageVector) {
     EMBER("ember", "Ember", ExIcons.Ember),
@@ -60,7 +65,7 @@ private fun tabIndex(route: String?) = Tab.entries.indexOfFirst { it.route == ro
 private fun isTabSwitch(from: String?, to: String?) = tabIndex(from) >= 0 && tabIndex(to) >= 0
 
 /**
- * Tabs slide like pages, full width, in tab order. A full-screen route (Urge Wave, Settings)
+ * Tabs slide like pages, full width, in tab order. A full-screen route (Urge Wave, Settings, History)
  * pushes in from the right over a screen that recedes a third and fades; popping reverses that.
  */
 private fun slideIn(from: String?, to: String?, forward: Boolean): EnterTransition =
@@ -86,6 +91,7 @@ private fun slideOut(from: String?, to: String?, forward: Boolean): ExitTransiti
 private const val WAVE = "wave"
 private const val SETTINGS = "settings"
 private const val UIKIT = "uikit"
+private const val HISTORY = "history"
 
 @Composable
 fun ExhaleRoot(vm: ExhaleViewModel) {
@@ -106,6 +112,8 @@ private fun MainNav(state: ExhaleState, logged: LoggedEvent?, vm: ExhaleViewMode
     val nav = rememberNavController()
     val entry by nav.currentBackStackEntryAsState()
     val tab = Tab.entries.firstOrNull { it.route == entry?.destination?.route }
+    // The day Rhythm is showing. Hoisted so History can open a day there.
+    var rhythmDay by rememberSaveable { mutableStateOf<LocalDate?>(null) }
 
     Box(Modifier.fillMaxSize()) {
         NavHost(
@@ -129,7 +137,15 @@ private fun MainNav(state: ExhaleState, logged: LoggedEvent?, vm: ExhaleViewMode
                     onBorrowNoticeSeen = vm::markBorrowNoticeSeen,
                 )
             }
-            composable(Tab.RHYTHM.route) { RhythmScreen(state) }
+            composable(Tab.RHYTHM.route) {
+                RhythmScreen(
+                    state,
+                    day = rhythmDay,
+                    onDay = { rhythmDay = it },
+                    onHistory = { nav.navigate(HISTORY) },
+                    onUrge = { nav.navigate(WAVE) },
+                )
+            }
             composable(Tab.AIR.route) { AirScreen(state) }
             composable(Tab.MONEY.route) { MoneyScreen(state) }
             composable(WAVE) {
@@ -154,6 +170,13 @@ private fun MainNav(state: ExhaleState, logged: LoggedEvent?, vm: ExhaleViewMode
                     onDemo = { vm.loadDemo(); nav.popBackStack() },
                     onErase = vm::eraseAll,
                     onDesignSystem = { nav.navigate(UIKIT) },
+                    onClose = { nav.popBackStack() },
+                )
+            }
+            composable(HISTORY) {
+                HistoryScreen(
+                    state,
+                    onPickDay = { d -> rhythmDay = d; nav.popBackStack() },
                     onClose = { nav.popBackStack() },
                 )
             }
