@@ -49,7 +49,6 @@ import app.exhale.ui.theme.ExRadius
 import app.exhale.ui.theme.ExSpace
 import app.exhale.ui.theme.ExType
 import java.text.NumberFormat
-import java.time.format.DateTimeFormatter
 import java.util.Currency
 import java.util.Locale
 import kotlin.math.roundToLong
@@ -70,7 +69,7 @@ fun MoneyScreen(state: ExhaleState) {
     val code = s.currencyCode
     val money = { minor: Long -> Fmt.money(minor, code) }
 
-    ExScreen(header = { Overline("Money · since ${s.planStart.format(DateTimeFormatter.ofPattern("d MMMM", Locale.getDefault()))}") }) {
+    ExScreen(underAppBar = true) {
         // One line at any size: the digits, then the currency symbol or code, smaller, after them
         // ("12,345 KZT", "62 $"). The whole amount steps down from 88sp if it still doesn't fit.
         Column(verticalArrangement = Arrangement.spacedBy(ExSpace.xs)) {

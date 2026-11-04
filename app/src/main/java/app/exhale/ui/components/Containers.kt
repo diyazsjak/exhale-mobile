@@ -44,6 +44,8 @@ import app.exhale.ui.theme.ExType
  * for the floating tab bar (pass a smaller [bottomClearance] on screens without it). [header] is a row for back/close/settings buttons and a label.
  * [background] draws behind the content (e.g. the Air particle field) on top of the shared bg.
  * Pass [scrollState] to react to scrolling (Air's sky collapses as the screen scrolls).
+ * Tabs sit under the shared [ExAppBar] instead of having a [header]: [underAppBar] leaves the same
+ * room the header row would take, so content starts in the same place.
  */
 @Composable
 fun ExScreen(
@@ -53,6 +55,7 @@ fun ExScreen(
     header: (@Composable RowScope.() -> Unit)? = null,
     background: (@Composable BoxScope.() -> Unit)? = null,
     scrollState: ScrollState? = null,
+    underAppBar: Boolean = false,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val c = Ex.colors
@@ -69,6 +72,7 @@ fun ExScreen(
                 .padding(top = ExSpace.xs, bottom = bottomClearance),
             verticalArrangement = Arrangement.spacedBy(ExSpace.md),
         ) {
+            if (underAppBar) Spacer(Modifier.height(ExSize.iconButton))
             if (header != null) {
                 Row(
                     Modifier.fillMaxWidth().heightIn(min = ExSize.iconButton),

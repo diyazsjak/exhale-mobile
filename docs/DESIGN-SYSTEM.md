@@ -41,6 +41,8 @@ Neutrals carry the UI; accents carry meaning.
 
 A **floating tab bar**: a `chrome` pill hovering 12px above the system navigation bar with a 20px gutter, icons only (each with an accessibility label). `chrome` is a step lighter than cards in dark (with a `line` outline) and white in light. It is solid and content scrolls underneath it, darkening gradually from 88px above the bar to the screen edge (black at up to 40% in dark, `ink` at up to 12% in light). Light: a soft elevation shadow. Dark: no shadow; the lighter tone and hairline outline lift it (tonal elevation). The selected tab sits in a `chrome-selected` inner pill and takes its meaning colour: Ember (heat), Rhythm (`flare`), Air (`oxy`), Money (`sun`). Screens under it leave `tab-bar-clearance` at the bottom. Full-screen flows (Urge Wave, Settings, Onboarding) hide it and use a round back or close button in the header instead.
 
+A **shared app bar** sits at the top of the four tabs, drawn over them like the tab bar: the tab's leading on the left (a label or badge) and the Settings icon button on the right, which never moves. When the tab changes, the new leading drops in from 16px above and fades in (260ms, the page slide's length) while the old one drops 16px and fades out (200ms). It is solid `bg` with a 16px fade below, so content scrolls softly under it. Full-screen flows hide it.
+
 ## Iconography
 
 Exhale's own line icons: 24px grid, 1.8 stroke, round caps and joins, no fills. They live in code (`ExIcons.kt`) and in the Icons group here. The SVG files draw in `ink` (light value, `#131318`); in the app they are tinted at runtime. Never mix in a filled icon set.
@@ -65,7 +67,7 @@ Plain, short, second person. A cigarette is information: "Logged. 8 of 12 today.
 
 ## Components
 
-Button, IconButton, Link, Chip, Badge, Card, OptionCard, TextField, Stepper, SegmentedControl, ActiveFilter, StepProgress, GradientRing, WeekStrip, MonthCalendar, LegendItem, ListRow and FloatingTabBar. Each card below has guidelines and a live web rendition styled by `components/bundle.css`. In the app they are Compose functions in `ui/components/` (`ExButton`, `ExIconButton`, `ExLink`, `ExChip`, `ExBadge`, `ExCard`, `OptionCard`, `ExTextField`, `Stepper`, `SegmentedControl`, `ActiveFilter`, `StepProgress`, `GradientRing`, `WeekStrip`, `MonthCalendar`, `LegendItem`, `ListRow`, `FloatingTabBar`). Every screen sits in `ExScreen`, which applies `bg`, the status-bar inset, the gutter and the tab-bar clearance. The app also has a live catalogue: Settings → Prototype tools → Design system.
+Button, IconButton, Link, Chip, Badge, Card, OptionCard, TextField, Stepper, SegmentedControl, ActiveFilter, StepProgress, GradientRing, WeekStrip, MonthCalendar, LegendItem, ListRow, FloatingTabBar and AppBar. Each card below has guidelines and a live web rendition styled by `components/bundle.css`. In the app they are Compose functions in `ui/components/` (`ExButton`, `ExIconButton`, `ExLink`, `ExChip`, `ExBadge`, `ExCard`, `OptionCard`, `ExTextField`, `Stepper`, `SegmentedControl`, `ActiveFilter`, `StepProgress`, `GradientRing`, `WeekStrip`, `MonthCalendar`, `LegendItem`, `ListRow`, `FloatingTabBar`, `ExAppBar`). Every screen sits in `ExScreen`, which applies `bg`, the status-bar inset, the gutter and the tab-bar clearance. The app also has a live catalogue: Settings → Prototype tools → Design system.
 
 ## Colour tokens
 
@@ -248,8 +250,16 @@ iOS-style floating pill tab bar, icons only; the selected tab sits in a lighter 
 
 - Compose: `FloatingTabBar(items = listOf(TabItem(ExIcons.Ember, "Ember", tint)), selected, onSelect)`.
 
+### AppBar
+
+The shared top bar of the tabs: a leading that changes per tab, and the Settings button.
+
+Drawn over the screens (not inside them), so it stays put while pages slide. Leading: an `overline` label ("Rhythm · Last 30 days") or a badge (Ember's "7 of 10 today"). Trailing: the 48px Settings `IconButton`. Background: solid `bg`, then a 16px fade to transparent (`app-bar-fade`). A new leading drops in from 16px above with a fade (260ms) while the old drops 16px and fades (200ms). Screens under it leave the header row's room (`underAppBar`).
+
+- Compose: `ExAppBar(key = tab, onSettings) { t -> Overline(labelOf(t)) }`; screens: `ExScreen(underAppBar = true)`.
+
 ## Not synced
 
 - The web previews are static HTML/CSS renditions written by hand from the Compose components; they are not generated from the Kotlin code.
 - Animated and chart components (the Ember orb, the Urge Wave, the particle field, the Smoke Clock, Air's recovery sky, gap chart and timeline) are screen-specific and are not in this kit.
-- Link, ActiveFilter, MonthCalendar, LegendItem, Dialog, the Tonal button, the outlined card and the capped text field are in the in-app catalogue but have no web preview yet.
+- Link, ActiveFilter, MonthCalendar, LegendItem, Dialog, AppBar, the Tonal button, the outlined card and the capped text field are in the in-app catalogue but have no web preview yet.

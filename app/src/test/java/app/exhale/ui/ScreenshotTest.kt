@@ -26,6 +26,7 @@ import app.exhale.ui.screens.RhythmScreen
 import app.exhale.ui.screens.SettingsScreen
 import app.exhale.ui.screens.UrgeWaveScreen
 import app.exhale.ui.theme.Ex
+import app.exhale.ui.components.ExAppBar
 import app.exhale.ui.components.ExIcons
 import app.exhale.ui.components.FloatingTabBar
 import app.exhale.ui.components.TabItem
@@ -147,7 +148,20 @@ class ScreenshotTest {
         )
     }
 
-    private fun shot(name: String, dark: Boolean = true, tab: Int? = null, content: @Composable () -> Unit) {
+    /**
+     * Renders [content] in a theme. With a [tab], the shared app bar (that tab's leading, from [bar],
+     * Rhythm's with a day [picked], Ember's with [todayOpen]) and the tab bar sit over it, as in the app.
+     */
+    private fun shot(
+        name: String,
+        dark: Boolean = true,
+        tab: Int? = null,
+        bar: ExhaleState? = null,
+        picked: Boolean = false,
+        todayOpen: Boolean = false,
+        content: @Composable () -> Unit,
+    ) {
+        val barState = bar ?: sampleState()
         compose.mainClock.autoAdvance = false
         compose.setContent {
             ExhaleTheme(dark = dark) {
@@ -155,6 +169,9 @@ class ScreenshotTest {
                 Box(Modifier.fillMaxSize().background(c.bg)) {
                     content()
                     if (tab != null) {
+                        ExAppBar(LeadingKey(Tab.entries[tab], picked), {}, Modifier.align(Alignment.TopCenter)) { k ->
+                            TabLeading(k, barState, todayOpen, {})
+                        }
                         FloatingTabBar(
                             listOf(
                                 TabItem(ExIcons.Ember, "Ember", c.heat(0.2f)), TabItem(ExIcons.Rhythm, "Rhythm", c.flare), TabItem(ExIcons.Air, "Air", c.oxy),
@@ -170,11 +187,11 @@ class ScreenshotTest {
         compose.onRoot().captureRoboImage("build/outputs/roborazzi/${name}_${if (dark) "dark" else "light"}.png")
     }
 
-    @Test fun emberDark() = shot("1_ember", true, 0) { EmberScreen(sampleState(), null, {}, {}, { _, _ -> }, {}, {}, {}) }
-    @Test fun emberLight() = shot("1_ember", false, 0) { EmberScreen(sampleState(), null, {}, {}, { _, _ -> }, {}, {}, {}) }
-    @Test fun emberWaitingDark() = shot("1c_ember_waiting", true, 0) { EmberScreen(sampleState(38), null, {}, {}, { _, _ -> }, {}, {}, {}) }
-    @Test fun emberWaitingLight() = shot("1c_ember_waiting", false, 0) { EmberScreen(sampleState(38), null, {}, {}, { _, _ -> }, {}, {}, {}) }
-    @Test fun rhythmDayDark() = shot("4b_rhythm_day", true, 1) { val st = longState(); RhythmScreen(st, day = st.today.minusDays(1)) }
+    @Test fun emberDark() = shot("1_ember", true, 0) { EmberScreen(sampleState(), null, {}, {}, { _, _ -> }, {}, {}) }
+    @Test fun emberLight() = shot("1_ember", false, 0) { EmberScreen(sampleState(), null, {}, {}, { _, _ -> }, {}, {}) }
+    @Test fun emberWaitingDark() = shot("1c_ember_waiting", true, 0, bar = sampleState(38)) { EmberScreen(sampleState(38), null, {}, {}, { _, _ -> }, {}, {}) }
+    @Test fun emberWaitingLight() = shot("1c_ember_waiting", false, 0, bar = sampleState(38)) { EmberScreen(sampleState(38), null, {}, {}, { _, _ -> }, {}, {}) }
+    @Test fun rhythmDayDark() = shot("4b_rhythm_day", true, 1, picked = true) { val st = longState(); RhythmScreen(st, day = st.today.minusDays(1)) }
     @Test fun rhythmHourDark() = shot("4c_rhythm_hour", true, 1) { RhythmScreen(longState(), initialHour = 8) }
     @Test fun rhythmLinesLight() = shot("4d_rhythm_lines", false, 1) { RhythmScreen(longState(), initialLines = true) }
     @Test fun rhythmNewDark() = shot("4e_rhythm_new", true, 1) {
@@ -186,12 +203,12 @@ class ScreenshotTest {
     @Test fun historyDark() = shot("10_history", true) { HistoryScreen(longState(), {}, {}) }
     @Test fun historyLight() = shot("10_history", false) { HistoryScreen(longState(), {}, {}) }
     private fun overState() = sampleState(38).copy(todayCount = 12, allowance = 8, borrowedToday = 2)
-    @Test fun emberOverDark() = shot("1d_ember_over", true, 0) { EmberScreen(overState(), null, {}, {}, { _, _ -> }, {}, {}, {}) }
-    @Test fun emberTodayDark() = shot("1e_ember_today", true, 0) { EmberScreen(overState(), null, {}, {}, { _, _ -> }, {}, {}, {}, initialTodayOpen = true) }
-    @Test fun emberTodayLight() = shot("1e_ember_today", false, 0) { EmberScreen(overState(), null, {}, {}, { _, _ -> }, {}, {}, {}, initialTodayOpen = true) }
-    @Test fun emberTodayWithinLight() = shot("1f_ember_today_within", false, 0) { EmberScreen(sampleState(38), null, {}, {}, { _, _ -> }, {}, {}, {}, initialTodayOpen = true) }
-    @Test fun emberHotDark() = shot("1b_ember_logged", true, 0) { EmberScreen(sampleState(4), LoggedEvent(1, 5, 12), {}, {}, { _, _ -> }, {}, {}, {}) }
-    @Test fun emberHotLight() = shot("1b_ember_logged", false, 0) { EmberScreen(sampleState(4), LoggedEvent(1, 5, 12), {}, {}, { _, _ -> }, {}, {}, {}) }
+    @Test fun emberOverDark() = shot("1d_ember_over", true, 0, bar = overState()) { EmberScreen(overState(), null, {}, {}, { _, _ -> }, {}, {}) }
+    @Test fun emberTodayDark() = shot("1e_ember_today", true, 0, bar = overState(), todayOpen = true) { EmberScreen(overState(), null, {}, {}, { _, _ -> }, {}, {}, todayOpen = true) }
+    @Test fun emberTodayLight() = shot("1e_ember_today", false, 0, bar = overState(), todayOpen = true) { EmberScreen(overState(), null, {}, {}, { _, _ -> }, {}, {}, todayOpen = true) }
+    @Test fun emberTodayWithinLight() = shot("1f_ember_today_within", false, 0, bar = sampleState(38), todayOpen = true) { EmberScreen(sampleState(38), null, {}, {}, { _, _ -> }, {}, {}, todayOpen = true) }
+    @Test fun emberHotDark() = shot("1b_ember_logged", true, 0, bar = sampleState(4)) { EmberScreen(sampleState(4), LoggedEvent(1, 5, 12), {}, {}, { _, _ -> }, {}, {}) }
+    @Test fun emberHotLight() = shot("1b_ember_logged", false, 0, bar = sampleState(4)) { EmberScreen(sampleState(4), LoggedEvent(1, 5, 12), {}, {}, { _, _ -> }, {}, {}) }
     @Test fun waveDark() = shot("3_wave", true) { UrgeWaveScreen({ _, _, _ -> }, {}, startAt = 1.5f) }
     @Test fun waveLight() = shot("3_wave", false) { UrgeWaveScreen({ _, _, _ -> }, {}, startAt = 1.5f) }
     @Test fun waveReadyDark() = shot("3b_wave_get_ready", true) { UrgeWaveScreen({ _, _, _ -> }, {}, startAt = 63.4f) }
@@ -227,7 +244,7 @@ class ScreenshotTest {
         val s = st.settings.copy(currencyCode = "KZT", packPriceMinor = 1_990_000, goalMinor = 25_000_000)
         MoneyScreen(st.copy(settings = s, money = Money.summary(s, st.logs, now, zone)))
     }
-    @Test fun moneyLongGoalDark() = shot("6c_money_long", true, 3) {
+    @Test fun moneyLongGoalDark() = shot("6c_money_long", true, 3, bar = longState()) {
         // 60 days in (packs, both recent amounts, pace) and a goal name too long for two lines.
         val st = longState()
         val s = st.settings.copy(goalName = "A weekend trip to the mountains with family", goalMinor = 105_000)

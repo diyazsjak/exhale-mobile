@@ -48,7 +48,7 @@ In short:
 - **Type**: Newsreader (serif) for feelings and big states, Figtree (sans) for reading and tapping,
   tabular digits for timers. Use `ExType` styles only.
 - **Layout**: every screen in `ExScreen` (shared `bg`, gutter, insets, tab-bar clearance). One primary
-  60dp pill button per screen. Floating iOS-style tab bar, icons only.
+  60dp pill button per screen. Floating iOS-style tab bar, icons only, and a shared app bar on top.
 - **Themes**: dark and light; follows the phone, override in Settings → Appearance (`ThemeMode`).
 - Colour is never the only signal: always pair with a number or label.
 
@@ -73,11 +73,20 @@ Don't reuse a pattern for a different meaning.
 ## 3. Screens
 
 Floating tab bar (icons only): **Ember · Rhythm · Air · Money**. Full-screen routes: **Urge Wave**, **Settings**, **History**.
+
+**Shared app bar** (`ExAppBar`, drawn in `ExhaleNav` over the tabs, like the tab bar): each tab's
+**leading** on the left and the **Settings** button on the right, on every tab. The leading is
+Ember's Today badge, "Rhythm · Last 30 days" ("Rhythm" while a day is picked), "Recovery · if you
+stop now", or "Money · since 4 September". When it changes, the new one drops in from 16dp above and
+fades in (260ms, the page slide's length) while the old one drops 16dp and fades out (200ms); the
+Settings button never moves. The bar is solid `bg` with a 16dp fade below, so content scrolls softly
+under it; the screens beneath leave the same room the header row took (`ExScreen(underAppBar = true)`).
+Full-screen routes hide it, like the tab bar.
 First launch shows **Onboarding** (§3.7). Regulate is no longer a tab: its countdown lives on Ember
 (the ring) and the week lives on Rhythm; the plan is edited in Settings.
 
 ### 3.1 Ember (home) — `EmberScreen.kt`
-- Header: Settings button and the **Today badge** ("7 of 10 today", 14sp, a touch larger than other
+- App bar leading: the **Today badge** ("7 of 10 today", 14sp, a touch larger than other
   badges). It turns pink (flare tint, flare ink) while today is over the allowance; the text doesn't
   change. A small sun-coloured dot appears on days whose allowance was lowered by yesterday's
   overage, until the user opens the popover that day (`borrowNoticeSeenDay`). No week row.
@@ -124,8 +133,8 @@ First launch shows **Onboarding** (§3.7). Regulate is no longer a tab: its coun
 
 ### 3.4 Rhythm — `RhythmScreen.kt`
 Shows the last 30 days (today and the 29 before), or one picked day. Order:
-- **Header**: "Rhythm · Last 30 days" and the average a day for the day filter ("avg 9.3 a
-  weekday"). While a day is picked just "Rhythm": the day is named and counted in the filter bar.
+- **App bar leading**: "Rhythm · Last 30 days"; while a day is picked just "Rhythm": the day is
+  named and counted in the filter bar. The average a day leads the comparison card instead.
 - **Title**: "When you light up". No line under it: the busiest hour is in the clock centre and the
   top trigger in the triggers card, so nothing on the screen says the same thing twice.
 - **Last 7 days · tap a day** (rolling, today last) with an **All history ›** link to History (§3.10). Each
@@ -142,11 +151,15 @@ Shows the last 30 days (today and the 29 before), or one picked day. Order:
   ink. Tap the centre or the same hour to clear. Labels follow the phone's 12/24-hour setting.
   Screen readers get a summary and Next/Previous/Clear hour actions.
 - **Comparison card** (when the 30 days before hold at least 7 tracked days, not on a picked day):
-  "4.6 fewer a day than the 30 days before (14.0)." in oxygen when fewer, plain ink when more or
+  led by the **average** for the day filter: "Average · last 30 days" ("Average · weekdays, last 30
+  days"; "Average · since you started" when tracking began inside the window), a big "9.3" and "a
+  day" ("a weekday", "a weekend day"). It stays the whole period's average when an hour is picked.
+  Then "4.6 fewer a day than the 30 days before (14.0)." in oxygen when fewer, plain ink when more or
   about the same; with an hour picked it narrows to that hour: "This hour: 1.1 fewer a day than the
   30 days before (1.9)." (the hour itself is named in the clock centre). Tapping the card lights up the thin lines (bars dim, lines turn full ink,
-  card outlined) and explains them; tapping again goes back. Without enough history: "Your first
-  month. In N days you'll see how each hour compares with the 30 days before."
+  card outlined) and explains them; tapping again goes back. Without enough history, the same
+  average, then "Your first month. In N days you'll see how each hour compares with the 30 days
+  before."
 - **Plan card** (a week of history, not on a picked day): "A plan for your busiest hour" and an
   if-then in the user's voice that names the hour and its top trigger once: "If it's a drink at
   6 pm, / then I ride one wave first." "Help me wait" opens the Urge Wave; "Another idea" cycles the then-line.
@@ -161,7 +174,7 @@ Shows the last 30 days (today and the 29 before), or one picked day. Order:
 ### 3.5 Air — `AirScreen.kt`
 What the body gets back after each cigarette, built so that **nothing resets**: a gap counts from
 its last cigarette, and a milestone that any gap has reached stays reached. Order:
-- **Header**: "Recovery · if you stop now". Particle field behind everything: ash-grey particles
+- **App bar leading**: "Recovery · if you stop now". Particle field behind everything: ash-grey particles
   turn oxygen as `clearFraction` (progress to 12 h) rises.
 - **Hero**: time since the last one ("2h 41m", `oxy-ink`), "since your last one", and "Right now: …"
   with what the body is doing on the way to the next milestone (`Milestone.underway`). Before any
@@ -173,12 +186,12 @@ its last cigarette, and a milestone that any gap has reached stays reached. Orde
   `Milestones.position`; it glides back to the start after a log. Every point is labelled, so
   nothing needs a tap: "12 h · reached Thursday / Carbon monoxide normal". A key below:
   "reached at least once" (only once something is) and "this gap".
-- **Scrolling**: the header (overline and hero) stays in place until the content after the sky
+- **Scrolling**: the hero stays in place until the content after the sky
   (the next card) comes up to meet it, a normal 16dp gap below it, then goes up with that content.
   Meanwhile the cards slide over the sky, which stays filled and readable above them: each label
   (and the key) fades out over the last 48dp before the next card reaches it. The dimmed sky stays
   visible behind and between the cards.
-  While the header is held the sky rises only 10% of the scroll (at most 24dp, clear of the header,
+  While the hero is held the sky rises only 10% of the scroll (at most 24dp, clear of the hero,
   which is drawn over it); after that it rises at 35% up to 120dp in all. Its dots and lines keep
   full strength for the first half of the held stretch, then dim to 30% by 120dp after it.
 - **Next card**: a sky→oxygen ring of the way to the next milestone with the time to go in the
@@ -201,7 +214,7 @@ its last cigarette, and a milestone that any gap has reached stays reached. Orde
 ### 3.6 Money — `MoneyScreen.kt`
 Same background as every screen; money is carried by `sun` accents. All numbers come from
 `Money.summary` (§4), so the amount, recent amounts, pace, packs and goal agree.
-- Header: "Money · since 4 September" (the plan start).
+- App bar leading: "Money · since 4 September" (the plan start).
 - **Hero**: the amount kept since the plan started on one line (digits, then the currency at 45%,
   shrinking from 88sp to fit; all money text puts the currency after the number), "kept since you
   started", and "You used to smoke 18 a day. Since you started, you've smoked 372 fewer than that."

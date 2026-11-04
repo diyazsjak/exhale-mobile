@@ -10,8 +10,10 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -26,7 +28,9 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import app.exhale.domain.UrgeOutcome
+import app.exhale.ui.components.ExAppBar
 import app.exhale.ui.components.ExIcons
+import app.exhale.ui.components.Overline
 import app.exhale.ui.components.FloatingTabBar
 import app.exhale.ui.components.TabItem
 import app.exhale.ui.screens.AirScreen
@@ -36,13 +40,17 @@ import app.exhale.ui.screens.MoneyScreen
 import app.exhale.ui.screens.OnboardingScreen
 import app.exhale.ui.screens.RhythmScreen
 import app.exhale.ui.screens.SettingsScreen
+import app.exhale.ui.screens.TodayBadge
+import app.exhale.ui.screens.borrowDot
 import app.exhale.ui.screens.UiKitScreen
 import app.exhale.ui.screens.UrgeWaveScreen
 import app.exhale.ui.theme.Ex
 import app.exhale.ui.theme.ExColors
 import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
-private enum class Tab(val route: String, val label: String, val icon: ImageVector) {
+internal enum class Tab(val route: String, val label: String, val icon: ImageVector) {
     EMBER("ember", "Ember", ExIcons.Ember),
     RHYTHM("rhythm", "Rhythm", ExIcons.Rhythm),
     AIR("air", "Air", ExIcons.Air),
@@ -53,6 +61,24 @@ private enum class Tab(val route: String, val label: String, val icon: ImageVect
         RHYTHM -> c.flare
         AIR -> c.oxy
         MONEY -> c.sun
+    }
+}
+
+/** What the app bar's leading shows: one per tab, and Rhythm's changes while a day is [picked]. */
+internal data class LeadingKey(val tab: Tab, val picked: Boolean = false)
+
+/**
+ * Each tab's leading in the shared app bar. Ember: today's count, which opens the Today popover
+ * ([todayOpen]). Rhythm: what it covers ("Rhythm" alone while a day is picked: the day is named in
+ * its filter bar). Air and Money: what the screen is about.
+ */
+@Composable
+internal fun RowScope.TabLeading(key: LeadingKey, state: ExhaleState, todayOpen: Boolean, onToday: () -> Unit) {
+    when (key.tab) {
+        Tab.EMBER -> TodayBadge(state, showDot = borrowDot(state), expanded = todayOpen, onClick = onToday)
+        Tab.RHYTHM -> Overline(if (key.picked) "Rhythm" else "Rhythm · Last 30 days")
+        Tab.AIR -> Overline("Recovery · if you stop now")
+        Tab.MONEY -> Overline("Money · since ${state.settings.planStart.format(DateTimeFormatter.ofPattern("d MMMM", Locale.getDefault()))}")
     }
 }
 
@@ -114,6 +140,9 @@ private fun MainNav(state: ExhaleState, logged: LoggedEvent?, vm: ExhaleViewMode
     val tab = Tab.entries.firstOrNull { it.route == entry?.destination?.route }
     // The day Rhythm is showing. Hoisted so History can open a day there.
     var rhythmDay by rememberSaveable { mutableStateOf<LocalDate?>(null) }
+    // Ember's Today popover opens from the badge in the shared app bar. It closes when leaving Ember.
+    var todayOpen by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(tab) { if (tab != Tab.EMBER) todayOpen = false }
 
     Box(Modifier.fillMaxSize()) {
         NavHost(
@@ -133,8 +162,8 @@ private fun MainNav(state: ExhaleState, logged: LoggedEvent?, vm: ExhaleViewMode
                     onTag = vm::tag,
                     onDismissLogged = vm::dismissLogged,
                     onUrge = { nav.navigate(WAVE) },
-                    onSettings = { nav.navigate(SETTINGS) },
-                    onBorrowNoticeSeen = vm::markBorrowNoticeSeen,
+                    todayOpen = todayOpen,
+                    onTodayOpen = { todayOpen = it },
                 )
             }
             composable(Tab.RHYTHM.route) {
@@ -183,6 +212,16 @@ private fun MainNav(state: ExhaleState, logged: LoggedEvent?, vm: ExhaleViewMode
             composable(UIKIT) { UiKitScreen(state.settings.theme, vm::setTheme, onClose = { nav.popBackStack() }) }
         }
         if (tab != null) {
+            ExAppBar(
+                key = LeadingKey(tab, picked = tab == Tab.RHYTHM && rhythmDay != null),
+                onSettings = { nav.navigate(SETTINGS) },
+                modifier = Modifier.align(Alignment.TopCenter),
+            ) { k ->
+                TabLeading(k, state, todayOpen, onToday = {
+                    todayOpen = !todayOpen
+                    if (todayOpen && state.borrowedToday > 0) vm.markBorrowNoticeSeen()
+                })
+            }
             FloatingTabBar(
                 items = Tab.entries.map { TabItem(it.icon, it.label, it.tint(c, state.heat)) },
                 selected = tab.ordinal,

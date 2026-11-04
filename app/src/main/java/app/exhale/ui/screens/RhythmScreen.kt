@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -78,12 +79,10 @@ import app.exhale.ui.ExhaleState
 import app.exhale.ui.components.ActiveFilter
 import app.exhale.ui.components.ButtonSize
 import app.exhale.ui.components.ButtonStyle
-import app.exhale.ui.components.ExBadge
 import app.exhale.ui.components.ExButton
 import app.exhale.ui.components.ExCard
 import app.exhale.ui.components.ExLink
 import app.exhale.ui.components.ExScreen
-import app.exhale.ui.components.Fill
 import app.exhale.ui.components.Overline
 import app.exhale.ui.components.ScreenTitle
 import app.exhale.ui.components.SegmentedControl
@@ -148,14 +147,22 @@ fun RhythmScreen(
     val where = when (dayFilter) { DayFilter.ALL -> ""; DayFilter.WEEKDAYS -> " on weekdays"; DayFilter.WEEKENDS -> " at weekends" }
     val label = { h: Int -> hourLabel(h, h24) }
 
-    ExScreen(
-        header = {
-            // A picked day is named and counted in the filter bar below, so the header stays general.
-            Overline(if (day != null) "Rhythm" else "Rhythm · Last 30 days")
-            Fill()
-            if (day == null) ExBadge("avg %.1f %s".format(hours.sum(), unit))
+    // The average a day leads the comparison card (or the first-month card). Its label says what it
+    // covers: the last 30 days, or since tracking began when that is newer, and the day filter.
+    val sinceStart = dataStart != null && dataStart.isAfter(window.first)
+    val average = Average(
+        value = hours.sum(),
+        unit = unit,
+        over = "Average · " + when {
+            sinceStart && dayFilter == DayFilter.ALL -> "since you started"
+            sinceStart -> "${dayFilter.label.lowercase()} since you started"
+            dayFilter == DayFilter.ALL -> "last 30 days"
+            else -> "${dayFilter.label.lowercase()}, last 30 days"
         },
-    ) {
+    )
+
+    // The header ("Rhythm · Last 30 days", or "Rhythm" with a day picked) is in the shared app bar.
+    ExScreen(underAppBar = true) {
         ScreenTitle("When you light up")
 
         Column(verticalArrangement = Arrangement.spacedBy(ExSpace.xxs)) {
@@ -239,6 +246,7 @@ fun RhythmScreen(
         AnimatedVisibility(beforeHours != null, enter = fadeIn(tween(FADE_MS)) + expandVertically(tween(FADE_MS)), exit = fadeOut(tween(FADE_MS)) + shrinkVertically(tween(FADE_MS))) {
             val b = lastBefore.value ?: return@AnimatedVisibility
             ComparisonCard(
+                average = average,
                 hour = sel != null,
                 now = if (sel != null) hours[sel] else hours.sum(),
                 then = if (sel != null) b[sel] else b.sum(),
@@ -251,6 +259,7 @@ fun RhythmScreen(
             val tracked = dataStart?.let { ChronoUnit.DAYS.between(it, state.today) + 1 } ?: 0
             val left = dataStart?.let { ChronoUnit.DAYS.between(state.today, it.plusDays(36)) } ?: 0
             ExCard {
+                AverageHead(average)
                 Text(if (tracked <= 30) "Your first month." else "Almost enough to compare.", style = ExType.body, color = c.ink)
                 Text(
                     if (dayFilter == DayFilter.ALL && left > 0) "In $left day${if (left == 1L) "" else "s"} you'll see how each hour compares with the 30 days before."
@@ -338,11 +347,11 @@ private fun WavesCard(survived: Int, span: String) {
 }
 
 /**
- * "1.4 fewer a day than the 30 days before (13.2)", or the same for one [hour]. Tapping it lights
- * up the thin lines on the clock that show the 30 days before.
+ * The [average] a day, then "1.4 fewer a day than the 30 days before (13.2)", or the same for one
+ * [hour]. Tapping it lights up the thin lines on the clock that show the 30 days before.
  */
 @Composable
-private fun ComparisonCard(hour: Boolean, now: Float, then: Float, unit: String, lines: Boolean, onClick: () -> Unit) {
+private fun ComparisonCard(average: Average, hour: Boolean, now: Float, then: Float, unit: String, lines: Boolean, onClick: () -> Unit) {
     val c = Ex.colors
     val diff = then - now
     val same = abs(diff) < 0.05f
@@ -366,7 +375,13 @@ private fun ComparisonCard(hour: Boolean, now: Float, then: Float, unit: String,
         outlined = lines,
         modifier = Modifier.semantics { stateDescription = if (lines) "Lines shown on the clock" else "Lines not highlighted" },
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+        AverageHead(average)
+        Column(Modifier.fillMaxWidth().animateContentSize(tween(FADE_MS))) {
+            AnimatedContent(text, transitionSpec = { fadeIn(tween(FADE_MS)) togetherWith fadeOut(tween(FADE_MS)) }, label = "compare") {
+                Text(it, style = ExType.body, color = c.ink)
+            }
+        }
+        Row(Modifier.padding(top = ExSpace.xxs), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(ExSpace.sm)) {
             Canvas(Modifier.size(28.dp)) {
                 val u = size.width / 28f
                 drawRect(bar, Offset(4 * u, 12 * u), Size(6 * u, 12 * u))
@@ -374,17 +389,31 @@ private fun ComparisonCard(hour: Boolean, now: Float, then: Float, unit: String,
                 drawLine(line, Offset(2 * u, 8 * u), Offset(12 * u, 8 * u), 2 * u, StrokeCap.Round)
                 drawLine(line, Offset(14 * u, 13 * u), Offset(24 * u, 13 * u), 2 * u, StrokeCap.Round)
             }
-            Column(Modifier.weight(1f).animateContentSize(tween(FADE_MS)), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                AnimatedContent(text, transitionSpec = { fadeIn(tween(FADE_MS)) togetherWith fadeOut(tween(FADE_MS)) }, label = "compare") {
-                    Text(it, style = ExType.body, color = c.ink)
-                }
-                Text(
-                    if (lines) "Lit up on the clock: each thin line is where that hour was. Tap to go back."
-                    else "Tap to see where each hour was on the clock.",
-                    style = ExType.caption, color = c.inkSoft,
-                )
-            }
+            Text(
+                if (lines) "Lit up on the clock: each thin line is where that hour was. Tap to go back."
+                else "Tap to see where each hour was on the clock.",
+                style = ExType.caption, color = c.inkSoft, modifier = Modifier.weight(1f),
+            )
         }
+    }
+}
+
+/** The average a day for what is shown, and what it covers ("Average · last 30 days"). */
+private data class Average(val value: Float, val unit: String, val over: String)
+
+/** The average leading a card: its overline, then the number with its unit ("9.3 a day"). */
+@Composable
+private fun ColumnScope.AverageHead(a: Average) {
+    val c = Ex.colors
+    Overline(a.over)
+    Row(horizontalArrangement = Arrangement.spacedBy(ExSpace.xs)) {
+        AnimatedContent(
+            "%.1f".format(a.value),
+            transitionSpec = { fadeIn(tween(FADE_MS)) togetherWith fadeOut(tween(FADE_MS)) },
+            modifier = Modifier.alignByBaseline(),
+            label = "average",
+        ) { Text(it, style = ExType.numberLarge, color = c.ink) }
+        Text(a.unit, style = ExType.body, color = c.inkSoft, modifier = Modifier.alignByBaseline())
     }
 }
 

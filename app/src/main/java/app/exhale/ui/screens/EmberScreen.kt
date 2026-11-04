@@ -117,9 +117,8 @@ fun EmberScreen(
     onTag: (Long, Trigger) -> Unit,
     onDismissLogged: () -> Unit,
     onUrge: () -> Unit,
-    onSettings: () -> Unit,
-    onBorrowNoticeSeen: () -> Unit = {},
-    initialTodayOpen: Boolean = false,
+    todayOpen: Boolean = false,
+    onTodayOpen: (Boolean) -> Unit = {},
 ) {
     val c = Ex.colors
     val heat by animateFloatAsState(state.heat, tween(1200), label = "heat")
@@ -138,10 +137,8 @@ fun EmberScreen(
         wasEarned = earned
     }
 
-    // Today popover under the badge; the dot invites a tap on a day whose allowance was lowered.
-    var todayOpen by remember { mutableStateOf(initialTodayOpen) }
-    val borrowDot = state.borrowedToday > 0 && state.settings.borrowNoticeSeenDay != state.today.toEpochDay()
-    BackHandler(enabled = todayOpen) { todayOpen = false }
+    // Today popover under the badge, which lives in the shared app bar (see TodayBadge); the state is hoisted.
+    BackHandler(enabled = todayOpen) { onTodayOpen(false) }
 
     // The hint under the ember answers the gesture.
     var hint by remember { mutableStateOf(EmberHint.Idle) }
@@ -156,14 +153,7 @@ fun EmberScreen(
     Box(Modifier.fillMaxSize()) {
         ExScreen(
             scroll = false,
-            header = {
-                TodayBadge(state, showDot = borrowDot, expanded = todayOpen, onClick = {
-                    todayOpen = !todayOpen
-                    if (todayOpen && state.borrowedToday > 0) onBorrowNoticeSeen()
-                })
-                Fill()
-                ExIconButton(ExIcons.Settings, "Settings", onSettings)
-            },
+            underAppBar = true,
         ) {
             // One number: time until the next one, then time since the last once it's earned.
             Column(
@@ -193,7 +183,7 @@ fun EmberScreen(
                     onLog = onLog,
                     ring = ring,
                     nextLogIsOver = state.todayCount >= state.allowance,
-                    onHoldStart = { hint = EmberHint.Holding; todayOpen = false },
+                    onHoldStart = { hint = EmberHint.Holding; onTodayOpen(false) },
                     onHoldEnd = { held -> hint = if (held < 0.08f) EmberHint.Tapped else EmberHint.TooShort },
                 )
             }
@@ -225,14 +215,14 @@ fun EmberScreen(
             Box(
                 Modifier
                     .fillMaxSize()
-                    .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { todayOpen = false }
+                    .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { onTodayOpen(false) }
             )
         }
         AnimatedVisibility(
             visible = todayOpen,
             modifier = Modifier
                 .statusBarsPadding()
-                .padding(top = ExSpace.xs + ExSize.iconButton + ExSpace.xs)
+                .padding(top = ExSpace.xs + ExSize.iconButton + ExSize.appBarFade)
                 .padding(horizontal = ExSpace.sm),
             // Quick: it answers a tap.
             enter = fadeIn(tween(100)) + scaleIn(tween(170, easing = FastOutSlowInEasing), initialScale = 0.94f, transformOrigin = TransformOrigin(0.12f, 0f)),
@@ -294,10 +284,15 @@ private fun LoggedCard(ev: LoggedEvent, state: ExhaleState, onUndo: () -> Unit, 
     }
 }
 
-/** Today's count. A couple of px larger than a plain badge, pink while over, with a dot on a day
- *  whose allowance was lowered by yesterday. Tapping opens the Today popover. */
+/** True on a day whose allowance was lowered by yesterday, until the user opens the Today popover. */
+internal fun borrowDot(state: ExhaleState): Boolean =
+    state.borrowedToday > 0 && state.settings.borrowNoticeSeenDay != state.today.toEpochDay()
+
+/** Today's count, the Ember tab's leading in the app bar. A couple of px larger than a plain badge,
+ *  pink while over, with a dot on a day whose allowance was lowered by yesterday. Tapping opens the
+ *  Today popover. */
 @Composable
-private fun TodayBadge(state: ExhaleState, showDot: Boolean, expanded: Boolean, onClick: () -> Unit) {
+internal fun TodayBadge(state: ExhaleState, showDot: Boolean, expanded: Boolean, onClick: () -> Unit) {
     val c = Ex.colors
     val over = state.overAllowance && state.todayCount > state.allowance
     val bg by animateColorAsState(if (over) c.tint(c.flare) else c.surface, label = "badge-bg")

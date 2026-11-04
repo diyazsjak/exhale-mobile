@@ -35,6 +35,7 @@ import app.exhale.ui.components.ActiveFilter
 import app.exhale.ui.components.ButtonSize
 import app.exhale.ui.components.ButtonStyle
 import app.exhale.ui.components.DayDot
+import app.exhale.ui.components.ExAppBar
 import app.exhale.ui.components.ExBadge
 import app.exhale.ui.components.ExButton
 import app.exhale.ui.components.ExCard
@@ -215,6 +216,12 @@ fun UiKitScreen(theme: ThemeMode, onTheme: (ThemeMode) -> Unit, onClose: () -> U
                 ),
                 tab, { tab = it },
             )
+        }
+
+        Section("App bar")
+        Text("Tap the tab bar above: the leading drops in from the top.", style = ExType.caption, color = c.inkSoft)
+        ExAppBar(tab, {}) { t ->
+            Overline(listOf("Ember · today", "Rhythm · Last 30 days", "Recovery · if you stop now", "Money · since 4 October")[t])
         }
     }
 }

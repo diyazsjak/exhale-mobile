@@ -111,7 +111,7 @@ private class Particle(val x: Float, var y: Float, val v: Float, val r: Float, v
 /**
  * Air: what the body gets back after each cigarette, built so nothing resets. A sky of milestones
  * (lit once any gap has reached them; a dot with a trail for the current gap), the next milestone,
- * today's gaps, and the full timeline. While scrolling, the header (overline and hero) stays put
+ * today's gaps, and the full timeline. Its overline is in the shared app bar. While scrolling, the hero stays put
  * until the content after the sky reaches it, then scrolls away with it; the sky rises a little,
  * dims and drops its labels, and the rest of the screen scrolls over it. [initialScroll] (px) is
  * for screenshots.
@@ -134,18 +134,16 @@ fun AirScreen(state: ExhaleState, initialScroll: Int = 0) {
     ExScreen(
         background = { ParticleField(clear, Modifier.fillMaxSize()) },
         scrollState = scroll,
+        underAppBar = true,
     ) {
-        // The header stays in place (it scrolls with the column, so it is moved back down by the
-        // scroll) until the next card meets it, then goes up with it. Drawn over the rising sky.
+        // The hero stays in place (it scrolls with the column, so it is moved back down by the
+        // scroll) until the next card meets it, then goes up with it, under the app bar. Drawn over the rising sky.
         Column(
             Modifier
                 .zIndex(1f)
                 .graphicsLayer { translationY = min(scroll.value.toFloat(), pin(skyHeight)) },
             verticalArrangement = Arrangement.spacedBy(ExSpace.md),
         ) {
-            Row(Modifier.fillMaxWidth().heightIn(min = ExSize.iconButton), verticalAlignment = Alignment.CenterVertically) {
-                Overline("Recovery · if you stop now")
-            }
             Hero(since, r?.next)
         }
         RecoverySky(since, r?.lastReached.orEmpty(), r?.next, words, scroll, skyHeight, Modifier.onSizeChanged { skyHeight = it.height })
