@@ -1,9 +1,13 @@
 package app.exhale.domain
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.Duration
 import java.time.Instant
+import java.time.LocalDate
 import java.time.ZoneOffset
 
 class StatsTest {
@@ -27,11 +31,81 @@ class StatsTest {
         assertEquals(500L, Stats.moneySavedMinor(10, 50.0))
     }
 
-    @Test fun hourly_averagesPerDay() {
-        val logs = listOf(log(60), log(61), log(60 * 24 + 60))
-        val h = Stats.hourly(logs, now, ZoneOffset.UTC, days = 2)
-        // 3 logs at 11:xx across a 3-calendar-day window.
-        assertEquals(1f, h[10] + h[11], 0.001f)
+    private val today: LocalDate = LocalDate.parse("2026-03-10") // a Tuesday; now is 12:00 UTC
+    private fun at(date: String, h: Int, t: Trigger? = null, id: Long = 0) =
+        SmokeLog(id, LocalDate.parse(date).atTime(h, 30).toInstant(ZoneOffset.UTC), t, false)
+
+    @Test fun hourly_averagesEachHourOverTheDaysItHasStarted() {
+        // 11:xx today and yesterday; 15:xx yesterday only (today's 15:00 hasn't happened yet).
+        val logs = listOf(at("2026-03-10", 11), at("2026-03-09", 11), at("2026-03-09", 11), at("2026-03-09", 15))
+        val h = Stats.hourly(logs, Period.lastDays(today, 2), now, ZoneOffset.UTC, LocalDate.parse("2026-01-01"))
+        assertEquals(1.5f, h[11], 0.001f)
+        assertEquals(1f, h[15], 0.001f)
+        assertEquals(2.5f, h.sum(), 0.001f)
+    }
+
+    @Test fun hourly_thirtyDaysIsThirtyDaysNotThirtyOne() {
+        // 12 a day at 08:xx on each of the last 30 days, today included.
+        val logs = (0L until 30L).flatMap { d -> List(12) { at(today.minusDays(d).toString(), 8) } }
+        val h = Stats.hourly(logs, Period.lastDays(today, 30), now, ZoneOffset.UTC, LocalDate.parse("2026-01-01"))
+        assertEquals(12f, h.sum(), 0.001f)
+    }
+
+    @Test fun hourly_newUserIsAveragedFromTheirStartOnly() {
+        // Started 5 days ago (today included), 12 a day at 09:xx.
+        val start = today.minusDays(4)
+        val logs = (0L until 5L).flatMap { d -> List(12) { at(today.minusDays(d).toString(), 9) } }
+        val h = Stats.hourly(logs, Period.lastDays(today, 30), now, ZoneOffset.UTC, start)
+        assertEquals(12f, h.sum(), 0.001f)
+    }
+
+    @Test fun hourly_beforeTrackingStartedIsEmpty() {
+        val h = Stats.hourly(emptyList(), Period.lastDays(today, 30, offsetDays = 30), now, ZoneOffset.UTC, today.minusDays(4))
+        assertEquals(0f, h.sum(), 0.001f)
+        assertEquals(0f, Stats.hourly(emptyList(), Period.lastDays(today, 30), now, ZoneOffset.UTC, null).sum(), 0.001f)
+    }
+
+    @Test fun hourly_dayFilterAndSingleDay() {
+        // Sat 7th and Sun 8th: 2 each at 10:xx. Mon 9th: 4 at 10:xx.
+        val logs = List(2) { at("2026-03-07", 10) } + List(2) { at("2026-03-08", 10) } + List(4) { at("2026-03-09", 10) }
+        val start = LocalDate.parse("2026-03-07")
+        val weekends = Stats.hourly(logs, Period.lastDays(today, 30, filter = DayFilter.WEEKENDS), now, ZoneOffset.UTC, start)
+        assertEquals(2f, weekends[10], 0.001f)
+        val weekdays = Stats.hourly(logs, Period.lastDays(today, 30, filter = DayFilter.WEEKDAYS), now, ZoneOffset.UTC, start)
+        assertEquals(2f, weekdays[10], 0.001f) // 4 on Monday over Mon + Tue (Tuesday 10:00 has started)
+        val monday = Stats.hourly(logs, Period.day(LocalDate.parse("2026-03-09")), now, ZoneOffset.UTC, start)
+        assertEquals(4f, monday[10], 0.001f)
+    }
+
+    @Test fun dataStart_isTheEarlierOfPlanStartAndFirstLog() {
+        val logs = listOf(at("2026-03-01", 9))
+        assertEquals(LocalDate.parse("2026-03-01"), Stats.dataStart(LocalDate.parse("2026-03-05"), logs, ZoneOffset.UTC))
+        assertEquals(LocalDate.parse("2026-02-20"), Stats.dataStart(LocalDate.parse("2026-02-20"), logs, ZoneOffset.UTC))
+        assertEquals(null, Stats.dataStart(null, emptyList(), ZoneOffset.UTC))
+    }
+
+    @Test fun triggers_reportCoverage() {
+        val logs = listOf(log(1, Trigger.COFFEE), log(2, Trigger.COFFEE), log(3), log(4))
+        val s = Stats.triggers(logs)
+        assertEquals(2, s.tagged)
+        assertEquals(4, s.total)
+        assertEquals(listOf(Trigger.COFFEE to 2), s.counts)
+    }
+
+    @Test fun topTrigger_needsEnoughTaggedLogs() {
+        assertNull(Stats.topTrigger(listOf(log(1, Trigger.COFFEE), log(2, Trigger.COFFEE), log(3), log(4))))
+        val top = Stats.topTrigger(listOf(log(1, Trigger.COFFEE), log(2, Trigger.COFFEE), log(3, Trigger.STRESS)))!!
+        assertEquals(Trigger.COFFEE, top.trigger)
+        assertTrue(top.mostly)
+        val split = Stats.topTrigger(listOf(log(1, Trigger.COFFEE), log(2, Trigger.STRESS), log(3, Trigger.DRINKS)))!!
+        assertFalse(split.mostly)
+    }
+
+    @Test fun period_containsOnlyItsFilteredDays() {
+        val p = Period.lastDays(today, 7, filter = DayFilter.WEEKDAYS)
+        assertTrue(p.contains(at("2026-03-09", 10).at, ZoneOffset.UTC))
+        assertFalse(p.contains(at("2026-03-08", 10).at, ZoneOffset.UTC)) // Sunday
+        assertFalse(p.contains(at("2026-03-03", 10).at, ZoneOffset.UTC)) // 8 days back
     }
 
     @Test fun longestGap_includesTimeSinceLast() {

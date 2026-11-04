@@ -37,9 +37,12 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalContext
+import android.text.format.DateFormat
 import app.exhale.domain.DayFilter
 import app.exhale.domain.Stats
-import app.exhale.domain.Trigger
+import app.exhale.domain.Period
+import app.exhale.domain.TopTrigger
 import app.exhale.domain.UrgeOutcome
 import app.exhale.ui.ExhaleState
 import app.exhale.ui.components.ExBadge
@@ -53,7 +56,6 @@ import app.exhale.ui.theme.Ex
 import app.exhale.ui.theme.ExRadius
 import app.exhale.ui.theme.ExSpace
 import app.exhale.ui.theme.ExType
-import java.time.Duration
 import java.time.ZoneId
 import kotlin.math.PI
 import kotlin.math.atan2
@@ -65,28 +67,40 @@ import kotlin.math.sin
 fun RhythmScreen(state: ExhaleState, initialDay: LocalDate? = null) {
     val c = Ex.colors
     val zone = ZoneId.systemDefault()
+    val h24 = DateFormat.is24HourFormat(LocalContext.current)
     var period by remember { mutableIntStateOf(0) }
     var filter by remember { mutableIntStateOf(0) }
     var selected by remember { mutableStateOf<Int?>(null) }
-    // A day picked in the week strip filters the clock and hour detail to that day.
+    // A day picked in the week strip filters the whole screen to that day.
     var day by remember { mutableStateOf(initialDay) }
 
-    val offset = if (period == 0) 0 else 30
-    val periodHours = remember(state.logs, period, filter, state.today) {
-        Stats.hourly(state.logs, state.now, zone, 30, offset, DayFilter.entries[filter])
-    }
-    val dayLogs = day?.let { d -> state.logs.filter { it.at.atZone(zone).toLocalDate() == d } }
-    val hours = dayLogs?.let { logs -> FloatArray(24).also { h -> logs.forEach { h[it.at.atZone(zone).hour] += 1f } } } ?: periodHours
-    val windowStart = state.now.minus(Duration.ofDays((30 + offset).toLong()))
-    val windowEnd = state.now.minus(Duration.ofDays(offset.toLong()))
-    val windowLogs = state.logs.filter { it.at >= windowStart && it.at < windowEnd }
-    val triggers = Stats.triggerCounts(windowLogs, windowStart)
+    val dataStart = remember(state.logs, state.settings.planStart) { Stats.dataStart(state.settings.planStart, state.logs, zone) }
+    val dayFilter = DayFilter.entries[filter]
+    val window = day?.let { Period.day(it) } ?: Period.lastDays(state.today, 30, if (period == 0) 0 else 30, dayFilter)
+    val hours = remember(state.logs, window, state.now, dataStart) { Stats.hourly(state.logs, window, state.now, zone, dataStart) }
+    val windowLogs = state.logs.filter { window.contains(it.at, zone) }
+    val triggers = Stats.triggers(windowLogs)
 
+    val d = day
+    val dayName = d?.let { if (it == state.today) "Today" else it.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.getDefault()) }
     ExScreen(
         header = {
-            Overline("Rhythm · 30 days")
+            Overline(
+                when {
+                    dayName != null -> "Rhythm · $dayName"
+                    period == 0 -> "Rhythm · Last 30 days"
+                    else -> "Rhythm · 30 days before"
+                }
+            )
             Fill()
-            ExBadge("avg %.1f a day".format(periodHours.sum()))
+            ExBadge(
+                if (d != null) "${windowLogs.size} that day"
+                else "avg %.1f a %s".format(hours.sum(), when (dayFilter) {
+                    DayFilter.ALL -> "day"
+                    DayFilter.WEEKDAYS -> "weekday"
+                    DayFilter.WEEKENDS -> "weekend day"
+                })
+            )
         },
     ) {
         ScreenTitle("When you light up")
@@ -94,37 +108,39 @@ fun RhythmScreen(state: ExhaleState, initialDay: LocalDate? = null) {
             Column(verticalArrangement = Arrangement.spacedBy(ExSpace.xs)) {
                 Row {
                     Text("This week", style = ExType.caption, color = c.inkSoft, modifier = Modifier.weight(1f))
-                    val d = day
                     val dot = state.week.firstOrNull { it.date == d }
+                    val count = dot?.count ?: 0
                     Text(
-                        if (d == null || dot == null) "Tap a day to see it"
-                        else "${if (d == state.today) "Today" else d.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.getDefault())} · ${dot.count} of ${dot.allowance}",
+                        when {
+                            dot == null || dayName == null -> "Tap a day to see its hours"
+                            count > dot.allowance -> "$dayName · $count, ${count - dot.allowance} borrowed"
+                            else -> "$dayName · $count of ${dot.allowance}"
+                        },
                         style = ExType.caption, color = if (d == null) c.inkFaint else c.ink,
                     )
                 }
-                WeekStrip(state.week, state.today, selected = day, onSelect = { d -> day = if (day == d) null else d; selected = null })
+                WeekStrip(state.week, state.today, selected = day, onSelect = { p -> day = if (day == p) null else p; selected = null })
             }
         }
         SegmentedControl(listOf("Last 30 days", "30 days before"), if (day == null) period else -1, { period = it; selected = null; day = null })
         SegmentedControl(DayFilter.entries.map { it.label }, if (day == null) filter else -1, { filter = it; selected = null; day = null })
-        SmokeClock(hours, selected, Modifier.padding(vertical = ExSpace.xs)) { selected = if (selected == it) null else it }
+        SmokeClock(hours, selected, h24, Modifier.padding(vertical = ExSpace.xs)) { selected = if (selected == it) null else it }
 
         val sel = selected
         if (sel != null) {
-            val top = (dayLogs ?: windowLogs).filter { it.at.atZone(zone).hour == sel && it.trigger != null }
-                .groupingBy { it.trigger!! }.eachCount().maxByOrNull { it.value }?.key
-            HourCard(sel, hours[sel], top, singleDay = day != null)
+            val top = Stats.topTrigger(windowLogs.filter { it.at.atZone(zone).hour == sel })
+            HourCard(sel, hours[sel], top, h24, singleDay = day != null)
         } else {
             Text("Tap an hour on the clock to see it up close.", style = ExType.caption, color = c.inkSoft)
         }
 
         ExCard {
             Overline("Triggers")
-            if (triggers.isEmpty()) {
+            if (triggers.tagged == 0) {
                 Text("Tag cigarettes after logging to see what drives them.", style = ExType.caption, color = c.inkSoft)
             }
-            val max = triggers.maxOfOrNull { it.second } ?: 1
-            triggers.take(6).forEach { (t, n) ->
+            val max = triggers.counts.maxOfOrNull { it.second } ?: 1
+            triggers.counts.take(6).forEach { (t, n) ->
                 Row(Modifier.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(t.label, style = ExType.labelSmall, color = c.ink, modifier = Modifier.width(92.dp))
                     Box(Modifier.weight(1f).height(10.dp).clip(ExRadius.pill).background(c.surfaceHigh)) {
@@ -137,30 +153,49 @@ fun RhythmScreen(state: ExhaleState, initialDay: LocalDate? = null) {
                     Text("$n", style = ExType.numberSmall, color = c.inkSoft, modifier = Modifier.width(44.dp).padding(start = 10.dp))
                 }
             }
+            if (triggers.tagged > 0) {
+                Text("${triggers.tagged} of ${triggers.total} tagged.", style = ExType.caption, color = c.inkSoft)
+            }
         }
-        val survived = state.urges.count { it.startedAt >= windowStart && it.startedAt < windowEnd && it.outcome == UrgeOutcome.SURVIVED }
-        Text("$survived craving waves ridden out in this period.", style = ExType.body, color = c.oxyInk)
+        val survived = state.urges.count { window.contains(it.startedAt, zone) && it.outcome == UrgeOutcome.SURVIVED }
+        Text(
+            when {
+                survived == 0 -> "Ride out a craving with \"Help me wait\" and it counts here."
+                d != null -> "$survived craving wave${if (survived == 1) "" else "s"} ridden out that day."
+                else -> "$survived craving wave${if (survived == 1) "" else "s"} ridden out in this period."
+            },
+            style = ExType.body, color = if (survived == 0) c.inkSoft else c.oxyInk,
+        )
     }
 }
 
 @Composable
-private fun HourCard(hour: Int, perDay: Float, top: Trigger?, singleDay: Boolean = false) {
+private fun HourCard(hour: Int, perDay: Float, top: TopTrigger?, h24: Boolean, singleDay: Boolean = false) {
     val c = Ex.colors
-    val label = hourLabel(hour)
     ExCard {
-        Overline("$label – ${hourLabel((hour + 1) % 24)}")
+        Overline("${hourLabel(hour, h24)} – ${hourLabel((hour + 1) % 24, h24)}")
         val n = perDay.toInt()
         Text(
-            if (singleDay) "$n cigarette${if (n == 1) "" else "s"}" else "%.1f a day".format(perDay),
+            when {
+                perDay == 0f -> "None in this hour"
+                singleDay -> "$n cigarette${if (n == 1) "" else "s"}"
+                else -> "%.1f a day".format(perDay)
+            },
             style = ExType.headline, color = c.ink,
         )
         if (top != null) {
-            Text("Mostly ${top.label.lowercase()}.", style = ExType.body, color = c.inkSoft)
+            val name = top.trigger.label.lowercase()
+            Text(
+                "${if (top.mostly) "Mostly" else "Most often"} $name · ${top.count} of ${top.tagged} tagged.",
+                style = ExType.body, color = c.inkSoft,
+            )
         }
     }
 }
 
-private fun hourLabel(h: Int): String = when {
+/** "13:00" or "1 pm" hour label, following the phone's 12/24-hour setting. */
+private fun hourLabel(h: Int, h24: Boolean): String = when {
+    h24 -> "%02d:00".format(h)
     h == 0 -> "12 am"
     h < 12 -> "$h am"
     h == 12 -> "12 pm"
@@ -169,7 +204,7 @@ private fun hourLabel(h: Int): String = when {
 
 /** 24-hour radial heatmap. Hour 0 at the top, clockwise. */
 @Composable
-private fun SmokeClock(hours: FloatArray, selected: Int?, modifier: Modifier = Modifier, onSelect: (Int) -> Unit) {
+private fun SmokeClock(hours: FloatArray, selected: Int?, h24: Boolean, modifier: Modifier = Modifier, onSelect: (Int) -> Unit) {
     val c = Ex.colors
     val measurer = rememberTextMeasurer()
     val max = (hours.maxOrNull() ?: 0f).coerceAtLeast(0.01f)
@@ -184,7 +219,7 @@ private fun SmokeClock(hours: FloatArray, selected: Int?, modifier: Modifier = M
             Modifier
                 .fillMaxWidth()
                 .aspectRatio(1f)
-                .semantics { contentDescription = "24-hour heatmap. Busiest hour ${hourLabel(peak)}." }
+                .semantics { contentDescription = if (hours.all { it == 0f }) "24-hour heatmap. Nothing logged in this period." else "24-hour heatmap. Busiest hour ${hourLabel(peak, h24)}, %.1f a day.".format(hours[peak]) }
                 .pointerInput(Unit) {
                     detectTapGestures { pos ->
                         val cx = size.width / 2f
@@ -216,13 +251,14 @@ private fun SmokeClock(hours: FloatArray, selected: Int?, modifier: Modifier = M
                 }
                 val color = when {
                     t > 0.75f -> hot
-                    t > 0.15f -> warm.copy(alpha = 0.3f + t * 0.7f)
+                    // Any smoking at all shows; only an hour with none is empty.
+                    hours[i] > 0f -> warm.copy(alpha = 0.3f + t * 0.7f)
                     else -> empty
                 }
                 drawPath(path, color)
                 if (selected == i) drawPath(path, outline, style = Stroke(2.dp.toPx()))
             }
-            listOf(0 to "00", 6 to "06", 12 to "12", 18 to "18").forEach { (h, l) ->
+            (if (h24) listOf(0 to "00", 6 to "06", 12 to "12", 18 to "18") else listOf(0 to "12a", 6 to "6a", 12 to "12p", 18 to "6p")).forEach { (h, l) ->
                 val a = h / 24f * 2 * PI.toFloat()
                 val r = r1 * 0.72f
                 val m = measurer.measure(l, labelStyle)

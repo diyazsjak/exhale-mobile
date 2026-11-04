@@ -123,14 +123,24 @@ First launch shows **Onboarding** (§3.7). Regulate is no longer a tab: its coun
   the Ember screen, where the user logs it by holding the ember. "Close" records nothing.
 
 ### 3.4 Rhythm — `RhythmScreen.kt`
+- Header overline names what is shown ("Rhythm · Last 30 days", "Rhythm · 30 days before",
+  "Rhythm · Sunday"); the badge is the average a day for the period and day filter ("avg 11.8 a
+  weekday"), or "N that day" while a day is picked.
 - **This week** under the title: the week strip (S M T W T F S, first day per locale), each past
-  day's count tinted oxygen within the allowance and ember when over. Tap a day to filter the clock
-  and the hour card to that day ("Sunday · 11 of 10"); tap it again, or a period toggle, to go back
-  to 30 days. While a day is picked the toggles show nothing selected.
-- 24-hour radial heatmap ("Smoke Clock"), hour 0 at top, clockwise. Wedge heat = avg per day.
+  day's count tinted oxygen within the allowance and ember when over. Tap a day to filter the whole
+  screen to that day ("Sunday · 6 of 8", or "Sunday · 10, 2 borrowed" when over); tap it again, or a
+  period toggle, to go back to 30 days. While a day is picked the toggles show nothing selected.
+- 24-hour radial heatmap ("Smoke Clock"), hour 0 at top, clockwise. Wedge heat = avg per day; any
+  hour with smoking is tinted, only hours with none are empty. Hour labels follow the phone's
+  12/24-hour setting.
 - Toggles: Last 30 days / 30 days before; All / Weekdays / Weekends.
-- Tap a wedge → hour card with per-day average and top trigger.
-- Trigger bar list; count of craving waves ridden out in the period.
+- Tap a wedge → hour card with per-day average ("None in this hour" when empty) and the top trigger
+  once at least 3 logs in it are tagged ("Mostly coffee · 7 of 12 tagged.", "Most often …" when it is
+  not a majority).
+- Trigger bar list with coverage ("64 of 340 tagged."); craving waves ridden out ("1 craving wave
+  ridden out in this period."), or an invitation to use "Help me wait" when there are none.
+- Everything on the screen (clock, hour card, triggers, waves) follows the same period, day filter
+  and picked day.
 
 ### 3.5 Air — `AirScreen.kt`
 - Particle field: ash-grey particles turn Oxygen as `clearFraction` (progress to 12 h) rises.
@@ -186,7 +196,12 @@ Prototype tools: replace data with 30 days of demo data (explained in-screen), e
 
 ### Other stats — `Stats`
 - `notSmoked(baseline, since, now, smokedSince)` uses fractional days.
-- `hourly(...)` returns 24 per-day averages over the window, honouring the day filter.
+- `hourly(logs, period, now, zone, dataStart)` returns 24 per-day averages. A `Period` is a range of
+  calendar days (the last 30 is today and the 29 before it) plus a day filter. Each hour is averaged
+  over the days on which it has started by `now` and that are on or after `dataStart` (earlier of
+  plan start and first log), so a new user's average isn't diluted by days before they started and
+  today's unfinished hours don't count. A one-day period gives that day's counts.
+- `topTrigger` needs at least 3 tagged logs; `triggers` also reports how many were tagged.
 - `longestGap(...)` = longest gap between consecutive logs or last log → now inside the window;
   the gap before the first in-window log counts only if an earlier log anchors it.
 
