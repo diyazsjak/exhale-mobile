@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
@@ -42,6 +43,7 @@ import app.exhale.ui.theme.ExType
  * Every screen sits in this: the shared background, status-bar inset, side gutter, and room
  * for the floating tab bar (pass a smaller [bottomClearance] on screens without it). [header] is a row for back/close/settings buttons and a label.
  * [background] draws behind the content (e.g. the Air particle field) on top of the shared bg.
+ * Pass [scrollState] to react to scrolling (Air's sky collapses as the screen scrolls).
  */
 @Composable
 fun ExScreen(
@@ -50,16 +52,18 @@ fun ExScreen(
     bottomClearance: Dp = ExSize.tabBarClearance,
     header: (@Composable RowScope.() -> Unit)? = null,
     background: (@Composable BoxScope.() -> Unit)? = null,
+    scrollState: ScrollState? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val c = Ex.colors
+    val ownScroll = rememberScrollState()
     Box(modifier.fillMaxSize().background(c.bg)) {
         background?.invoke(this)
         Column(
             Modifier
                 .fillMaxSize()
                 .statusBarsPadding()
-                .then(if (scroll) Modifier.verticalScroll(rememberScrollState()) else Modifier)
+                .then(if (scroll) Modifier.verticalScroll(scrollState ?: ownScroll) else Modifier)
                 .padding(horizontal = ExSpace.gutter)
                 .navigationBarsPadding()
                 .padding(top = ExSpace.xs, bottom = bottomClearance),
