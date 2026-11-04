@@ -154,7 +154,7 @@ Shows the last 30 days (today and the 29 before), or one picked day. Order:
 - **Craving waves**: "8 craving waves ridden out in the last 30 days." on an oxygen tint, or an
   invitation to use "Help me wait" when there are none.
 - Everything on the screen follows the same period, day filter and picked day.
-- **Motion**: changes glide rather than jump (about 280 ms). Clock bars and thin lines move to their
+- **Motion**: changes glide rather than jump (about 280 ms). Clock bars and thin lines move (0.36 s, fast start, soft stop) to their
   new lengths; the clock centre, the filter bar and the comparison text cross-fade; lighting up the
   lines fades; the comparison and plan cards fade and fold in or out.
 

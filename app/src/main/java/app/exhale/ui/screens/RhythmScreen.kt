@@ -5,7 +5,7 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
@@ -594,6 +594,9 @@ private const val INNER = 0.56f
 /** Duration of Rhythm's fades and glides. */
 private const val FADE_MS = 280
 
+/** Duration of the clock bars and lines gliding to new values. */
+private const val BAR_MS = 360
+
 /**
  * [target], animated: when it changes, every value glides from where it is now to its new value.
  * The first value shows without animating.
@@ -609,7 +612,8 @@ private fun animatedValues(target: FloatArray): FloatArray {
             from = FloatArray(target.size) { from[it] + (to[it] - from[it]) * p }
             to = target
             progress.snapTo(0f)
-            progress.animateTo(1f, tween(FADE_MS * 2, easing = FastOutSlowInEasing))
+            // Starts at full speed and only eases at the end, so bars never seem to hang before moving.
+            progress.animateTo(1f, tween(BAR_MS, easing = LinearOutSlowInEasing))
         }
     }
     val p = progress.value
