@@ -33,25 +33,32 @@ data class MonthTally(
 
 object History {
 
+    /** Cigarettes per calendar day. */
+    fun countsByDay(logs: List<SmokeLog>, zone: ZoneId): Map<LocalDate, Int> =
+        logs.groupingBy { it.at.atZone(zone).toLocalDate() }.eachCount()
+
+    /** One tracked day: its count, and its allowance (borrowing from the day before), none before the plan. */
+    fun tally(s: UserSettings, counts: Map<LocalDate, Int>, date: LocalDate): DayTally =
+        DayTally(
+            date,
+            counts[date] ?: 0,
+            if (date.isBefore(s.planStart)) null else PlanMath.allowance(s, date, counts[date.minusDays(1)] ?: 0),
+        )
+
     /**
      * Every month from the one holding [dataStart] to the one holding [today], newest first.
      * Today counts as tracked (its total so far). Empty when nothing has been tracked yet.
      */
     fun months(s: UserSettings, logs: List<SmokeLog>, today: LocalDate, now: Instant, zone: ZoneId, dataStart: LocalDate?): List<MonthTally> {
         if (dataStart == null || dataStart.isAfter(today)) return emptyList()
-        val counts = logs.groupingBy { it.at.atZone(zone).toLocalDate() }.eachCount()
+        val counts = countsByDay(logs, zone)
         val out = mutableListOf<MonthTally>()
         var m = YearMonth.from(today)
         val first = YearMonth.from(dataStart)
         while (!m.isBefore(first)) {
             val days = (1..m.lengthOfMonth()).map { d ->
                 val date = m.atDay(d)
-                if (date.isBefore(dataStart) || date.isAfter(today)) null
-                else {
-                    val count = counts[date] ?: 0
-                    val allowance = if (date.isBefore(s.planStart)) null else PlanMath.allowance(s, date, counts[date.minusDays(1)] ?: 0)
-                    DayTally(date, count, allowance)
-                }
+                if (date.isBefore(dataStart) || date.isAfter(today)) null else tally(s, counts, date)
             }
             val tracked = days.filterNotNull()
             val planned = tracked.filter { it.allowance != null }

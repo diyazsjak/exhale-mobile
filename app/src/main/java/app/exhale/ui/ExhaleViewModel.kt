@@ -7,6 +7,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import app.exhale.ExhaleApp
 import app.exhale.data.ExhaleRepository
+import app.exhale.domain.History
 import app.exhale.domain.Milestones
 import app.exhale.domain.PlanMath
 import app.exhale.domain.SmokeLog
@@ -176,13 +177,13 @@ class ExhaleViewModel(private val repo: ExhaleRepository) : ViewModel() {
  * The last 7 days, today last, for the week strip: count and allowance per day. Days before
  * tracking began have no count; days before the plan start have no allowance.
  */
-fun weekDays(s: UserSettings, logs: List<SmokeLog>, today: LocalDate, zone: ZoneId, dataStart: LocalDate?): List<DayDot> =
-    (6L downTo 0L).map { back ->
+fun weekDays(s: UserSettings, logs: List<SmokeLog>, today: LocalDate, zone: ZoneId, dataStart: LocalDate?): List<DayDot> {
+    // Only the last 8 days matter (7 shown, plus the day before for borrowing): count those once.
+    val from = today.minusDays(7).atStartOfDay(zone).toInstant()
+    val counts = History.countsByDay(logs.filter { it.at >= from }, zone)
+    return (6L downTo 0L).map { back ->
         val d = today.minusDays(back)
-        if (dataStart == null || d.isBefore(dataStart)) {
-            DayDot(d, null, null)
-        } else {
-            val allowance = if (d.isBefore(s.planStart)) null else PlanMath.allowance(s, d, Stats.countOn(logs, d.minusDays(1), zone))
-            DayDot(d, Stats.countOn(logs, d, zone), allowance)
-        }
+        if (dataStart == null || d.isBefore(dataStart)) DayDot(d, null, null)
+        else History.tally(s, counts, d).let { DayDot(d, it.count, it.allowance) }
     }
+}

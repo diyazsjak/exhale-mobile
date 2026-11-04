@@ -55,9 +55,10 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import app.exhale.domain.DayFilter
 import app.exhale.domain.Period
-import app.exhale.domain.PlanMath
+import app.exhale.domain.History
 import app.exhale.domain.Stats
 import app.exhale.domain.TopTrigger
+import app.exhale.domain.TriggerSummary
 import app.exhale.domain.Trigger
 import app.exhale.domain.UrgeOutcome
 import app.exhale.ui.ExhaleState
@@ -113,8 +114,9 @@ fun RhythmScreen(
     val zone = ZoneId.systemDefault()
     val h24 = DateFormat.is24HourFormat(LocalContext.current)
     var filter by remember { mutableIntStateOf(0) }
-    var selected by remember { mutableStateOf(initialHour) }
-    var lines by remember { mutableStateOf(initialLines) }
+    // Reset whenever the shown day changes, whether from the week strip or from History.
+    var selected by remember(day) { mutableStateOf(initialHour) }
+    var lines by remember(day) { mutableStateOf(initialLines) }
     var idea by remember { mutableIntStateOf(0) }
 
     val dataStart = state.dataStart
@@ -128,7 +130,8 @@ fun RhythmScreen(
     val beforeHours = remember(state.logs, before, dataStart, compare) { if (compare) Stats.hourly(state.logs, before, state.now, zone, dataStart) else null }
     val windowLogs = remember(state.logs, window) { state.logs.filter { window.contains(it.at, zone) } }
     val triggers = remember(windowLogs) { Stats.triggers(windowLogs) }
-    val peaks = Stats.peaks(hours)
+    val peaks = remember(hours) { Stats.peaks(hours) }
+    val topTrigger = remember(windowLogs) { Stats.topTrigger(windowLogs) }
     val unit = when (dayFilter) { DayFilter.ALL -> "a day"; DayFilter.WEEKDAYS -> "a weekday"; DayFilter.WEEKENDS -> "a weekend day" }
     val where = when (dayFilter) { DayFilter.ALL -> ""; DayFilter.WEEKDAYS -> " on weekdays"; DayFilter.WEEKENDS -> " at weekends" }
     val dayName = day?.let { dayName(it, state.today) }
@@ -144,7 +147,7 @@ fun RhythmScreen(
         covered < MIN_DAYS -> "$covered day${if (covered == 1) "" else "s"} in. Your rhythm gets clearer after a week or two."
         peaks.isEmpty() -> "Nothing logged$where in the last 30 days."
         else -> "Busiest around ${peaks.joinToString(" and ") { label(it) }}." +
-            (Stats.topTrigger(windowLogs)?.let { words(it.trigger)?.most?.let { s -> " $s" } } ?: "")
+            (topTrigger?.let { words(it.trigger)?.most?.let { s -> " $s" } } ?: "")
     }
 
     ExScreen(
@@ -166,14 +169,14 @@ fun RhythmScreen(
                 ExLink("All history", onHistory)
             }
             WeekStrip(state.week, state.today, selected = day, onSelect = { p ->
-                onDay(if (day == p) null else p); selected = null; lines = false
+                onDay(if (day == p) null else p)
             })
         }
 
         if (day != null) {
-            val count = windowLogs.size
-            val allowance = if (day.isBefore(state.settings.planStart)) null
-            else PlanMath.allowance(state.settings, day, Stats.countOn(state.logs, day.minusDays(1), zone))
+            val tally = remember(state.logs, state.settings, day) { History.tally(state.settings, History.countsByDay(state.logs, zone), day) }
+            val count = tally.count
+            val allowance = tally.allowance
             ActiveFilter(
                 when {
                     allowance == null -> "$dayName · $count"
@@ -181,7 +184,7 @@ fun RhythmScreen(
                     else -> "$dayName · $count of $allowance"
                 },
                 "Back to 30 days",
-                { onDay(null); selected = null },
+                { onDay(null) },
             )
         } else {
             SegmentedControl(DayFilter.entries.map { it.label }, filter, { filter = it; selected = null })
@@ -263,53 +266,68 @@ fun RhythmScreen(
             )
         }
 
-        ExCard {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Overline("Triggers", Modifier.weight(1f))
-                if (triggers.tagged > 0) Text("${triggers.tagged} of ${triggers.total} tagged", style = ExType.caption, color = c.inkSoft)
-            }
-            if (triggers.tagged == 0) {
-                Text(
-                    when {
-                        triggers.total == 0 -> "Nothing logged here yet."
-                        day != null -> "Nothing tagged that day."
-                        else -> "Tag cigarettes after logging to see what drives them."
-                    },
-                    style = ExType.caption, color = c.inkSoft,
-                )
-            }
-            val max = triggers.counts.maxOfOrNull { it.second } ?: 1
-            triggers.counts.take(6).forEach { (t, n) ->
-                Row(Modifier.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(t.label, style = ExType.labelSmall, color = c.ink, modifier = Modifier.width(92.dp))
-                    Box(Modifier.weight(1f).height(10.dp).clip(ExRadius.pill).background(c.surfaceHigh)) {
-                        Box(
-                            Modifier.fillMaxHeight().fillMaxWidth(n / max.toFloat())
-                                .clip(ExRadius.pill)
-                                .background(Brush.horizontalGradient(listOf(c.ember, c.flare)))
-                        )
-                    }
-                    Text("$n", style = ExType.numberSmall, color = c.inkSoft, modifier = Modifier.width(44.dp).padding(start = 10.dp))
-                }
-            }
-        }
+        TriggersCard(triggers, pickedDay = day != null)
+        WavesCard(
+            survived = state.urges.count { window.contains(it.startedAt, zone) && it.outcome == UrgeOutcome.SURVIVED },
+            span = if (day != null) "that day" else "$where in the last 30 days".trim(),
+        )
+    }
+}
 
-        val survived = state.urges.count { window.contains(it.startedAt, zone) && it.outcome == UrgeOutcome.SURVIVED }
-        if (survived > 0) {
-            ExCard(color = c.tint(c.oxy)) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(ExSpace.md)) {
-                    Text("$survived", style = ExType.numberLarge, color = c.oxyInk)
-                    Text(
-                        "craving wave${if (survived == 1) "" else "s"} ridden out ${if (day != null) "that day" else "$where in the last 30 days".trim()}.",
-                        style = ExType.body, color = c.ink, modifier = Modifier.weight(1f),
+/** Trigger bars for what's shown, with how many logs were tagged at all. */
+@Composable
+private fun TriggersCard(triggers: TriggerSummary, pickedDay: Boolean) {
+    val c = Ex.colors
+    ExCard {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Overline("Triggers", Modifier.weight(1f))
+            if (triggers.tagged > 0) Text("${triggers.tagged} of ${triggers.total} tagged", style = ExType.caption, color = c.inkSoft)
+        }
+        if (triggers.tagged == 0) {
+            Text(
+                when {
+                    triggers.total == 0 -> "Nothing logged here yet."
+                    pickedDay -> "Nothing tagged that day."
+                    else -> "Tag cigarettes after logging to see what drives them."
+                },
+                style = ExType.caption, color = c.inkSoft,
+            )
+        }
+        val max = triggers.counts.maxOfOrNull { it.second } ?: 1
+        triggers.counts.take(6).forEach { (t, n) ->
+            Row(Modifier.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(t.label, style = ExType.labelSmall, color = c.ink, modifier = Modifier.width(92.dp))
+                Box(Modifier.weight(1f).height(10.dp).clip(ExRadius.pill).background(c.surfaceHigh)) {
+                    Box(
+                        Modifier.fillMaxHeight().fillMaxWidth(n / max.toFloat())
+                            .clip(ExRadius.pill)
+                            .background(Brush.horizontalGradient(listOf(c.ember, c.flare)))
                     )
                 }
+                Text("$n", style = ExType.numberSmall, color = c.inkSoft, modifier = Modifier.width(44.dp).padding(start = 10.dp))
             }
-        } else {
-            ExCard {
-                Overline("Craving waves")
-                Text("Ride one out with “Help me wait” and it counts here.", style = ExType.body, color = c.ink)
+        }
+    }
+}
+
+/** Craving waves ridden out in [span] ("in the last 30 days"), or an invitation when there are none. */
+@Composable
+private fun WavesCard(survived: Int, span: String) {
+    val c = Ex.colors
+    if (survived > 0) {
+        ExCard(color = c.tint(c.oxy)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(ExSpace.md)) {
+                Text("$survived", style = ExType.numberLarge, color = c.oxyInk)
+                Text(
+                    "craving wave${if (survived == 1) "" else "s"} ridden out $span.",
+                    style = ExType.body, color = c.ink, modifier = Modifier.weight(1f),
+                )
             }
+        }
+    } else {
+        ExCard {
+            Overline("Craving waves")
+            Text("Ride one out with \u201cHelp me wait\u201d and it counts here.", style = ExType.body, color = c.ink)
         }
     }
 }

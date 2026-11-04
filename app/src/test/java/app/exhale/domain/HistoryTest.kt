@@ -63,6 +63,16 @@ class HistoryTest {
         assertEquals(Duration.ofHours(28), months[0].longestGap)
     }
 
+    @Test fun tally_borrowsFromTheDayBeforeAndHasNoAllowanceBeforeThePlan() {
+        val counts = mapOf(LocalDate.parse("2026-10-30") to 12, LocalDate.parse("2026-10-31") to 7)
+        val t = History.tally(settings, counts, LocalDate.parse("2026-10-31"))
+        assertEquals(7, t.count)
+        assertEquals(8, t.allowance) // 10, minus 2 borrowed on the 30th
+        assertFalse(t.over)
+        assertNull(History.tally(settings, counts, LocalDate.parse("2026-10-29")).allowance)
+        assertEquals(0, History.tally(settings, counts, LocalDate.parse("2026-11-01")).count)
+    }
+
     @Test fun months_emptyWithoutTracking() {
         assertEquals(emptyList<MonthTally>(), History.months(settings, emptyList(), today, now, zone, null))
     }
