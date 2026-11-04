@@ -70,21 +70,8 @@ fun HistoryScreen(state: ExhaleState, onPickDay: (LocalDate) -> Unit, onClose: (
         }
         months.forEach { m ->
             Column(Modifier.padding(top = ExSpace.xs), verticalArrangement = Arrangement.spacedBy(ExSpace.sm)) {
-                Row(verticalAlignment = Alignment.Bottom) {
-                    Text(
-                        monthName(m.month, state.today),
-                        style = ExType.headline, color = c.ink,
-                        modifier = Modifier.weight(1f).semantics { heading() },
-                    )
-                    Text(
-                        when {
-                            m.month == YearMonth.from(state.today) -> "${m.tracked} day${if (m.tracked == 1) "" else "s"} so far"
-                            start != null && m.month == YearMonth.from(start) -> "from the ${start.dayOfMonth}${ordinal(start.dayOfMonth)}, when you started"
-                            else -> ""
-                        },
-                        style = ExType.caption, color = c.inkSoft,
-                    )
-                }
+                // The start date is in the subtitle and the day count in the summary below.
+                Text(monthName(m.month, state.today), style = ExType.headline, color = c.ink, modifier = Modifier.semantics { heading() })
                 MonthCalendar(
                     m.month,
                     m.days.mapIndexed { i, d -> DayDot(m.month.atDay(i + 1), d?.count, d?.allowance) },
@@ -109,11 +96,3 @@ fun HistoryScreen(state: ExhaleState, onPickDay: (LocalDate) -> Unit, onClose: (
 /** "October", or "October 2025" outside the current year. */
 private fun monthName(m: YearMonth, today: LocalDate): String =
     m.format(DateTimeFormatter.ofPattern(if (m.year == today.year) "LLLL" else "LLLL yyyy", Locale.getDefault()))
-
-private fun ordinal(d: Int): String = when {
-    d in 11..13 -> "th"
-    d % 10 == 1 -> "st"
-    d % 10 == 2 -> "nd"
-    d % 10 == 3 -> "rd"
-    else -> "th"
-}

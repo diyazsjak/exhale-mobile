@@ -71,7 +71,7 @@ fun MoneyScreen(state: ExhaleState) {
         val shown = 60
         val kept = if (state.notSmoked == 0) 0 else (shown * (state.notSmoked % 100) / 100f).toInt().coerceAtLeast(1)
         FlowRow(
-            Modifier.fillMaxWidth().padding(vertical = ExSpace.xs).semantics { contentDescription = "Cigarettes not smoked" },
+            Modifier.fillMaxWidth().padding(vertical = ExSpace.xs).semantics { contentDescription = "${state.notSmoked % 100} of the next hundred not smoked" },
             horizontalArrangement = Arrangement.spacedBy(5.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
@@ -79,7 +79,8 @@ fun MoneyScreen(state: ExhaleState) {
                 Box(Modifier.size(width = 6.dp, height = 26.dp).clip(ExRadius.pill).background(if (i < kept) c.sun else c.surface))
             }
         }
-        Text("Each golden stick is one you didn't smoke. The row starts over every hundred.", style = ExType.caption, color = c.inkSoft)
+        // The row is progress to the next hundred (60 sticks stand for 100), not one stick each.
+        Text("${state.notSmoked % 100} toward your next hundred.", style = ExType.caption, color = c.inkSoft)
 
         ExCard {
             Overline("Goal")
@@ -88,12 +89,12 @@ fun MoneyScreen(state: ExhaleState) {
                 Box(Modifier.fillMaxHeight().fillMaxWidth(progress).clip(ExRadius.pill).background(Brush.horizontalGradient(listOf(c.sun, c.oxy))))
             }
             Text(
-                "${Fmt.money(state.savedMinor, s.currencyCode)} of ${Fmt.money(s.goalMinor, s.currencyCode)}" +
-                    when {
-                        left == 0L -> " · reached. Go get it."
-                        weeksLeft != null -> " · about $weeksLeft week${if (weeksLeft == 1) "" else "s"} at this pace"
-                        else -> ""
-                    },
+                // The amount kept is the hero above; here say what's still to go.
+                when {
+                    left == 0L -> "Reached. Go get it."
+                    weeksLeft != null -> "${Fmt.money(left, s.currencyCode)} to go · about $weeksLeft week${if (weeksLeft == 1) "" else "s"} at this pace"
+                    else -> "${Fmt.money(left, s.currencyCode)} to go"
+                },
                 style = ExType.numberSmall, color = c.inkSoft,
             )
         }

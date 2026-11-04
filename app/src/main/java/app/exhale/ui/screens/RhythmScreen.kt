@@ -1,6 +1,18 @@
 package app.exhale.ui.screens
 
 import android.text.format.DateFormat
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -19,6 +31,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -131,39 +144,25 @@ fun RhythmScreen(
     val windowLogs = remember(state.logs, window) { state.logs.filter { window.contains(it.at, zone) } }
     val triggers = remember(windowLogs) { Stats.triggers(windowLogs) }
     val peaks = remember(hours) { Stats.peaks(hours) }
-    val topTrigger = remember(windowLogs) { Stats.topTrigger(windowLogs) }
     val unit = when (dayFilter) { DayFilter.ALL -> "a day"; DayFilter.WEEKDAYS -> "a weekday"; DayFilter.WEEKENDS -> "a weekend day" }
     val where = when (dayFilter) { DayFilter.ALL -> ""; DayFilter.WEEKDAYS -> " on weekdays"; DayFilter.WEEKENDS -> " at weekends" }
-    val dayName = day?.let { dayName(it, state.today) }
     val label = { h: Int -> hourLabel(h, h24) }
-
-    val insight = when {
-        day != null -> when {
-            windowLogs.isEmpty() || peaks.isEmpty() -> if (day == state.today) "Nothing logged today." else "Nothing logged on $dayName."
-            day == state.today -> "Today, busiest around ${label(peaks[0])}."
-            else -> "On $dayName, busiest around ${label(peaks[0])}."
-        }
-        covered == 0 -> "Log a few and your rhythm shows up here."
-        covered < MIN_DAYS -> "$covered day${if (covered == 1) "" else "s"} in. Your rhythm gets clearer after a week or two."
-        peaks.isEmpty() -> "Nothing logged$where in the last 30 days."
-        else -> "Busiest around ${peaks.joinToString(" and ") { label(it) }}." +
-            (topTrigger?.let { words(it.trigger)?.most?.let { s -> " $s" } } ?: "")
-    }
 
     ExScreen(
         header = {
-            Overline(if (dayName != null) "Rhythm · $dayName" else "Rhythm · Last 30 days")
+            // A picked day is named and counted in the filter bar below, so the header stays general.
+            Overline(if (day != null) "Rhythm" else "Rhythm · Last 30 days")
             Fill()
-            ExBadge(if (day != null) "${windowLogs.size} that day" else "avg %.1f %s".format(hours.sum(), unit))
+            if (day == null) ExBadge("avg %.1f %s".format(hours.sum(), unit))
         },
     ) {
-        ScreenTitle("When you light up", subtitle = insight)
+        ScreenTitle("When you light up")
 
         Column(verticalArrangement = Arrangement.spacedBy(ExSpace.xxs)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("Last 7 days", style = ExType.caption, color = c.inkSoft)
                 Text(
-                    if (day != null && state.week.any { it.date == day }) " · tap again to go back" else " · tap a day",
+                    if (day == null) " · tap a day" else "",
                     style = ExType.caption, color = c.inkFaint, modifier = Modifier.weight(1f),
                 )
                 ExLink("All history", onHistory)
@@ -173,21 +172,22 @@ fun RhythmScreen(
             })
         }
 
-        if (day != null) {
-            val tally = remember(state.logs, state.settings, day) { History.tally(state.settings, History.countsByDay(state.logs, zone), day) }
-            val count = tally.count
-            val allowance = tally.allowance
-            ActiveFilter(
-                when {
-                    allowance == null -> "$dayName · $count"
-                    count > allowance -> "$dayName · $count, ${count - allowance} borrowed"
-                    else -> "$dayName · $count of $allowance"
-                },
-                "Back to 30 days",
-                { onDay(null) },
-            )
-        } else {
-            SegmentedControl(DayFilter.entries.map { it.label }, filter, { filter = it; selected = null })
+        AnimatedContent(day, transitionSpec = { fadeIn(tween(FADE_MS)) togetherWith fadeOut(tween(FADE_MS)) }, label = "filter") { d ->
+            if (d != null) {
+                val tally = remember(state.logs, state.settings, d) { History.tally(state.settings, History.countsByDay(state.logs, zone), d) }
+                val name = dayName(d, state.today)
+                ActiveFilter(
+                    when {
+                        tally.allowance == null -> "$name · ${tally.count}"
+                        tally.over -> "$name · ${tally.count}, ${tally.count - tally.allowance} borrowed"
+                        else -> "$name · ${tally.count} of ${tally.allowance}"
+                    },
+                    "Show last 30 days",
+                    { onDay(null) },
+                )
+            } else {
+                SegmentedControl(DayFilter.entries.map { it.label }, filter, { filter = it; selected = null })
+            }
         }
 
         val sel = selected
@@ -233,16 +233,21 @@ fun RhythmScreen(
             modifier = Modifier.padding(vertical = ExSpace.xxs),
         )
 
-        if (beforeHours != null) {
+        // Keep the last comparison so the card still has something to show while it fades out.
+        val lastBefore = remember { mutableStateOf<FloatArray?>(null) }
+        if (beforeHours != null) lastBefore.value = beforeHours
+        AnimatedVisibility(beforeHours != null, enter = fadeIn(tween(FADE_MS)) + expandVertically(tween(FADE_MS)), exit = fadeOut(tween(FADE_MS)) + shrinkVertically(tween(FADE_MS))) {
+            val b = lastBefore.value ?: return@AnimatedVisibility
             ComparisonCard(
-                hour = sel?.let { hourRange(it, h24) },
+                hour = sel != null,
                 now = if (sel != null) hours[sel] else hours.sum(),
-                then = if (sel != null) beforeHours[sel] else beforeHours.sum(),
+                then = if (sel != null) b[sel] else b.sum(),
                 unit = unit,
                 lines = lines,
                 onClick = { lines = !lines },
             )
-        } else if (day == null && covered > 0) {
+        }
+        if (beforeHours == null && day == null && covered > 0) {
             val tracked = dataStart?.let { ChronoUnit.DAYS.between(it, state.today) + 1 } ?: 0
             val left = dataStart?.let { ChronoUnit.DAYS.between(state.today, it.plusDays(36)) } ?: 0
             ExCard {
@@ -255,8 +260,8 @@ fun RhythmScreen(
             }
         }
 
-        if (day == null && covered >= MIN_DAYS && peaks.isNotEmpty()) {
-            val h = peaks[0]
+        AnimatedVisibility(day == null && covered >= MIN_DAYS && peaks.isNotEmpty(), enter = fadeIn(tween(FADE_MS)) + expandVertically(tween(FADE_MS)), exit = fadeOut(tween(FADE_MS)) + shrinkVertically(tween(FADE_MS))) {
+            val h = peaks.firstOrNull() ?: return@AnimatedVisibility
             PlanCard(
                 hour = label(h),
                 top = Stats.topTrigger(windowLogs.filter { it.at.atZone(zone).hour == h }),
@@ -337,16 +342,16 @@ private fun WavesCard(survived: Int, span: String) {
  * up the thin lines on the clock that show the 30 days before.
  */
 @Composable
-private fun ComparisonCard(hour: String?, now: Float, then: Float, unit: String, lines: Boolean, onClick: () -> Unit) {
+private fun ComparisonCard(hour: Boolean, now: Float, then: Float, unit: String, lines: Boolean, onClick: () -> Unit) {
     val c = Ex.colors
     val diff = then - now
     val same = abs(diff) < 0.05f
     val text = buildAnnotatedString {
-        if (hour != null) append("$hour: ")
+        if (hour) append("This hour: ")
         withStyle(SpanStyle(fontWeight = FontWeight.SemiBold, color = if (!same && diff > 0) c.oxyInk else c.ink)) {
             append(
                 when {
-                    same -> if (hour != null) "about the same" else "About the same"
+                    same -> if (hour) "about the same" else "About the same"
                     diff > 0 -> "%.1f fewer %s".format(diff, unit)
                     else -> "%.1f more %s".format(-diff, unit)
                 }
@@ -369,8 +374,10 @@ private fun ComparisonCard(hour: String?, now: Float, then: Float, unit: String,
                 drawLine(line, Offset(2 * u, 8 * u), Offset(12 * u, 8 * u), 2 * u, StrokeCap.Round)
                 drawLine(line, Offset(14 * u, 13 * u), Offset(24 * u, 13 * u), 2 * u, StrokeCap.Round)
             }
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(text, style = ExType.body, color = c.ink)
+            Column(Modifier.weight(1f).animateContentSize(tween(FADE_MS)), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                AnimatedContent(text, transitionSpec = { fadeIn(tween(FADE_MS)) togetherWith fadeOut(tween(FADE_MS)) }, label = "compare") {
+                    Text(it, style = ExType.body, color = c.ink)
+                }
                 Text(
                     if (lines) "Lit up on the clock: each thin line is where that hour was. Tap to go back."
                     else "Tap to see where each hour was on the clock.",
@@ -385,7 +392,6 @@ private fun ComparisonCard(hour: String?, now: Float, then: Float, unit: String,
 @Composable
 private fun PlanCard(hour: String, top: TopTrigger?, idea: Int, onUrge: () -> Unit, onIdea: () -> Unit) {
     val c = Ex.colors
-    val w = top?.let { words(it.trigger) }
     val ideas = listOf(
         "then I ride one wave first.",
         "then I wait ten minutes, then decide.",
@@ -393,17 +399,9 @@ private fun PlanCard(hour: String, top: TopTrigger?, idea: Int, onUrge: () -> Un
         "then I have a glass of water first.",
     )
     ExCard {
-        Overline("A plan for $hour")
+        Overline("A plan for your busiest hour")
         Text(
-            when {
-                w == null || top == null -> "$hour is your busiest hour."
-                top.mostly -> "${w.noun} comes with most of your $hour ones."
-                else -> "${w.noun} comes up most around $hour."
-            },
-            style = ExType.caption, color = c.inkSoft,
-        )
-        Text(
-            "${w?.ifAt?.invoke(hour) ?: "If it comes at $hour,"}\n${ideas[idea % ideas.size]}",
+            "${top?.let { ifAt(it.trigger, hour) } ?: "If it comes at $hour,"}\n${ideas[idea % ideas.size]}",
             style = ExType.headlineItalic, color = c.ink,
             modifier = Modifier.padding(vertical = ExSpace.xxs).semantics { liveRegion = LiveRegionMode.Polite },
         )
@@ -414,17 +412,15 @@ private fun PlanCard(hour: String, top: TopTrigger?, idea: Int, onUrge: () -> Un
     }
 }
 
-/** How each trigger reads in a sentence. Null for [Trigger.OTHER], which says nothing useful. */
-private class TriggerWords(val most: String, val noun: String, val ifAt: (String) -> String)
-
-private fun words(t: Trigger): TriggerWords? = when (t) {
-    Trigger.COFFEE -> TriggerWords("Coffee comes up most.", "Coffee") { "If it's coffee at $it," }
-    Trigger.STRESS -> TriggerWords("Stress comes up most.", "Stress") { "If stress hits at $it," }
-    Trigger.AFTER_FOOD -> TriggerWords("Meals come up most.", "A meal") { "If it's after a meal at $it," }
-    Trigger.DRINKS -> TriggerWords("Drinks come up most.", "A drink") { "If it's a drink at $it," }
-    Trigger.DRIVING -> TriggerWords("Driving comes up most.", "Driving") { "If I'm driving at $it," }
-    Trigger.BORED -> TriggerWords("Boredom comes up most.", "Boredom") { "If I'm bored at $it," }
-    Trigger.SOCIAL -> TriggerWords("Company comes up most.", "Company") { "If I'm with people at $it," }
+/** The if-line of a plan for [t] at an hour. Null for [Trigger.OTHER], which says nothing useful. */
+private fun ifAt(t: Trigger, hour: String): String? = when (t) {
+    Trigger.COFFEE -> "If it's coffee at $hour,"
+    Trigger.STRESS -> "If stress hits at $hour,"
+    Trigger.AFTER_FOOD -> "If it's after a meal at $hour,"
+    Trigger.DRINKS -> "If it's a drink at $hour,"
+    Trigger.DRIVING -> "If I'm driving at $hour,"
+    Trigger.BORED -> "If I'm bored at $hour,"
+    Trigger.SOCIAL -> "If I'm with people at $hour,"
     Trigger.OTHER -> null
 }
 
@@ -476,13 +472,18 @@ private fun SmokeClock(
 ) {
     val c = Ex.colors
     val measurer = rememberTextMeasurer()
-    val curMax = (hours.maxOrNull() ?: 0f).coerceAtLeast(0.01f)
-    val max = maxOf(curMax, before?.maxOrNull() ?: 0f)
+    // Bars and lines glide to new values when the filter, day or period changes.
+    val shown = animatedValues(hours)
+    val shownBefore = animatedValues(before ?: FloatArray(24))
+    val hasBefore = before != null
+    val lit by animateFloatAsState(if (lines) 1f else 0f, tween(FADE_MS), label = "lines")
+    val curMax = (shown.maxOrNull() ?: 0f).coerceAtLeast(0.01f)
+    val max = maxOf(curMax, if (hasBefore) shownBefore.max() else 0f)
     val track = c.surface
     val warm = c.ember
     val hot = c.flare
     val ink = c.ink
-    val ghost = if (lines) c.ink else c.ink.copy(alpha = 0.6f)
+    val ghost = c.ink.copy(alpha = 0.6f + 0.4f * lit)
     val labelStyle = ExType.caption.copy(color = c.inkSoft)
     val ticks = if (h24) listOf("00", "06", "12", "18") else listOf("12a", "6a", "12p", "6p")
     val tap by rememberUpdatedState(onTap)
@@ -533,19 +534,19 @@ private fun SmokeClock(
             }
             for (i in 0 until 24) {
                 drawPath(sector(i, r1, r2), track)
-                val v = hours[i]
-                if (v > 0f) {
+                val v = shown[i]
+                if (v > 0.001f) {
                     val t = v / curMax
                     val fill = if (t > 0.75f) hot else warm.copy(alpha = 0.4f + 0.6f * t)
-                    drawPath(sector(i, r1, radius(v)), if (lines) fill.copy(alpha = 0.2f) else fill)
+                    drawPath(sector(i, r1, radius(v)), fill.copy(alpha = fill.alpha * (1f - 0.8f * lit)))
                 }
             }
-            if (before != null) {
+            if (hasBefore) {
                 for (i in 0 until 24) {
-                    val v = before[i]
-                    if (v <= 0f) continue
+                    val v = shownBefore[i]
+                    if (v <= 0.001f) continue
                     val r = radius(v)
-                    val strong = lines || i == selected
+                    val strong = lit > 0.5f || i == selected
                     drawArc(
                         if (i == selected) ink else ghost,
                         startAngle = start(i) + 1f, sweepAngle = sweep - 2f, useCenter = false,
@@ -562,19 +563,26 @@ private fun SmokeClock(
                 drawText(m, topLeft = Offset(ctr.x + sin(a) * r - m.size.width / 2f, ctr.y - cos(a) * r - m.size.height / 2f))
             }
         }
-        Column(
-            Modifier.width(r1dp * 2 * 0.86f),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(2.dp),
-        ) {
-            if (centre.over.isNotEmpty()) Overline(centre.over)
-            Text(centre.big, style = ExType.title, color = c.ink, textAlign = TextAlign.Center, maxLines = 1)
-            Text(centre.small, style = ExType.caption, color = c.inkSoft, textAlign = TextAlign.Center)
-            if (centre.extra.isNotEmpty()) {
-                Text(
-                    centre.extra, style = ExType.caption, color = if (centre.extraFaint) c.inkFaint else c.inkSoft,
-                    textAlign = TextAlign.Center, maxLines = 2, modifier = Modifier.padding(top = 2.dp),
-                )
+        AnimatedContent(
+            centre,
+            transitionSpec = { fadeIn(tween(FADE_MS)) togetherWith fadeOut(tween(FADE_MS)) },
+            contentAlignment = Alignment.Center,
+            label = "centre",
+        ) { ct ->
+            Column(
+                Modifier.width(r1dp * 2 * 0.86f),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                if (ct.over.isNotEmpty()) Overline(ct.over)
+                Text(ct.big, style = ExType.title, color = c.ink, textAlign = TextAlign.Center, maxLines = 1)
+                Text(ct.small, style = ExType.caption, color = c.inkSoft, textAlign = TextAlign.Center)
+                if (ct.extra.isNotEmpty()) {
+                    Text(
+                        ct.extra, style = ExType.caption, color = if (ct.extraFaint) c.inkFaint else c.inkSoft,
+                        textAlign = TextAlign.Center, maxLines = 2, modifier = Modifier.padding(top = 2.dp),
+                    )
+                }
             }
         }
     }
@@ -582,3 +590,28 @@ private fun SmokeClock(
 
 /** Inner radius of the clock ring as a share of the outer one. */
 private const val INNER = 0.56f
+
+/** Duration of Rhythm's fades and glides. */
+private const val FADE_MS = 280
+
+/**
+ * [target], animated: when it changes, every value glides from where it is now to its new value.
+ * The first value shows without animating.
+ */
+@Composable
+private fun animatedValues(target: FloatArray): FloatArray {
+    val progress = remember { Animatable(1f) }
+    var from by remember { mutableStateOf(target) }
+    var to by remember { mutableStateOf(target) }
+    LaunchedEffect(target) {
+        if (!target.contentEquals(to)) {
+            val p = progress.value
+            from = FloatArray(target.size) { from[it] + (to[it] - from[it]) * p }
+            to = target
+            progress.snapTo(0f)
+            progress.animateTo(1f, tween(FADE_MS * 2, easing = FastOutSlowInEasing))
+        }
+    }
+    val p = progress.value
+    return FloatArray(target.size) { from[it] + (to[it] - from[it]) * p }
+}

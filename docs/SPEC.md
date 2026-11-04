@@ -124,18 +124,16 @@ First launch shows **Onboarding** (§3.7). Regulate is no longer a tab: its coun
 
 ### 3.4 Rhythm — `RhythmScreen.kt`
 Shows the last 30 days (today and the 29 before), or one picked day. Order:
-- **Header**: overline names what is shown ("Rhythm · Last 30 days", "Rhythm · Sunday"); the badge is
-  the average a day for the day filter ("avg 9.3 a weekday"), or "N that day" while a day is picked.
-- **Title and insight**: "When you light up", then one sentence: "Busiest around 6 pm and 1 pm.
-  Drinks come up most." (up to two peaks, `Stats.peaks`; the trigger once 3+ logs are tagged).
-  Under a week of history: "5 days in. Your rhythm gets clearer after a week or two." Day picked:
-  "On Sunday, busiest around 7 am."
-- **Last 7 days** (rolling, today last) with an **All history ›** link to History (§3.10). Each
+- **Header**: "Rhythm · Last 30 days" and the average a day for the day filter ("avg 9.3 a
+  weekday"). While a day is picked just "Rhythm": the day is named and counted in the filter bar.
+- **Title**: "When you light up". No line under it: the busiest hour is in the clock centre and the
+  top trigger in the triggers card, so nothing on the screen says the same thing twice.
+- **Last 7 days · tap a day** (rolling, today last) with an **All history ›** link to History (§3.10). Each
   tracked day is tinted oxygen within the allowance and ember when over; days before tracking began
-  are empty rings and not tappable. Tap a day to filter the whole screen to it; tap again, or "Back
-  to 30 days", to return. The picked day is hoisted in `ExhaleNav` so History can set it.
+  are empty rings and not tappable. Tap a day to filter the whole screen to it; tap again, or "Show
+  last 30 days", to return. The picked day is hoisted in `ExhaleNav` so History can set it.
 - **Filter**: All days / Weekdays / Weekends. While a day is picked it is replaced by an
-  `ActiveFilter`: "Sunday · 6 of 8" or "Sunday · 10, 2 borrowed", with "Back to 30 days".
+  `ActiveFilter`: "Sunday · 6 of 8" or "Sunday · 10, 2 borrowed", with "Show last 30 days".
 - **Smoke Clock**: 24 hours, midnight at top, clockwise. Each hour's bar length and warmth is its
   average a day (any smoking shows; the top quarter is flare). A **thin line** on each hour marks
   where it was in the 30 days before. The centre shows the busiest hour ("Busiest · 6 pm · 1.2 a
@@ -145,17 +143,20 @@ Shows the last 30 days (today and the 29 before), or one picked day. Order:
   Screen readers get a summary and Next/Previous/Clear hour actions.
 - **Comparison card** (when the 30 days before hold at least 7 tracked days, not on a picked day):
   "4.6 fewer a day than the 30 days before (14.0)." in oxygen when fewer, plain ink when more or
-  about the same; with an hour picked it narrows to that hour: "8–9 am: 1.1 fewer a day than the 30
-  days before (1.9)." Tapping the card lights up the thin lines (bars dim, lines turn full ink,
+  about the same; with an hour picked it narrows to that hour: "This hour: 1.1 fewer a day than the
+  30 days before (1.9)." (the hour itself is named in the clock centre). Tapping the card lights up the thin lines (bars dim, lines turn full ink,
   card outlined) and explains them; tapping again goes back. Without enough history: "Your first
   month. In N days you'll see how each hour compares with the 30 days before."
-- **Plan card** (a week of history, not on a picked day): "A plan for 6 pm", why ("A drink comes
-  with most of your 6 pm ones."), and an if-then in the user's voice: "If it's a drink at 6 pm, /
-  then I ride one wave first." "Help me wait" opens the Urge Wave; "Another idea" cycles the then-line.
+- **Plan card** (a week of history, not on a picked day): "A plan for your busiest hour" and an
+  if-then in the user's voice that names the hour and its top trigger once: "If it's a drink at
+  6 pm, / then I ride one wave first." "Help me wait" opens the Urge Wave; "Another idea" cycles the then-line.
 - **Triggers**: bars for the period with coverage ("181 of 275 tagged.").
 - **Craving waves**: "8 craving waves ridden out in the last 30 days." on an oxygen tint, or an
   invitation to use "Help me wait" when there are none.
 - Everything on the screen follows the same period, day filter and picked day.
+- **Motion**: changes glide rather than jump (about 280 ms). Clock bars and thin lines move to their
+  new lengths; the clock centre, the filter bar and the comparison text cross-fade; lighting up the
+  lines fades; the comparison and plan cards fade and fold in or out.
 
 ### 3.5 Air — `AirScreen.kt`
 - Particle field: ash-grey particles turn Oxygen as `clearFraction` (progress to 12 h) rises.
@@ -167,8 +168,10 @@ Same background as every screen; money is carried by `sun` accents.
 - Saved = (baseline × days since plan start − cigarettes smoked since) × price per cigarette, floored at 0.
   Shown on one line: the digits, then the currency symbol or code at 45% ("12,345 KZT"), shrinking
   from 88sp to fit. All money text puts the currency after the number.
-- Sticks row: fraction of the current hundred not smoked.
-- Goal card with progress and weeks-to-goal at current pace.
+- Sticks row: progress to the next hundred not smoked (60 sticks stand for 100), captioned "24
+  toward your next hundred."
+- Goal card with progress, what's still to go and weeks at the current pace ("537 $ to go · about 37
+  weeks at this pace"); the amount kept is the hero, so the card doesn't repeat it.
 
 ### 3.7 Onboarding — `OnboardingScreen.kt`
 One question per screen. Nothing is saved until the last step; system Back goes to the previous step.
@@ -201,7 +204,6 @@ Full-screen route from Rhythm's "All history ›" (back button, no tab bar).
 - One `MonthCalendar` per month, newest first, from the month tracking began. Each tracked day shows
   its count, tinted like the week strip; days before tracking began are empty rings; days before the
   plan start are neutral; future days show only their date and weeks still to come are left out.
-  The current month says "N days so far", the first "from the 4th, when you started".
 - Under each month: average a day, "N of M days within your allowance", and the longest gap.
 - Tapping a day opens Rhythm filtered to that day.
 
