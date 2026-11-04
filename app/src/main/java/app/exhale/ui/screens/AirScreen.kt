@@ -46,6 +46,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.zIndex
@@ -55,12 +56,14 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.geometry.lerp
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -74,6 +77,7 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.exhale.domain.DayAir
@@ -139,7 +143,7 @@ fun AirScreen(state: ExhaleState, initialScroll: Int = 0) {
         Column(
             Modifier
                 .zIndex(1f)
-                .graphicsLayer { translationY = min(scroll.value.toFloat(), skyHeight + ExSpace.md.toPx()) },
+                .graphicsLayer { translationY = min(scroll.value.toFloat(), pin(skyHeight)) },
             verticalArrangement = Arrangement.spacedBy(ExSpace.md),
         ) {
             Row(Modifier.fillMaxWidth().heightIn(min = ExSize.iconButton), verticalAlignment = Alignment.CenterVertically) {
@@ -147,7 +151,7 @@ fun AirScreen(state: ExhaleState, initialScroll: Int = 0) {
             }
             Hero(since, r?.next)
         }
-        RecoverySky(since, r?.lastReached.orEmpty(), r?.next, words, scroll, Modifier.onSizeChanged { skyHeight = it.height })
+        RecoverySky(since, r?.lastReached.orEmpty(), r?.next, words, scroll, skyHeight, Modifier.onSizeChanged { skyHeight = it.height })
         if (since != null && last != null && r != null) {
             NextCard(since, last, r.next, words)
             if (r.today.gaps.isNotEmpty()) TodaysAirCard(r.today, state.now, words)
@@ -203,7 +207,7 @@ private const val SKY_H = 360f
 
 /** The last cigarette, then one point per milestone (the last three are the long-road cluster). */
 private val SKY_POINTS = listOf(
-    Offset(4f, 344f), Offset(56f, 306f), Offset(130f, 250f), Offset(280f, 196f), Offset(200f, 120f),
+    Offset(14f, 344f), Offset(56f, 306f), Offset(130f, 250f), Offset(280f, 196f), Offset(200f, 120f),
     Offset(120f, 64f), Offset(276f, 44f), Offset(310f, 72f), Offset(332f, 28f),
 )
 
@@ -218,23 +222,64 @@ private val SKY_LABELS = listOf(
 /** Milestones from this index on are drawn as one small cluster with one label, "The long road". */
 private const val LONG_ROAD = 5
 
-/** How the sky collapses as the screen scrolls: it rises at [SKY_LAG] of the scroll speed, up to [SKY_LIFT]. */
+/*
+ * How the sky collapses as the screen scrolls. `pin` is the scroll (px) at which the next card
+ * reaches the held header: the sky's height plus the gap after it. While the header is held, the
+ * sky rises only a little, so its top stays clear of the header; once the header has gone it rises
+ * on to its place as a backdrop. It stays at full strength for the first half of `pin`, then dims.
+ * Each label stays until the next card is about to slide over it.
+ */
+private const val SKY_LAG_HELD = 0.1f
+private val SKY_LIFT_HELD = 24.dp
 private const val SKY_LAG = 0.35f
 private val SKY_LIFT = 120.dp
-
-/** Over this much scroll the sky dims to [SKY_DIM] of its strength. */
-private val SKY_FADE = 360.dp
 private const val SKY_DIM = 0.3f
+private val SKY_DIM_AFTER = 120.dp
+/** A label fades over this last stretch before the card reaches it. */
+private val LABEL_CLEAR = 48.dp
+/**
+ * The sky fades out over this stretch above the next card's top edge, so the cards cover it rather
+ * than show it through. No more than the gap above the card, so nothing is faded at rest.
+ */
+private val SKY_EDGE = ExSpace.md
+/** About the height of a two-line sky label. */
+private val LABEL_H = 36.dp
 
-/** Labels and the key are gone after this much scroll, drifting up by [LABEL_DRIFT] as they go. */
-private val LABEL_FADE = 80.dp
-private val LABEL_DRIFT = 8.dp
+/** How far the sky has risen at scroll [s] (px). */
+private fun Density.skyLift(s: Float, pin: Float): Float {
+    val held = min(s * SKY_LAG_HELD, SKY_LIFT_HELD.toPx())
+    val after = if (s > pin) min((s - pin) * SKY_LAG, (SKY_LIFT - SKY_LIFT_HELD).toPx()) else 0f
+    return held + after
+}
+
+/** The sky's strength at scroll [s]: 1 until half of [pin], then down to [SKY_DIM]. */
+private fun Density.skyStrength(s: Float, pin: Float): Float {
+    val d = ((s - pin / 2f) / (pin / 2f + SKY_DIM_AFTER.toPx())).coerceIn(0f, 1f)
+    return 1f - (1f - SKY_DIM) * d
+}
+
+/**
+ * 1 → 0 as the card after the sky comes up to something in the sky whose bottom is [bottom] px
+ * below the sky's top. [skyHeight] 0 means not measured yet: fully shown.
+ */
+private fun Density.clearOfCard(s: Float, skyHeight: Int, bottom: Float): Float {
+    if (skyHeight == 0) return 1f
+    val p = pin(skyHeight)
+    val advance = s - skyLift(s, p)
+    val touch = p - bottom
+    val over = min(LABEL_CLEAR.toPx(), touch).coerceAtLeast(1f)
+    return ((touch - advance) / over).coerceIn(0f, 1f)
+}
+
+/** The scroll (px) at which the card after the sky reaches the held header; never while unmeasured. */
+private fun Density.pin(skyHeight: Int): Float = if (skyHeight == 0) Float.MAX_VALUE else skyHeight + ExSpace.md.toPx()
 
 /**
  * The recovery sky. A dashed path runs from the last cigarette (an ember dot) through every
  * milestone. A milestone is lit once any gap has reached it and stays lit; the next one is a ring.
  * The current gap is a ringed dot with an oxygen trail behind it, placed by [Milestones.position].
- * Every point is labelled, so nothing needs a tap. Driven by [scroll]: see [SKY_LAG].
+ * Every point is labelled, so nothing needs a tap. Driven by [scroll] and the measured
+ * [skyHeight]: see [skyLift], [skyStrength] and [clearOfCard].
  */
 @Composable
 private fun RecoverySky(
@@ -243,6 +288,7 @@ private fun RecoverySky(
     next: Milestone?,
     words: TimeWords,
     scroll: ScrollState,
+    skyHeight: Int,
     modifier: Modifier = Modifier,
 ) {
     val c = Ex.colors
@@ -273,14 +319,27 @@ private fun RecoverySky(
             .graphicsLayer {
                 val s = scroll.value.toFloat()
                 // It scrolls with the column, so add back all but the part it should rise.
-                translationY = s - min(s * SKY_LAG, SKY_LIFT.toPx())
-                alpha = 1f - (1f - SKY_DIM) * (s / SKY_FADE.toPx()).coerceIn(0f, 1f)
+                translationY = s - skyLift(s, pin(skyHeight))
+                compositingStrategy = CompositingStrategy.Offscreen
+            }
+            .drawWithContent {
+                drawContent()
+                // The cards slide over the sky: hide what is under the next card, softly above its edge.
+                if (skyHeight > 0) {
+                    val s = scroll.value.toFloat()
+                    val p = pin(skyHeight)
+                    val cardTop = p - (s - skyLift(s, p))
+                    drawRect(
+                        Brush.verticalGradient(0f to Color.Black, 1f to Color.Transparent, startY = cardTop - SKY_EDGE.toPx(), endY = cardTop),
+                        blendMode = BlendMode.DstIn,
+                    )
+                }
             }
             .clearAndSetSemantics { contentDescription = description },
     ) {
         BoxWithConstraints(Modifier.fillMaxWidth().aspectRatio(SKY_W / SKY_H)) {
             val unit = maxWidth / SKY_W
-            Canvas(Modifier.fillMaxSize()) {
+            Canvas(Modifier.fillMaxSize().graphicsLayer { alpha = skyStrength(scroll.value.toFloat(), pin(skyHeight)) }) {
                 val k = size.width / SKY_W
                 val pts = SKY_POINTS.map { it * k }
                 val dash = PathEffect.dashPathEffect(floatArrayOf(2.dp.toPx(), 6.dp.toPx()))
@@ -308,14 +367,8 @@ private fun RecoverySky(
                 }
                 if (pos >= 0f) gapDot(pointAt(pts, pos), oxy, halo, bg)
             }
-            // Labels fade first and drift up a little as the sky starts to collapse.
-            Box(
-                Modifier.fillMaxSize().graphicsLayer {
-                    val f = (scroll.value / LABEL_FADE.toPx()).coerceIn(0f, 1f)
-                    alpha = 1f - f
-                    translationY = -LABEL_DRIFT.toPx() * f
-                }
-            ) {
+            // Each label stays until the next card is about to slide over it.
+            Box(Modifier.fillMaxSize()) {
                 SKY_LABELS.forEachIndexed { i, l ->
                     val group = if (i == LONG_ROAD) LONG_ROAD until Milestones.all.size else i..i
                     val m = Milestones.all[group.first]
@@ -330,7 +383,8 @@ private fun RecoverySky(
                     Column(
                         Modifier
                             .width(w)
-                            .offset(x = unit * l.x - (if (l.end) w else 0.dp), y = unit * l.y),
+                            .offset(x = unit * l.x - (if (l.end) w else 0.dp), y = unit * l.y)
+                            .graphicsLayer { alpha = clearOfCard(scroll.value.toFloat(), skyHeight, (unit * l.y + LABEL_H).toPx()) },
                         horizontalAlignment = if (l.end) Alignment.End else Alignment.Start,
                     ) {
                         Text(first, style = ExType.labelSmall, color = if (isLit) c.oxyInk else c.inkSoft, textAlign = if (l.end) TextAlign.End else TextAlign.Start, maxLines = 1)
@@ -342,7 +396,7 @@ private fun RecoverySky(
         Row(
             Modifier
                 .padding(top = ExSpace.xs)
-                .graphicsLayer { alpha = 1f - (scroll.value / LABEL_FADE.toPx()).coerceIn(0f, 1f) },
+                .graphicsLayer { alpha = clearOfCard(scroll.value.toFloat(), skyHeight, skyHeight.toFloat()) },
             horizontalArrangement = Arrangement.spacedBy(ExSpace.md),
         ) {
             if (lit.any { it }) KeyItem("reached at least once") { drawCircle(halo, size.minDimension / 2f); drawCircle(oxy, size.minDimension / 4.5f) }
