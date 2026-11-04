@@ -46,7 +46,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.zIndex
@@ -56,14 +55,12 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.geometry.lerp
-import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
-import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -237,11 +234,6 @@ private const val SKY_DIM = 0.3f
 private val SKY_DIM_AFTER = 120.dp
 /** A label fades over this last stretch before the card reaches it. */
 private val LABEL_CLEAR = 48.dp
-/**
- * The sky fades out over this stretch above the next card's top edge, so the cards cover it rather
- * than show it through. No more than the gap above the card, so nothing is faded at rest.
- */
-private val SKY_EDGE = ExSpace.md
 /** About the height of a two-line sky label. */
 private val LABEL_H = 36.dp
 
@@ -320,20 +312,6 @@ private fun RecoverySky(
                 val s = scroll.value.toFloat()
                 // It scrolls with the column, so add back all but the part it should rise.
                 translationY = s - skyLift(s, pin(skyHeight))
-                compositingStrategy = CompositingStrategy.Offscreen
-            }
-            .drawWithContent {
-                drawContent()
-                // The cards slide over the sky: hide what is under the next card, softly above its edge.
-                if (skyHeight > 0) {
-                    val s = scroll.value.toFloat()
-                    val p = pin(skyHeight)
-                    val cardTop = p - (s - skyLift(s, p))
-                    drawRect(
-                        Brush.verticalGradient(0f to Color.Black, 1f to Color.Transparent, startY = cardTop - SKY_EDGE.toPx(), endY = cardTop),
-                        blendMode = BlendMode.DstIn,
-                    )
-                }
             }
             .clearAndSetSemantics { contentDescription = description },
     ) {

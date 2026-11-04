@@ -176,8 +176,8 @@ its last cigarette, and a milestone that any gap has reached stays reached. Orde
 - **Scrolling**: the header (overline and hero) stays in place until the content after the sky
   (the next card) comes up to meet it, a normal 16dp gap below it, then goes up with that content.
   Meanwhile the cards slide over the sky, which stays filled and readable above them: each label
-  (and the key) fades out over the last 48dp before the next card reaches it, and the sky itself
-  fades out over the 16dp above the card's top edge, so nothing shows between or through the cards.
+  (and the key) fades out over the last 48dp before the next card reaches it. The dimmed sky stays
+  visible behind and between the cards.
   While the header is held the sky rises only 10% of the scroll (at most 24dp, clear of the header,
   which is drawn over it); after that it rises at 35% up to 120dp in all. Its dots and lines keep
   full strength for the first half of the held stretch, then dim to 30% by 120dp after it.
