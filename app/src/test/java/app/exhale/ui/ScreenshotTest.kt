@@ -200,9 +200,13 @@ class ScreenshotTest {
     @Test fun rhythmLight() = shot("4_rhythm", false, 1) { RhythmScreen(longState()) }
     @Test fun airDark() = shot("5_air", true, 2) { AirScreen(sampleState()) }
     @Test fun airLight() = shot("5_air", false, 2) { AirScreen(sampleState()) }
-    // Scrolled past the sky: it has risen a little, dimmed and dropped its labels; cards scroll over it.
-    @Test fun airScrolledDark() = shot("5b_air_scrolled", true, 2) { AirScreen(sampleState(), initialScroll = 1300) }
-    @Test fun airScrolledLight() = shot("5b_air_scrolled", false, 2) { AirScreen(sampleState(), initialScroll = 1300) }
+    // Scrolled past the sky: the header has gone up with the cards; the sky has risen a little, dimmed and dropped
+    // its labels, and the cards scroll over it.
+    @Test fun airScrolledDark() = shot("5b_air_scrolled", true, 2) { AirScreen(sampleState(), initialScroll = 2000) }
+    @Test fun airScrolledLight() = shot("5b_air_scrolled", false, 2) { AirScreen(sampleState(), initialScroll = 2000) }
+    // Partway: the header stays in place while the next card comes up to meet it.
+    @Test fun airPinnedDark() = shot("5f_air_pinned", true, 2) { AirScreen(sampleState(), initialScroll = 800) }
+    @Test fun airPinnedLight() = shot("5f_air_pinned", false, 2) { AirScreen(sampleState(), initialScroll = 800) }
     // Four minutes after a cigarette: the gap starts again, but milestones reached before stay lit.
     @Test fun airLoggedDark() = shot("5c_air_logged", true, 2) { AirScreen(sampleState(4)) }
     @Test fun airLoggedLight() = shot("5c_air_logged", false, 2) { AirScreen(sampleState(4)) }

@@ -173,9 +173,12 @@ its last cigarette, and a milestone that any gap has reached stays reached. Orde
   `Milestones.position`; it glides back to the start after a log. Every point is labelled, so
   nothing needs a tap: "12 h · reached Thursday / Carbon monoxide normal". A key below:
   "reached at least once" (only once something is) and "this gap".
-- **Scrolling**: the sky rises at 35% of the scroll speed, by at most 120dp, and dims to 30% over
-  360dp; its labels and key fade out in the first 80dp, drifting up 8dp. Everything after it scrolls
-  normally over it, so the dimmed sky stays behind the cards. The hero scrolls away.
+- **Scrolling**: the header (overline and hero) stays in place until the content after the sky
+  (the next card) comes up to meet it, a normal 16dp gap below it, then goes up with that content.
+  Meanwhile the sky rises at 35% of the scroll speed, by at most 120dp, and dims to 30% over 360dp;
+  its labels and key fade out in the first 80dp, drifting up 8dp. The header is drawn over the
+  rising sky. Everything after the sky scrolls normally over it, so the dimmed sky stays behind the
+  cards.
 - **Next card**: a sky→oxygen ring of the way to the next milestone with the time to go in the
   middle ("9h 19m", then "13 days", "11 months", "1 year"), "Next · 12 hours", the milestone and when
   ("Today at 23:40", "Tomorrow at 09:10", "Saturday at 10:00", "On 18 Nov").

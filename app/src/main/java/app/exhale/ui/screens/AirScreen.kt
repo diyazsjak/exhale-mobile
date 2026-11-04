@@ -35,6 +35,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -46,6 +47,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
@@ -87,6 +90,7 @@ import app.exhale.ui.components.GradientRing
 import app.exhale.ui.components.Overline
 import app.exhale.ui.theme.Ex
 import app.exhale.ui.theme.ExRadius
+import app.exhale.ui.theme.ExSize
 import app.exhale.ui.theme.ExSpace
 import app.exhale.ui.theme.ExType
 import java.time.Duration
@@ -106,8 +110,10 @@ private class Particle(val x: Float, var y: Float, val v: Float, val r: Float, v
 /**
  * Air: what the body gets back after each cigarette, built so nothing resets. A sky of milestones
  * (lit once any gap has reached them; a dot with a trail for the current gap), the next milestone,
- * today's gaps, and the full timeline. While scrolling, the sky rises a little, dims and drops its
- * labels, and the rest of the screen scrolls over it. [initialScroll] (px) is for screenshots.
+ * today's gaps, and the full timeline. While scrolling, the header (overline and hero) stays put
+ * until the content after the sky reaches it, then scrolls away with it; the sky rises a little,
+ * dims and drops its labels, and the rest of the screen scrolls over it. [initialScroll] (px) is
+ * for screenshots.
  */
 @Composable
 fun AirScreen(state: ExhaleState, initialScroll: Int = 0) {
@@ -120,14 +126,28 @@ fun AirScreen(state: ExhaleState, initialScroll: Int = 0) {
     val since = state.sinceLast
     val last = state.lastLog?.at
     val words = TimeWords(state.now, zone, h24)
+    // How far the screen scrolls before the content after the sky reaches the header: the sky's
+    // height plus the gap after it. Measured once from the layout, not on every frame.
+    var skyHeight by remember { mutableIntStateOf(0) }
 
     ExScreen(
-        header = { Overline("Recovery · if you stop now") },
         background = { ParticleField(clear, Modifier.fillMaxSize()) },
         scrollState = scroll,
     ) {
-        Hero(since, r?.next)
-        RecoverySky(since, r?.lastReached.orEmpty(), r?.next, words, scroll)
+        // The header stays in place (it scrolls with the column, so it is moved back down by the
+        // scroll) until the next card meets it, then goes up with it. Drawn over the rising sky.
+        Column(
+            Modifier
+                .zIndex(1f)
+                .graphicsLayer { translationY = min(scroll.value.toFloat(), skyHeight + ExSpace.md.toPx()) },
+            verticalArrangement = Arrangement.spacedBy(ExSpace.md),
+        ) {
+            Row(Modifier.fillMaxWidth().heightIn(min = ExSize.iconButton), verticalAlignment = Alignment.CenterVertically) {
+                Overline("Recovery · if you stop now")
+            }
+            Hero(since, r?.next)
+        }
+        RecoverySky(since, r?.lastReached.orEmpty(), r?.next, words, scroll, Modifier.onSizeChanged { skyHeight = it.height })
         if (since != null && last != null && r != null) {
             NextCard(since, last, r.next, words)
             if (r.today.gaps.isNotEmpty()) TodaysAirCard(r.today, state.now, words)
@@ -223,6 +243,7 @@ private fun RecoverySky(
     next: Milestone?,
     words: TimeWords,
     scroll: ScrollState,
+    modifier: Modifier = Modifier,
 ) {
     val c = Ex.colors
     val lit = List(Milestones.all.size) { lastReached.getOrNull(it) != null }
@@ -247,7 +268,7 @@ private fun RecoverySky(
     val bg = c.bg
 
     Column(
-        Modifier
+        modifier
             .fillMaxWidth()
             .graphicsLayer {
                 val s = scroll.value.toFloat()
