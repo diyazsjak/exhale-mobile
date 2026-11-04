@@ -1,5 +1,6 @@
 package app.exhale.ui.screens
 
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -47,6 +48,7 @@ fun SettingsScreen(
     onErase: () -> Unit,
     onDesignSystem: () -> Unit,
     onClose: () -> Unit,
+    initialScroll: Int = 0,
 ) {
     val c = Ex.colors
     var baseline by rememberSaveable { mutableStateOf(current.baselinePerDay.toString()) }
@@ -69,6 +71,7 @@ fun SettingsScreen(
 
     ExScreen(
         bottomClearance = ExSpace.xl,
+        scrollState = rememberScrollState(initialScroll),
         header = {
             ExIconButton(ExIcons.Back, "Back", onClose)
             HeaderLabel("Settings")

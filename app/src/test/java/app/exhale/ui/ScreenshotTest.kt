@@ -26,6 +26,7 @@ import app.exhale.ui.screens.RhythmScreen
 import app.exhale.ui.screens.SettingsScreen
 import app.exhale.ui.screens.UrgeWaveScreen
 import app.exhale.ui.theme.Ex
+import app.exhale.ui.components.AppBarScrollBehavior
 import app.exhale.ui.components.ExAppBar
 import app.exhale.ui.components.ExIcons
 import app.exhale.ui.components.FloatingTabBar
@@ -150,7 +151,8 @@ class ScreenshotTest {
 
     /**
      * Renders [content] in a theme. With a [tab], the shared app bar (that tab's leading, from [bar],
-     * Rhythm's with a day [picked], Ember's with [todayOpen]) and the tab bar sit over it, as in the app.
+     * Rhythm's with a day [picked], Ember's with [todayOpen]; with its border while [barScrolled],
+     * slid away when [barHidden]) and the tab bar sit over it, as in the app.
      */
     private fun shot(
         name: String,
@@ -159,6 +161,8 @@ class ScreenshotTest {
         bar: ExhaleState? = null,
         picked: Boolean = false,
         todayOpen: Boolean = false,
+        barScrolled: Boolean = false,
+        barHidden: Boolean = false,
         content: @Composable () -> Unit,
     ) {
         val barState = bar ?: sampleState()
@@ -169,7 +173,8 @@ class ScreenshotTest {
                 Box(Modifier.fillMaxSize().background(c.bg)) {
                     content()
                     if (tab != null) {
-                        ExAppBar(LeadingKey(Tab.entries[tab], picked), {}, Modifier.align(Alignment.TopCenter)) { k ->
+                        val behavior = AppBarScrollBehavior().apply { if (barHidden) hiddenPx = 10_000f }
+                        ExAppBar(LeadingKey(Tab.entries[tab], picked), {}, Modifier.align(Alignment.TopCenter), barScrolled, behavior) { k ->
                             TabLeading(k, barState, todayOpen, {})
                         }
                         FloatingTabBar(
@@ -217,13 +222,14 @@ class ScreenshotTest {
     @Test fun rhythmLight() = shot("4_rhythm", false, 1) { RhythmScreen(longState()) }
     @Test fun airDark() = shot("5_air", true, 2) { AirScreen(sampleState()) }
     @Test fun airLight() = shot("5_air", false, 2) { AirScreen(sampleState()) }
-    // Scrolled past the sky: the header has gone up with the cards; the sky has risen a little, dimmed and dropped
-    // its labels, and the cards scroll over it.
-    @Test fun airScrolledDark() = shot("5b_air_scrolled", true, 2) { AirScreen(sampleState(), initialScroll = 2000) }
-    @Test fun airScrolledLight() = shot("5b_air_scrolled", false, 2) { AirScreen(sampleState(), initialScroll = 2000) }
-    // Partway: the header stays in place while the next card comes up to meet it.
-    @Test fun airPinnedDark() = shot("5f_air_pinned", true, 2) { AirScreen(sampleState(), initialScroll = 800) }
-    @Test fun airPinnedLight() = shot("5f_air_pinned", false, 2) { AirScreen(sampleState(), initialScroll = 800) }
+    // Scrolled down past the sky: the app bar has slid away and the hero has gone up with the cards; the sky has
+    // risen a little and dimmed behind them.
+    @Test fun airScrolledDark() = shot("5b_air_scrolled", true, 2, barHidden = true) { AirScreen(sampleState(), initialScroll = 2000) }
+    @Test fun airScrolledLight() = shot("5b_air_scrolled", false, 2, barHidden = true) { AirScreen(sampleState(), initialScroll = 2000) }
+    // Partway, after scrolling back up a little: the app bar is back with its border; the hero stays in place
+    // while the next card comes up to meet it.
+    @Test fun airPinnedDark() = shot("5f_air_pinned", true, 2, barScrolled = true) { AirScreen(sampleState(), initialScroll = 800) }
+    @Test fun airPinnedLight() = shot("5f_air_pinned", false, 2, barScrolled = true) { AirScreen(sampleState(), initialScroll = 800) }
     // Four minutes after a cigarette: the gap starts again, but milestones reached before stay lit.
     @Test fun airLoggedDark() = shot("5c_air_logged", true, 2) { AirScreen(sampleState(4)) }
     @Test fun airLoggedLight() = shot("5c_air_logged", false, 2) { AirScreen(sampleState(4)) }
@@ -252,6 +258,9 @@ class ScreenshotTest {
     }
     @Test fun settingsDark() = shot("7_settings", true) { SettingsScreen(sampleState().settings, {}, {}, {}, {}, {}, {}) }
     @Test fun settingsLight() = shot("7_settings", false) { SettingsScreen(sampleState().settings, {}, {}, {}, {}, {}, {}) }
+    // Scrolled: the header stays pinned, with its hairline border while content is under it.
+    @Test fun settingsScrolledDark() = shot("7b_settings_scrolled", true) { SettingsScreen(sampleState().settings, {}, {}, {}, {}, {}, {}, initialScroll = 900) }
+    @Test fun settingsScrolledLight() = shot("7b_settings_scrolled", false) { SettingsScreen(sampleState().settings, {}, {}, {}, {}, {}, {}, initialScroll = 900) }
 
     @Test fun onboardingWelcomeDark() = shot("0a_onboarding_welcome", true) { OnboardingScreen({}, initialStep = 0) }
     @Test fun onboardingWelcomeLight() = shot("0a_onboarding_welcome", false) { OnboardingScreen({}, initialStep = 0) }

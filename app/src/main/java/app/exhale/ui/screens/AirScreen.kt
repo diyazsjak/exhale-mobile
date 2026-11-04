@@ -117,10 +117,9 @@ private class Particle(val x: Float, var y: Float, val v: Float, val r: Float, v
  * for screenshots.
  */
 @Composable
-fun AirScreen(state: ExhaleState, initialScroll: Int = 0) {
+fun AirScreen(state: ExhaleState, initialScroll: Int = 0, scroll: ScrollState = rememberScrollState(initialScroll)) {
     val c = Ex.colors
     val clear by animateFloatAsState(state.clearFraction, tween(1500), label = "clear")
-    val scroll = rememberScrollState(initialScroll)
     val h24 = DateFormat.is24HourFormat(LocalContext.current)
     val zone = ZoneId.systemDefault()
     val r = state.recovery

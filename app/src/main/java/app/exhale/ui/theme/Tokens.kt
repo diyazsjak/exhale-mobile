@@ -36,9 +36,6 @@ object ExSize {
     val tabBar = 68.dp
     val icon = 24.dp
 
-    /** The soft fade under the shared app bar, where content scrolls in beneath it. */
-    val appBarFade = 16.dp
-
     /** Space screens leave above the navigation-bar inset so content clears the floating tab bar. */
     val tabBarClearance = 100.dp
 }

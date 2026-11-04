@@ -222,7 +222,7 @@ fun EmberScreen(
             visible = todayOpen,
             modifier = Modifier
                 .statusBarsPadding()
-                .padding(top = ExSpace.xs + ExSize.iconButton + ExSize.appBarFade)
+                .padding(top = ExSpace.xs + ExSize.iconButton + ExSpace.xs)
                 .padding(horizontal = ExSpace.sm),
             // Quick: it answers a tap.
             enter = fadeIn(tween(100)) + scaleIn(tween(170, easing = FastOutSlowInEasing), initialScale = 0.94f, transformOrigin = TransformOrigin(0.12f, 0f)),

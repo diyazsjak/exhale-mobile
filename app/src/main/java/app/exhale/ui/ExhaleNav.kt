@@ -9,6 +9,17 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
+import app.exhale.ui.components.rememberAppBarScrollBehavior
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.SideEffect
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
@@ -142,13 +153,40 @@ private fun MainNav(state: ExhaleState, logged: LoggedEvent?, vm: ExhaleViewMode
     var rhythmDay by rememberSaveable { mutableStateOf<LocalDate?>(null) }
     // Ember's Today popover opens from the badge in the shared app bar. It closes when leaving Ember.
     var todayOpen by rememberSaveable { mutableStateOf(false) }
-    LaunchedEffect(tab) { if (tab != Tab.EMBER) todayOpen = false }
+    // The tabs' scroll positions, hoisted so the app bar knows when content is under it.
+    val rhythmScroll = rememberScrollState()
+    val airScroll = rememberScrollState()
+    val moneyScroll = rememberScrollState()
+    val currentTab by rememberUpdatedState(tab)
+    val scrolledUnder by remember {
+        derivedStateOf {
+            when (currentTab) {
+                Tab.RHYTHM -> rhythmScroll.value > 0
+                Tab.AIR -> airScroll.value > 0
+                Tab.MONEY -> moneyScroll.value > 0
+                else -> false
+            }
+        }
+    }
+    // The app bar hides as a tab scrolls up and comes back as it scrolls down; each tab starts with it shown.
+    val barScroll = rememberAppBarScrollBehavior()
+    LaunchedEffect(tab) {
+        if (tab != Tab.EMBER) todayOpen = false
+        barScroll.show()
+    }
+    // The bars belong to the tab screens: when a full-screen route pushes in, they recede with the
+    // tab screen (a third to the left, fading) and are covered by the incoming screen's edge, and
+    // they come back the same way on pop. The last tab is kept so they have something to show.
+    var lastTab by remember { mutableStateOf(Tab.EMBER) }
+    SideEffect { if (tab != null) lastTab = tab }
+    val barTab = tab ?: lastTab
+    val away by animateFloatAsState(if (tab == null) 1f else 0f, navSpec(), label = "bars-away")
 
     Box(Modifier.fillMaxSize()) {
         NavHost(
             nav,
             startDestination = Tab.EMBER.route,
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.fillMaxSize().nestedScroll(barScroll),
             enterTransition = { slideIn(initialState.destination.route, targetState.destination.route, forward = true) },
             exitTransition = { slideOut(initialState.destination.route, targetState.destination.route, forward = true) },
             popEnterTransition = { slideIn(initialState.destination.route, targetState.destination.route, forward = false) },
@@ -169,14 +207,15 @@ private fun MainNav(state: ExhaleState, logged: LoggedEvent?, vm: ExhaleViewMode
             composable(Tab.RHYTHM.route) {
                 RhythmScreen(
                     state,
+                    scrollState = rhythmScroll,
                     day = rhythmDay,
                     onDay = { rhythmDay = it },
                     onHistory = { nav.navigate(HISTORY) },
                     onUrge = { nav.navigate(WAVE) },
                 )
             }
-            composable(Tab.AIR.route) { AirScreen(state) }
-            composable(Tab.MONEY.route) { MoneyScreen(state) }
+            composable(Tab.AIR.route) { AirScreen(state, scroll = airScroll) }
+            composable(Tab.MONEY.route) { MoneyScreen(state, scrollState = moneyScroll) }
             composable(WAVE) {
                 UrgeWaveScreen(
                     onFinish = { started, outcome, trigger ->
@@ -211,29 +250,42 @@ private fun MainNav(state: ExhaleState, logged: LoggedEvent?, vm: ExhaleViewMode
             }
             composable(UIKIT) { UiKitScreen(state.settings.theme, vm::setTheme, onClose = { nav.popBackStack() }) }
         }
-        if (tab != null) {
-            ExAppBar(
-                key = LeadingKey(tab, picked = tab == Tab.RHYTHM && rhythmDay != null),
-                onSettings = { nav.navigate(SETTINGS) },
-                modifier = Modifier.align(Alignment.TopCenter),
-            ) { k ->
-                TabLeading(k, state, todayOpen, onToday = {
-                    todayOpen = !todayOpen
-                    if (todayOpen && state.borrowedToday > 0) vm.markBorrowNoticeSeen()
-                })
-            }
-            FloatingTabBar(
-                items = Tab.entries.map { TabItem(it.icon, it.label, it.tint(c, state.heat)) },
-                selected = tab.ordinal,
-                onSelect = { i ->
-                    nav.navigate(Tab.entries[i].route) {
-                        popUpTo(nav.graph.findStartDestination().id) { saveState = true }
-                        launchSingleTop = true
-                        restoreState = true
+        if (tab != null || away < 1f) {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    // Clip at the incoming screen's left edge (it slides in over the same 260ms), then recede.
+                    .drawWithContent { clipRect(right = size.width * (1f - away)) { this@drawWithContent.drawContent() } }
+                    .graphicsLayer {
+                        translationX = -away * size.width / 3f
+                        alpha = 1f - away
                     }
-                },
-                modifier = Modifier.align(Alignment.BottomCenter),
-            )
+            ) {
+                ExAppBar(
+                    key = LeadingKey(barTab, picked = barTab == Tab.RHYTHM && rhythmDay != null),
+                    onSettings = { nav.navigate(SETTINGS) },
+                    modifier = Modifier.align(Alignment.TopCenter),
+                    scrolled = scrolledUnder,
+                    scrollBehavior = barScroll,
+                ) { k ->
+                    TabLeading(k, state, todayOpen, onToday = {
+                        todayOpen = !todayOpen
+                        if (todayOpen && state.borrowedToday > 0) vm.markBorrowNoticeSeen()
+                    })
+                }
+                FloatingTabBar(
+                    items = Tab.entries.map { TabItem(it.icon, it.label, it.tint(c, state.heat)) },
+                    selected = barTab.ordinal,
+                    onSelect = { i ->
+                        nav.navigate(Tab.entries[i].route) {
+                            popUpTo(nav.graph.findStartDestination().id) { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    },
+                    modifier = Modifier.align(Alignment.BottomCenter),
+                )
+            }
         }
     }
 }

@@ -79,9 +79,17 @@ Floating tab bar (icons only): **Ember · Rhythm · Air · Money**. Full-screen 
 Ember's Today badge, "Rhythm · Last 30 days" ("Rhythm" while a day is picked), "Recovery · if you
 stop now", or "Money · since 4 September". When it changes, the new one drops in from 16dp above and
 fades in (260ms, the page slide's length) while the old one drops 16dp and fades out (200ms); the
-Settings button never moves. The bar is solid `bg` with a 16dp fade below, so content scrolls softly
-under it; the screens beneath leave the same room the header row took (`ExScreen(underAppBar = true)`).
-Full-screen routes hide it, like the tab bar.
+Settings button never moves. The bar is solid `bg`; while the tab's content is scrolled under it, a
+1dp `line` border shows along its bottom (fading in and out in 150ms), as in Material 3's scrolled
+state. It scrolls "enter always": it slides up out of view as the content scrolls up, comes back as
+soon as it scrolls down, and settles fully shown or hidden when the scroll ends; the status bar strip
+above it stays. Switching tabs brings it back. The screens beneath leave the room the header row
+took (`ExScreen(underAppBar = true)`).
+Opening a full-screen route, the app bar and the tab bar recede with the tab screen (a third to the
+left, fading) and are covered by the incoming screen's edge; going back, they return the same way.
+
+Full-screen routes (Settings, History, Design system) have their own header row with a back button;
+it stays pinned while the content scrolls under it, with the same border while content is under it.
 First launch shows **Onboarding** (§3.7). Regulate is no longer a tab: its countdown lives on Ember
 (the ring) and the week lives on Rhythm; the plan is edited in Settings.
 

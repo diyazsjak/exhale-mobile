@@ -15,6 +15,8 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.ScrollState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -121,6 +123,7 @@ fun RhythmScreen(
     onUrge: () -> Unit = {},
     initialHour: Int? = null,
     initialLines: Boolean = false,
+    scrollState: ScrollState = rememberScrollState(),
 ) {
     val c = Ex.colors
     val zone = ZoneId.systemDefault()
@@ -162,7 +165,7 @@ fun RhythmScreen(
     )
 
     // The header ("Rhythm · Last 30 days", or "Rhythm" with a day picked) is in the shared app bar.
-    ExScreen(underAppBar = true) {
+    ExScreen(underAppBar = true, scrollState = scrollState) {
         ScreenTitle("When you light up")
 
         Column(verticalArrangement = Arrangement.spacedBy(ExSpace.xxs)) {

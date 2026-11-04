@@ -1,6 +1,8 @@
 package app.exhale.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.ScrollState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -62,14 +64,14 @@ private const val MAX_PACK_ICONS = 39
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun MoneyScreen(state: ExhaleState) {
+fun MoneyScreen(state: ExhaleState, scrollState: ScrollState = rememberScrollState()) {
     val c = Ex.colors
     val s = state.settings
     val m = state.money ?: return
     val code = s.currencyCode
     val money = { minor: Long -> Fmt.money(minor, code) }
 
-    ExScreen(underAppBar = true) {
+    ExScreen(underAppBar = true, scrollState = scrollState) {
         // One line at any size: the digits, then the currency symbol or code, smaller, after them
         // ("12,345 KZT", "62 $"). The whole amount steps down from 88sp if it still doesn't fit.
         Column(verticalArrangement = Arrangement.spacedBy(ExSpace.xs)) {

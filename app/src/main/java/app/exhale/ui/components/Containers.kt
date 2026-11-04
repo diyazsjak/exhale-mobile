@@ -1,6 +1,11 @@
 package app.exhale.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -41,7 +46,9 @@ import app.exhale.ui.theme.ExType
 
 /**
  * Every screen sits in this: the shared background, status-bar inset, side gutter, and room
- * for the floating tab bar (pass a smaller [bottomClearance] on screens without it). [header] is a row for back/close/settings buttons and a label.
+ * for the floating tab bar (pass a smaller [bottomClearance] on screens without it).
+ * [header] is a row for back/close/settings buttons and a label. It stays pinned while the content
+ * scrolls under it, and a hairline `line` border shows along its bottom while content is under it.
  * [background] draws behind the content (e.g. the Air particle field) on top of the shared bg.
  * Pass [scrollState] to react to scrolling (Air's sky collapses as the screen scrolls).
  * Tabs sit under the shared [ExAppBar] instead of having a [header]: [underAppBar] leaves the same
@@ -60,27 +67,37 @@ fun ExScreen(
 ) {
     val c = Ex.colors
     val ownScroll = rememberScrollState()
+    val st = scrollState ?: ownScroll
     Box(modifier.fillMaxSize().background(c.bg)) {
         background?.invoke(this)
-        Column(
-            Modifier
-                .fillMaxSize()
-                .statusBarsPadding()
-                .then(if (scroll) Modifier.verticalScroll(scrollState ?: ownScroll) else Modifier)
-                .padding(horizontal = ExSpace.gutter)
-                .navigationBarsPadding()
-                .padding(top = ExSpace.xs, bottom = bottomClearance),
-            verticalArrangement = Arrangement.spacedBy(ExSpace.md),
-        ) {
-            if (underAppBar) Spacer(Modifier.height(ExSize.iconButton))
+        Column(Modifier.fillMaxSize().statusBarsPadding()) {
             if (header != null) {
+                val under by remember(scroll) { derivedStateOf { scroll && st.value > 0 } }
+                val border by animateColorAsState(if (under) c.line else c.line.copy(alpha = 0f), tween(150), label = "header-border")
                 Row(
-                    Modifier.fillMaxWidth().heightIn(min = ExSize.iconButton),
+                    Modifier
+                        .fillMaxWidth()
+                        .drawBehind { bottomBorder(border) }
+                        .padding(horizontal = ExSpace.gutter)
+                        .padding(top = ExSpace.xs)
+                        .heightIn(min = ExSize.iconButton),
                     verticalAlignment = Alignment.CenterVertically,
                     content = header,
                 )
             }
-            content()
+            Column(
+                Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .then(if (scroll) Modifier.verticalScroll(st) else Modifier)
+                    .padding(horizontal = ExSpace.gutter)
+                    .navigationBarsPadding()
+                    .padding(top = if (header != null) ExSpace.md else ExSpace.xs, bottom = bottomClearance),
+                verticalArrangement = Arrangement.spacedBy(ExSpace.md),
+            ) {
+                if (underAppBar) Spacer(Modifier.height(ExSize.iconButton))
+                content()
+            }
         }
     }
 }

@@ -41,7 +41,7 @@ Neutrals carry the UI; accents carry meaning.
 
 A **floating tab bar**: a `chrome` pill hovering 12px above the system navigation bar with a 20px gutter, icons only (each with an accessibility label). `chrome` is a step lighter than cards in dark (with a `line` outline) and white in light. It is solid and content scrolls underneath it, darkening gradually from 88px above the bar to the screen edge (black at up to 40% in dark, `ink` at up to 12% in light). Light: a soft elevation shadow. Dark: no shadow; the lighter tone and hairline outline lift it (tonal elevation). The selected tab sits in a `chrome-selected` inner pill and takes its meaning colour: Ember (heat), Rhythm (`flare`), Air (`oxy`), Money (`sun`). Screens under it leave `tab-bar-clearance` at the bottom. Full-screen flows (Urge Wave, Settings, Onboarding) hide it and use a round back or close button in the header instead.
 
-A **shared app bar** sits at the top of the four tabs, drawn over them like the tab bar: the tab's leading on the left (a label or badge) and the Settings icon button on the right, which never moves. When the tab changes, the new leading drops in from 16px above and fades in (260ms, the page slide's length) while the old one drops 16px and fades out (200ms). It is solid `bg` with a 16px fade below, so content scrolls softly under it. Full-screen flows hide it.
+A **shared app bar** sits at the top of the four tabs, drawn over them like the tab bar: the tab's leading on the left (a label or badge) and the Settings icon button on the right, which never moves. When the tab changes, the new leading drops in from 16px above and fades in (260ms, the page slide's length) while the old one drops 16px and fades out (200ms). It is solid `bg`; while content is scrolled under it a 1px `line` border shows along its bottom (Material 3's scrolled state). It hides as the content scrolls up and comes back as soon as it scrolls down ("enter always"), settling fully shown or hidden. When a full-screen flow opens, both bars recede with the tab screen and the new screen covers them. Full-screen flows have their own pinned header row, with the same scrolled-under border.
 
 ## Iconography
 
@@ -254,9 +254,9 @@ iOS-style floating pill tab bar, icons only; the selected tab sits in a lighter 
 
 The shared top bar of the tabs: a leading that changes per tab, and the Settings button.
 
-Drawn over the screens (not inside them), so it stays put while pages slide. Leading: an `overline` label ("Rhythm · Last 30 days") or a badge (Ember's "7 of 10 today"). Trailing: the 48px Settings `IconButton`. Background: solid `bg`, then a 16px fade to transparent (`app-bar-fade`). A new leading drops in from 16px above with a fade (260ms) while the old drops 16px and fades (200ms). Screens under it leave the header row's room (`underAppBar`).
+Drawn over the screens (not inside them), so it stays put while pages slide. Leading: an `overline` label ("Rhythm · Last 30 days") or a badge (Ember's "7 of 10 today"). Trailing: the 48px Settings `IconButton`. Background: solid `bg`, with a 1px `line` border along the bottom only while content is scrolled under it. A new leading drops in from 16px above with a fade (260ms) while the old drops 16px and fades (200ms). With a scroll behaviour it hides as content scrolls up and returns as it scrolls down; the status bar strip stays. Screens under it leave the header row's room (`underAppBar`).
 
-- Compose: `ExAppBar(key = tab, onSettings) { t -> Overline(labelOf(t)) }`; screens: `ExScreen(underAppBar = true)`.
+- Compose: `ExAppBar(key = tab, onSettings, scrolled = under, scrollBehavior = behavior) { t -> Overline(labelOf(t)) }` with `val behavior = rememberAppBarScrollBehavior()` and `Modifier.nestedScroll(behavior)` around the screens; screens: `ExScreen(underAppBar = true)`. `ExScreen(header = …)` pins its header row with the same border.
 
 ## Not synced
 
