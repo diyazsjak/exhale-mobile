@@ -89,7 +89,8 @@ Opening a full-screen route, the app bar and the tab bar recede with the tab scr
 left, fading) and are covered by the incoming screen's edge; going back, they return the same way.
 
 Full-screen routes (Settings, History, Design system) have their own header row with a back button;
-it stays pinned while the content scrolls under it, with the same border while content is under it.
+it is 64dp like the app bar (8dp above and below the back button), stays pinned while the content
+scrolls under it, and has the same border while content is under it.
 First launch shows **Onboarding** (§3.7). Regulate is no longer a tab: its countdown lives on Ember
 (the ring) and the week lives on Rhythm; the plan is edited in Settings.
 

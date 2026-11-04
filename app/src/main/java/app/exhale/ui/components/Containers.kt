@@ -79,7 +79,8 @@ fun ExScreen(
                         .fillMaxWidth()
                         .drawBehind { bottomBorder(border) }
                         .padding(horizontal = ExSpace.gutter)
-                        .padding(top = ExSpace.xs)
+                        // 8 + 48 + 8 = 64dp, the same as the tabs' app bar.
+                        .padding(vertical = ExSpace.xs)
                         .heightIn(min = ExSize.iconButton),
                     verticalAlignment = Alignment.CenterVertically,
                     content = header,
@@ -92,7 +93,7 @@ fun ExScreen(
                     .then(if (scroll) Modifier.verticalScroll(st) else Modifier)
                     .padding(horizontal = ExSpace.gutter)
                     .navigationBarsPadding()
-                    .padding(top = if (header != null) ExSpace.md else ExSpace.xs, bottom = bottomClearance),
+                    .padding(top = ExSpace.xs, bottom = bottomClearance),
                 verticalArrangement = Arrangement.spacedBy(ExSpace.md),
             ) {
                 if (underAppBar) Spacer(Modifier.height(ExSize.iconButton))
