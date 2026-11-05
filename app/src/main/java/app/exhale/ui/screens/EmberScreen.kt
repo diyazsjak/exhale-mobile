@@ -286,7 +286,7 @@ private fun LoggedCard(ev: LoggedEvent, state: ExhaleState, onUndo: () -> Unit, 
 
 /** True on a day whose allowance was lowered by yesterday, until the user opens the Today popover. */
 internal fun borrowDot(state: ExhaleState): Boolean =
-    state.borrowedToday > 0 && state.settings.borrowNoticeSeenDay != state.today.toEpochDay()
+    state.borrowedToday > 0 && !state.settings.borrowNoticeSeenOn(state.today)
 
 /** Today's count, the Ember tab's leading in the app bar. A couple of px larger than a plain badge,
  *  pink while over, with a dot on a day whose allowance was lowered by yesterday. Tapping opens the

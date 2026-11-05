@@ -67,13 +67,13 @@ class SettingsStore(private val context: Context) {
             cigsPerPack = this[K.perPack] ?: d.cigsPerPack,
             packPriceMinor = this[K.packPrice] ?: d.packPriceMinor,
             currencyCode = this[K.currency] ?: d.currencyCode,
-            taper = this[K.taper]?.let { runCatching { TaperType.valueOf(it) }.getOrNull() } ?: d.taper,
+            taper = enumOrNull<TaperType>(this[K.taper]) ?: d.taper,
             startAllowance = this[K.startAllowance] ?: d.startAllowance,
             planStart = this[K.planStart]?.let { LocalDate.ofEpochDay(it) } ?: d.planStart,
             wakingMinutes = this[K.waking] ?: d.wakingMinutes,
             goalName = this[K.goalName] ?: d.goalName,
             goalMinor = this[K.goalMinor] ?: d.goalMinor,
-            theme = this[K.theme]?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() } ?: d.theme,
+            theme = enumOrNull<ThemeMode>(this[K.theme]) ?: d.theme,
             borrowNoticeSeenDay = this[K.borrowSeen] ?: d.borrowNoticeSeenDay,
         )
     }

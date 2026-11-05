@@ -76,4 +76,21 @@ class HistoryTest {
     @Test fun months_emptyWithoutTracking() {
         assertEquals(emptyList<MonthTally>(), History.months(settings, emptyList(), today, now, zone, null))
     }
+
+    @Test fun week_isSevenDaysTodayLastWithBorrowing() {
+        // 12 on the 30th (2 over) lowers the 31st to 8; the week starts on the 27th, before the plan.
+        val logs = logs("2026-10-30", *IntArray(12) { 8 + it }) + logs("2026-10-31", 9) + logs("2026-10-01", 9)
+        val week = History.week(settings, logs, today, zone, LocalDate.parse("2026-10-28"))
+        assertEquals((0L..6L).map { LocalDate.parse("2026-10-27").plusDays(it) }, week.keys.toList())
+        val tallies = week.values.toList()
+        assertNull(tallies[0]) // the 27th: before tracking began
+        assertNull(tallies[1]!!.allowance) // the 28th: tracked, before the plan
+        assertEquals(DayTally(LocalDate.parse("2026-10-30"), 12, 10), tallies[3])
+        assertEquals(DayTally(LocalDate.parse("2026-10-31"), 1, 8), tallies[4])
+        assertEquals(DayTally(today, 0, 10), tallies[6])
+    }
+
+    @Test fun week_isEmptyRingsWithoutTracking() {
+        assertEquals(List(7) { null }, History.week(settings, emptyList(), today, zone, null).values.toList())
+    }
 }

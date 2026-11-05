@@ -323,6 +323,12 @@ Full-screen route from Rhythm's "All history ›" (back button, no tab bar).
   Today's allowance = `max(0, base(today) − debt)`. Debt only looks back one day.
 - **Interval** (minutes) = `wakingMinutes / allowance`; when allowance is 0, = `wakingMinutes`.
 
+### Today — `TodayPlan`
+`TodayPlan.of(settings, logs, now, zone)` is everything Ember needs about today: the count, the
+allowance (after yesterday's debt), the interval, the cigarettes borrowed, the last log and the time
+since it, when the next one is earned (last log + interval) and the heat. `ExhaleViewModel` only
+copies it into `ExhaleState`.
+
 ### Heat — `Stats.heat`
 `1 − clamp(minutesSinceLast / interval, 0, 1)`. No logs ever → 0 (cool).
 
@@ -355,6 +361,13 @@ Full-screen route from Rhythm's "All history ›" (back button, no tab bar).
   with the day before's count), null before the plan start. Per month: average over tracked days
   (today counts so far), planned days, days within the allowance, longest gap clipped to the month
   (`Stats.longestGapBetween`, up to now).
+- `week(...)`: the last 7 days, today last, for Rhythm's week strip: null before tracking began,
+  otherwise the day's count and allowance (null before the plan start).
+
+### Demo data — `DemoData`
+`DemoData.generate(today, now, zone, random)` is what Settings → Load demo data writes: an onboarded
+profile whose plan started 59 days ago, 60 days of logs tapering from about 16 to 8 a day with
+hour-of-day weights and triggers, and 0–2 urges a day (4 min, trigger Stress). Nothing after `now`.
 
 ### Milestones — `Milestones`
 WHO timeline; lower bound of each range unlocks it. `clearFraction` = progress to 12 h, min 0.05.
@@ -381,7 +394,7 @@ WHO timeline; lower bound of each range unlocks it. `clearFraction` = progress t
 app/src/main/java/app/exhale/
   ExhaleApp.kt            Application; manual DI (one ExhaleRepository)
   MainActivity.kt         Edge-to-edge, sets ExhaleTheme { ExhaleRoot() }
-  data/                   Room (smoke_log, urge) + DataStore settings + repository
+  data/                   Room (smoke_log, urge) + DataStore settings + repository; no rules, only storage and mapping
   domain/                 Pure models and math. No Android imports.
   ui/
     ExhaleViewModel.kt    Combines settings, logs, urges and a 1 s ticker into ExhaleState

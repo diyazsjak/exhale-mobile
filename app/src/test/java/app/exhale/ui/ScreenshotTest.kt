@@ -145,7 +145,7 @@ class ScreenshotTest {
             lastLog = last, sinceLast = Duration.between(last.at, now),
             nextAllowedAt = last.at.plus(Duration.ofMinutes(interval.toLong())),
             heat = Stats.heat(now, last.at, interval),
-            notSmoked = money.notSmoked, savedMinor = money.keptMinor, money = money,
+            money = money,
             clearFraction = 0.4f,
             recovery = Recovery.summary(settings, logs, now, zone),
             dataStart = dataStart,

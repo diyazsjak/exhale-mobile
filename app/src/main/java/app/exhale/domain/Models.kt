@@ -63,4 +63,10 @@ data class UserSettings(
     val borrowNoticeSeenDay: Long = -1,
 ) {
     val pricePerCigMinor: Double get() = packPriceMinor.toDouble() / cigsPerPack.coerceAtLeast(1)
+
+    /** Whether the user has opened the "borrowed from yesterday" note on [day]. */
+    fun borrowNoticeSeenOn(day: LocalDate): Boolean = borrowNoticeSeenDay == day.toEpochDay()
+
+    /** These settings once the user has opened the borrowed note on [day]. */
+    fun withBorrowNoticeSeen(day: LocalDate): UserSettings = copy(borrowNoticeSeenDay = day.toEpochDay())
 }

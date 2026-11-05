@@ -46,6 +46,18 @@ object History {
         )
 
     /**
+     * The last 7 days by date, today last, for the week strip: null before tracking began
+     * ([dataStart]); otherwise the day's count and allowance (none before the plan start).
+     */
+    fun week(s: UserSettings, logs: List<SmokeLog>, today: LocalDate, zone: ZoneId, dataStart: LocalDate?): Map<LocalDate, DayTally?> {
+        // Only the last 8 days matter (7 shown, plus the day before for borrowing): count those once.
+        val from = today.minusDays(7).atStartOfDay(zone).toInstant()
+        val counts = countsByDay(logs.filter { it.at >= from }, zone)
+        return (6L downTo 0L).map { today.minusDays(it) }
+            .associateWith { d -> if (dataStart == null || d.isBefore(dataStart)) null else tally(s, counts, d) }
+    }
+
+    /**
      * Every month from the one holding [dataStart] to the one holding [today], newest first.
      * Today counts as tracked (its total so far). Empty when nothing has been tracked yet.
      */
