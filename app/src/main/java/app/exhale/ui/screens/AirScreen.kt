@@ -47,8 +47,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.zIndex
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
@@ -65,6 +63,7 @@ import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
@@ -78,6 +77,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import app.exhale.domain.DayAir
 import app.exhale.domain.Milestone
 import app.exhale.domain.Milestones
@@ -91,8 +91,8 @@ import app.exhale.ui.components.ExScreen
 import app.exhale.ui.components.GradientRing
 import app.exhale.ui.components.Overline
 import app.exhale.ui.theme.Ex
+import app.exhale.ui.theme.ExColors
 import app.exhale.ui.theme.ExRadius
-import app.exhale.ui.theme.ExSize
 import app.exhale.ui.theme.ExSpace
 import app.exhale.ui.theme.ExType
 import java.time.Duration
@@ -100,6 +100,7 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
+import java.time.temporal.ChronoUnit
 import java.util.Locale
 import kotlin.math.floor
 import kotlin.math.ln
@@ -108,6 +109,11 @@ import kotlin.math.sin
 import kotlin.random.Random
 
 private class Particle(val x: Float, var y: Float, val v: Float, val r: Float, val k: Float)
+
+/** Cards over the particle field let a little of it through. */
+private const val CARD_ALPHA = 0.88f
+
+private val ExColors.overParticles: Color get() = surface.copy(alpha = CARD_ALPHA)
 
 /**
  * Air: what the body gets back after each cigarette, built so nothing resets. A sky of milestones
@@ -163,8 +169,7 @@ fun AirScreen(
         TimelineCard(since, last, r, words)
         val fewer = r?.fewer
         if (r != null && fewer != null && fewer > 0) {
-            val card = c.tint(c.oxy).compositeOver(c.surface).copy(alpha = 0.88f)
-            ExCard(color = card) {
+            ExCard(color = c.tint(c.oxy).compositeOver(c.surface).copy(alpha = CARD_ALPHA)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(ExSpace.md)) {
                     Text("$fewer", style = ExType.numberLarge, color = c.oxyInk)
                     Column(Modifier.weight(1f)) {
@@ -195,7 +200,7 @@ private fun Hero(since: Duration?, next: Milestone?) {
             Text(Fmt.gap(since), style = ExType.display, color = c.oxyInk)
             Text("since your last one", style = ExType.titleItalic.copy(fontSize = 22.sp), color = c.inkSoft)
             Text(
-                "Right now: " + (next?.underway?.replaceFirstChar { it.lowercase() } ?: Milestones.ALL_REACHED.replaceFirstChar { it.lowercase() }),
+                "Right now: " + (next?.underway ?: Milestones.ALL_REACHED).replaceFirstChar { it.lowercase() },
                 style = ExType.body, color = c.ink, modifier = Modifier.padding(top = ExSpace.xs),
             )
         }
@@ -434,7 +439,7 @@ private fun trailTo(pts: List<Offset>, pos: Float) = Path().apply {
 @Composable
 private fun NextCard(since: Duration, last: Instant, next: Milestone?, words: TimeWords) {
     val c = Ex.colors
-    ExCard(color = c.surface.copy(alpha = 0.88f)) {
+    ExCard(color = c.overParticles) {
         if (next == null) {
             Text(Milestones.ALL_REACHED, style = ExType.body, color = c.ink)
             return@ExCard
@@ -504,7 +509,7 @@ private fun TodaysAirCard(day: DayAir, now: Instant, words: TimeWords) {
     val faint = c.inkFaint
     val ticks = if (words.h24) listOf("00", "06", "12", "18", "24") else listOf("12a", "6a", "12p", "6p", "12a")
 
-    ExCard(color = c.surface.copy(alpha = 0.88f)) {
+    ExCard(color = c.overParticles) {
         Overline("Today’s air")
         Canvas(
             Modifier
@@ -594,7 +599,7 @@ private fun TimelineCard(since: Duration?, last: Instant?, r: RecoverySummary?, 
     var open by rememberSaveable { mutableStateOf(false) }
     val expanded = open || !foldable
 
-    ExCard(color = c.surface.copy(alpha = 0.88f)) {
+    ExCard(color = c.overParticles) {
         Overline("Body recovery")
         Column(Modifier.padding(top = ExSpace.sm)) {
             if (since != null && last != null) {
@@ -752,7 +757,7 @@ private class TimeWords(val now: Instant, val zone: ZoneId, val h24: Boolean) {
     fun clock(t: Instant): String = t.atZone(zone).format(clockFmt)
 
     private fun daysFromToday(t: Instant): Long =
-        java.time.temporal.ChronoUnit.DAYS.between(now.atZone(zone).toLocalDate(), t.atZone(zone).toLocalDate())
+        ChronoUnit.DAYS.between(now.atZone(zone).toLocalDate(), t.atZone(zone).toLocalDate())
 
     private fun date(t: Instant): String {
         val d = t.atZone(zone).toLocalDate()

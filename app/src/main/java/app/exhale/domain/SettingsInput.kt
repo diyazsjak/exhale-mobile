@@ -1,6 +1,7 @@
 package app.exhale.domain
 
 import java.util.Currency
+import java.util.Locale
 
 /**
  * Input rules for the Settings screens. Fields filter what is typed, so most mistakes can't be
@@ -46,6 +47,14 @@ object SettingsInput {
         val cents = t.substringAfter('.', "").padEnd(2, '0').take(2).toLongOrNull() ?: 0
         return whole * 100 + cents
     }
+
+    /** The currency of the phone's region ([locale]), or null when it has none. */
+    fun regionCurrency(locale: Locale = Locale.getDefault()): String? =
+        runCatching { Currency.getInstance(locale).currencyCode }.getOrNull()
+
+    /** The three quick currency choices: the region's first, then USD, EUR and KZT. */
+    fun quickCurrencies(locale: Locale = Locale.getDefault()): List<String> =
+        (listOfNotNull(regionCurrency(locale)) + listOf("USD", "EUR", "KZT")).distinct().take(3)
 
     fun currencyOk(code: String): Boolean = code.length == 3 && runCatching { Currency.getInstance(code) }.isSuccess
 

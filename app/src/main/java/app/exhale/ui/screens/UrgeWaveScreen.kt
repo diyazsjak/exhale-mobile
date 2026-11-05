@@ -25,10 +25,12 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import app.exhale.domain.BreathPhase
 import app.exhale.domain.Trigger
 import app.exhale.domain.UrgeOutcome
+import app.exhale.domain.WAVE_SECONDS
+import app.exhale.domain.breathAt
 import app.exhale.ui.Fmt
 import app.exhale.ui.components.ButtonStyle
 import app.exhale.ui.components.ExBadge
@@ -46,9 +48,6 @@ import app.exhale.ui.theme.ExType
 import java.time.Instant
 import kotlin.math.exp
 import kotlin.math.sin
-
-/** Length of one craving wave. Research: most urges pass within 3–5 minutes. */
-const val WAVE_SECONDS = 240f
 
 /** Wave height 0..1 at progress x (0..1): a crest around 46%, ripples on top. */
 private fun waveY(x: Float, phase: Float): Float {

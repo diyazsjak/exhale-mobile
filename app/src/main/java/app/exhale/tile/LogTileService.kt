@@ -1,5 +1,6 @@
 package app.exhale.tile
 
+import android.os.Build
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
 import app.exhale.ExhaleApp
@@ -9,8 +10,10 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 
-/** Room suspend DAOs run off the main thread themselves, so the tile scope can stay on Main. */
-/** Quick-settings tile: one tap logs a cigarette without opening the app. */
+/**
+ * Quick-settings tile: one tap logs a cigarette without opening the app; the subtitle shows today's
+ * count. Room's suspend DAOs move off the main thread themselves, so the tile's scope stays on Main.
+ */
 class LogTileService : TileService() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
@@ -18,7 +21,7 @@ class LogTileService : TileService() {
 
     override fun onStartListening() {
         super.onStartListening()
-        refresh()
+        scope.launch { refresh() }
     }
 
     override fun onClick() {
@@ -29,15 +32,13 @@ class LogTileService : TileService() {
         }
     }
 
-    private fun refresh() {
-        scope.launch {
-            val count = repo.countToday()
-            val tile = qsTile ?: return@launch
-            tile.state = Tile.STATE_INACTIVE
-            tile.label = "Log cigarette"
-            if (android.os.Build.VERSION.SDK_INT >= 29) tile.subtitle = "$count today"
-            tile.updateTile()
-        }
+    private suspend fun refresh() {
+        val count = repo.countToday()
+        val tile = qsTile ?: return
+        tile.state = Tile.STATE_INACTIVE
+        tile.label = "Log cigarette"
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) tile.subtitle = "$count today"
+        tile.updateTile()
     }
 
     override fun onDestroy() {

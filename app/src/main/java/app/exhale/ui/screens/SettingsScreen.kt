@@ -21,12 +21,10 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -39,10 +37,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import app.exhale.domain.PlanMath
 import app.exhale.domain.SettingsInput
@@ -51,6 +52,7 @@ import app.exhale.domain.TaperType
 import app.exhale.domain.ThemeMode
 import app.exhale.domain.UserSettings
 import app.exhale.ui.Fmt
+import app.exhale.ui.components.BackHeader
 import app.exhale.ui.components.ButtonStyle
 import app.exhale.ui.components.CounterRow
 import app.exhale.ui.components.DialogAction
@@ -58,14 +60,11 @@ import app.exhale.ui.components.ExButton
 import app.exhale.ui.components.ExCard
 import app.exhale.ui.components.ExChip
 import app.exhale.ui.components.ExChoiceDialog
-import app.exhale.ui.components.ExIconButton
-import app.exhale.ui.components.ExIcons
 import app.exhale.ui.components.ExScreen
 import app.exhale.ui.components.ExTextField
 import app.exhale.ui.components.ExToast
 import app.exhale.ui.components.ExToastState
 import app.exhale.ui.components.FieldNote
-import app.exhale.ui.components.HeaderLabel
 import app.exhale.ui.components.ListRow
 import app.exhale.ui.components.OptionCard
 import app.exhale.ui.components.Overline
@@ -73,13 +72,9 @@ import app.exhale.ui.components.ScreenTitle
 import app.exhale.ui.components.SegmentedControl
 import app.exhale.ui.components.rememberToastState
 import app.exhale.ui.theme.Ex
-import app.exhale.ui.theme.ExSize
 import app.exhale.ui.theme.ExSpace
 import app.exhale.ui.theme.ExType
 import java.time.LocalDate
-import java.time.format.DateTimeFormatter
-import java.util.Currency
-import java.util.Locale
 
 /** The edit screens Settings opens. Each one saves when you go back. */
 enum class SettingsPage { TAPER, PACK, GOAL }
@@ -138,7 +133,7 @@ fun SettingsScreen(
         AnimatedContent(
             page,
             transitionSpec = {
-                val spec = tween<androidx.compose.ui.unit.IntOffset>(260, easing = FastOutSlowInEasing)
+                val spec = tween<IntOffset>(260, easing = FastOutSlowInEasing)
                 val fade = tween<Float>(260, easing = FastOutSlowInEasing)
                 if (targetState != null) {
                     (slideInHorizontally(spec) { it } togetherWith slideOutHorizontally(spec) { -it / 3 } + fadeOut(fade))
@@ -221,16 +216,11 @@ private fun SettingsMain(
     onSaveCounts: () -> Unit,
 ) {
     val c = Ex.colors
-    val since = current.planStart.format(DateTimeFormatter.ofPattern("d MMMM", Locale.getDefault()))
     Box(Modifier.fillMaxSize()) {
         ExScreen(
             bottomClearance = if (dirty) SaveBarHeight else ExSpace.xl,
             scrollState = scroll,
-            header = {
-                ExIconButton(ExIcons.Back, "Back", onBack)
-                HeaderLabel("Settings")
-                Spacer(Modifier.size(ExSize.iconButton))
-            },
+            header = { BackHeader("Settings", onBack) },
         ) {
             Overline("Appearance")
             SegmentedControl(ThemeMode.entries.map { it.label }, current.theme.ordinal, { onTheme(ThemeMode.entries[it]) })
@@ -238,7 +228,7 @@ private fun SettingsMain(
             Overline("Plan", Modifier.paddingTop())
             ExCard(padding = ExSpace.sm) {
                 CounterRow("Before Exhale", baseline, onBaseline, 1..SettingsInput.COUNT_MAX, caption = "cigarettes a day", changed = baselineChanged)
-                CounterRow("Starting allowance", allowance, onAllowance, 0..SettingsInput.COUNT_MAX, caption = "a day, since $since", changed = allowanceChanged)
+                CounterRow("Starting allowance", allowance, onAllowance, 0..SettingsInput.COUNT_MAX, caption = "a day, since ${Fmt.dayMonth(current.planStart)}", changed = allowanceChanged)
                 ListRow("How it drops", { onOpen(SettingsPage.TAPER) }, value = current.taper.label)
             }
             PlanLine(current.copy(startAllowance = allowance), today, baseline)
@@ -251,7 +241,7 @@ private fun SettingsMain(
 
             Overline("Your data", Modifier.paddingTop())
             ExCard(padding = ExSpace.sm) { ListRow("Erase all data", onErase) }
-            Text("Exhale keeps everything on this phone. No account, no cloud.", style = ExType.caption, color = c.inkFaint, modifier = Modifier.padding(horizontal = 4.dp))
+            Footnote("Exhale keeps everything on this phone. No account, no cloud.")
 
             if (tools != null) {
                 Overline("Prototype tools", Modifier.paddingTop())
@@ -259,7 +249,7 @@ private fun SettingsMain(
                     ListRow("Design system", tools.onDesignSystem)
                     ListRow("Load demo data", tools.onDemo, value = "60 days")
                 }
-                Text("Shown in debug builds only.", style = ExType.caption, color = c.inkFaint, modifier = Modifier.padding(horizontal = 4.dp))
+                Footnote("Shown in debug builds only.")
             }
         }
         AnimatedVisibility(
@@ -297,35 +287,42 @@ private fun PlanLine(plan: UserSettings, today: LocalDate, baseline: Int) {
         }
         if (plan.startAllowance > baseline) append(" That start is above your usual $baseline.")
     }
-    Text(line, style = ExType.caption, color = c.inkSoft, modifier = Modifier.padding(horizontal = 4.dp))
+    Footnote(line, c.inkSoft)
 }
+
+/** A caption under a card, inset to line up with the card's rows. */
+@Composable
+private fun Footnote(text: AnnotatedString, color: Color = Ex.colors.inkFaint) {
+    Text(text, style = ExType.caption, color = color, modifier = FootnoteInset)
+}
+
+@Composable
+private fun Footnote(text: String, color: Color = Ex.colors.inkFaint) {
+    Text(text, style = ExType.caption, color = color, modifier = FootnoteInset)
+}
+
+private val FootnoteInset = Modifier.padding(horizontal = ExSpace.xxs)
 
 /** An edit screen: back saves (see [SettingsInput]); a faint line says so under the content. */
 @Composable
 private fun EditPage(title: String, onBack: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
-    val c = Ex.colors
     BackHandler(onBack = onBack)
     ExScreen(
         bottomClearance = ExSpace.xl,
-        header = {
-            ExIconButton(ExIcons.Back, "Back, saving changes", onBack)
-            HeaderLabel(title)
-            Spacer(Modifier.size(ExSize.iconButton))
-        },
+        header = { BackHeader(title, onBack, backLabel = "Back, saving changes") },
     ) {
         content()
-        Text("Changes save when you go back.", style = ExType.caption, color = c.inkFaint, modifier = Modifier.padding(horizontal = 4.dp))
+        Footnote("Changes save when you go back.")
     }
 }
 
 @Composable
 private fun TaperPage(current: UserSettings, allowance: Int, allowanceUnsaved: Boolean, onDone: (SettingsInput.Applied) -> Unit) {
     var taper by rememberSaveable { mutableStateOf(current.taper) }
-    val since = current.planStart.format(DateTimeFormatter.ofPattern("d MMMM", Locale.getDefault()))
     EditPage("How it drops", { onDone(SettingsInput.Applied(current.copy(taper = taper), taper != current.taper, emptyList())) }) {
         ScreenTitle(
             "How fast should it drop?",
-            subtitle = "From $allowance a day, since $since." + if (allowanceUnsaved) " That new start isn't saved yet." else "",
+            subtitle = "From $allowance a day, since ${Fmt.dayMonth(current.planStart)}." + if (allowanceUnsaved) " That new start isn't saved yet." else "",
         )
         TaperType.entries.forEach { t ->
             OptionCard(t.label, t.description, t == taper, { taper = t }, trailing = "Weeks 1–4: " + PlanMath.firstWeeks(allowance, t).joinToString(" → "))
@@ -336,7 +333,7 @@ private fun TaperPage(current: UserSettings, allowance: Int, allowanceUnsaved: B
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun PackPage(current: UserSettings, onDone: (SettingsInput.Applied) -> Unit) {
-    val quick = remember { quickCurrencies() }
+    val quick = remember { SettingsInput.quickCurrencies() }
     var perPack by rememberSaveable { mutableStateOf(current.cigsPerPack.toString()) }
     var price by rememberSaveable { mutableStateOf(SettingsInput.priceText(current.packPriceMinor)) }
     var currency by rememberSaveable { mutableStateOf(current.currencyCode) }
@@ -389,7 +386,7 @@ private fun GoalPage(current: UserSettings, onDone: (SettingsInput.Applied) -> U
             )
             FieldNote(if (SettingsInput.minor(amount) == null) "Enter an amount, like 599. Going back keeps ${Fmt.money(current.goalMinor, current.currencyCode)}." else "")
             if (name.isBlank()) {
-                Text("Left empty, it's called “${SettingsInput.GOAL_NAME_BLANK}”.", style = ExType.caption, color = c.inkSoft, modifier = Modifier.padding(horizontal = 4.dp))
+                Footnote("Left empty, it's called “${SettingsInput.GOAL_NAME_BLANK}”.", c.inkSoft)
             }
         }
     }
@@ -416,12 +413,6 @@ private fun keptNote(f: Field, s: UserSettings): String = when (f) {
     Field.PACK_PRICE -> "Pack price stays ${Fmt.money(s.packPriceMinor, s.currencyCode, decimals = true)}"
     Field.CURRENCY -> "Currency stays ${s.currencyCode}"
     Field.GOAL_AMOUNT -> "Amount stays ${Fmt.money(s.goalMinor, s.currencyCode)}"
-}
-
-/** Three quick currency chips: the phone region's first, then USD, EUR and KZT. */
-private fun quickCurrencies(): List<String> {
-    val region = runCatching { Currency.getInstance(Locale.getDefault()).currencyCode }.getOrNull()
-    return (listOfNotNull(region) + listOf("USD", "EUR", "KZT")).distinct().take(3)
 }
 
 private fun Modifier.paddingTop() = this.padding(top = ExSpace.xs)

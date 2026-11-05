@@ -11,6 +11,8 @@ import app.exhale.domain.History
 import app.exhale.domain.Milestones
 import app.exhale.domain.Money
 import app.exhale.domain.MoneySummary
+import app.exhale.domain.PlanMath
+import app.exhale.domain.PlanOutlook
 import app.exhale.domain.Recovery
 import app.exhale.domain.RecoverySummary
 import app.exhale.domain.SmokeLog
@@ -64,7 +66,34 @@ data class ExhaleState(
 ) {
     val remainingToNext: Duration?
         get() = nextAllowedAt?.let { Duration.between(now, it) }?.takeIf { !it.isNegative && !it.isZero }
+
+    /** The next one is earned: something is logged and its interval has passed. */
+    val earned: Boolean get() = lastLog != null && remainingToNext == null
+
+    /** How much of the gap to the next one is earned, 0..1 (Ember's countdown ring); full before any log. */
+    val earnedFraction: Float
+        get() = sinceLast?.let { (it.toMillis().toFloat() / Duration.ofMinutes(intervalMinutes.toLong()).toMillis()).coerceIn(0f, 1f) } ?: 1f
+
+    /** Today's allowance is used up, so the next log goes over. */
     val overAllowance: Boolean get() = todayCount >= allowance
+
+    /** Cigarettes over today's allowance; 0 within it. On a lowered day not all of them are borrowed: see [borrowingFromTomorrow]. */
+    val overToday: Int get() = (todayCount - allowance).coerceAtLeast(0)
+
+    /** Cigarettes past today's base allowance, which lower tomorrow (§4 Debt: measured against the base, never carried over). */
+    val borrowingFromTomorrow: Int get() = PlanMath.debt(settings, today, todayCount)
+
+    /** Tomorrow's allowance if nothing more is logged today. */
+    val tomorrowAllowance: Int get() = PlanMath.allowance(settings, today.plusDays(1), todayCount)
+
+    /** Cigarettes left within today's allowance. */
+    val leftToday: Int get() = (allowance - todayCount).coerceAtLeast(0)
+
+    /** Today's allowance was lowered by yesterday and the Today popover hasn't been opened since. */
+    val borrowNoticeDue: Boolean get() = borrowedToday > 0 && !settings.borrowNoticeSeenOn(today)
+
+    /** The plan's base allowances today, tomorrow and next week (the Today popover). */
+    val outlook: PlanOutlook get() = PlanMath.outlook(settings, today)
 }
 
 /** One-shot UI feedback after logging, used for the undo + trigger toast. */
