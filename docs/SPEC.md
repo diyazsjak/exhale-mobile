@@ -83,7 +83,8 @@ Settings button never moves. The bar is solid `bg`; while the tab's content is s
 1dp `line` border shows along its bottom (fading in and out in 150ms), as in Material 3's scrolled
 state. It scrolls "enter always": it slides up out of view as the content scrolls up, comes back as
 soon as it scrolls down, and settles fully shown or hidden when the scroll ends; the status bar strip
-above it stays. Switching tabs brings it back. The screens beneath leave the room the header row
+above it stays. Switching tabs brings it back. On Air it stays with the held hero instead, and only
+goes up with it once the next card pushes the hero (scrolling back still brings it back at once). The screens beneath leave the room the header row
 took (`ExScreen(underAppBar = true)`).
 Opening a full-screen route, the app bar and the tab bar recede with the tab screen (a third to the
 left, fading) and are covered by the incoming screen's edge; going back, they return the same way.

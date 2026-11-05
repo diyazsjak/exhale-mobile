@@ -75,10 +75,33 @@ class AppBarScrollBehavior : NestedScrollConnection {
     /** How much of the bar is hidden, 0 (shown) to [heightPx]. */
     internal var hiddenPx by mutableFloatStateOf(0f)
 
+    /** While set, the bar stays put until the scroll position passes [holdUntil] (see [holdWhile]). */
+    private var position: (() -> Float)? = null
+    private var holdUntil: () -> Float = { 0f }
+
     fun show() { hiddenPx = 0f }
 
+    /**
+     * Keep the bar in place while the scroll position ([position], px) is under [until] (px), then
+     * let it go up 1:1 with the content beyond that, so it leaves together with something held
+     * under it (Air's hero). Scrolling back down still brings it back at once.
+     */
+    fun holdWhile(position: () -> Float, until: () -> Float) {
+        this.position = position
+        holdUntil = until
+    }
+
+    fun clearHold() { position = null }
+
     override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
-        hiddenPx = (hiddenPx - consumed.y).coerceIn(0f, heightPx)
+        val pos = position
+        val delta = if (consumed.y < 0f && pos != null) {
+            // Scrolling on: only the part of this step beyond the held stretch hides the bar.
+            val after = pos()
+            val before = after + consumed.y
+            -(after - maxOf(before, holdUntil())).coerceAtLeast(0f)
+        } else consumed.y
+        hiddenPx = (hiddenPx - delta).coerceIn(0f, heightPx)
         return Offset.Zero
     }
 

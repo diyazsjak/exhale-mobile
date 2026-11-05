@@ -66,6 +66,7 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -111,13 +112,19 @@ private class Particle(val x: Float, var y: Float, val v: Float, val r: Float, v
 /**
  * Air: what the body gets back after each cigarette, built so nothing resets. A sky of milestones
  * (lit once any gap has reached them; a dot with a trail for the current gap), the next milestone,
- * today's gaps, and the full timeline. Its overline is in the shared app bar. While scrolling, the hero stays put
+ * today's gaps, and the full timeline. Its overline is in the shared app bar, which stays with the hero
+ * ([onHeld] reports how far, in px). While scrolling, the hero stays put
  * until the content after the sky reaches it, then scrolls away with it; the sky rises a little,
  * dims and drops its labels, and the rest of the screen scrolls over it. [initialScroll] (px) is
  * for screenshots.
  */
 @Composable
-fun AirScreen(state: ExhaleState, initialScroll: Int = 0, scroll: ScrollState = rememberScrollState(initialScroll)) {
+fun AirScreen(
+    state: ExhaleState,
+    initialScroll: Int = 0,
+    scroll: ScrollState = rememberScrollState(initialScroll),
+    onHeld: (Float) -> Unit = {},
+) {
     val c = Ex.colors
     val clear by animateFloatAsState(state.clearFraction, tween(1500), label = "clear")
     val h24 = DateFormat.is24HourFormat(LocalContext.current)
@@ -129,6 +136,9 @@ fun AirScreen(state: ExhaleState, initialScroll: Int = 0, scroll: ScrollState = 
     // How far the screen scrolls before the content after the sky reaches the header: the sky's
     // height plus the gap after it. Measured once from the layout, not on every frame.
     var skyHeight by remember { mutableIntStateOf(0) }
+    // Tell the app bar how far the hero is held, so the bar stays and leaves with it.
+    val density = LocalDensity.current
+    LaunchedEffect(skyHeight) { onHeld(with(density) { pin(skyHeight) }) }
 
     ExScreen(
         background = { ParticleField(clear, Modifier.fillMaxSize()) },

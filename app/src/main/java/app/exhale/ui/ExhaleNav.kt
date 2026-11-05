@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -170,8 +171,11 @@ private fun MainNav(state: ExhaleState, logged: LoggedEvent?, vm: ExhaleViewMode
     }
     // The app bar hides as a tab scrolls up and comes back as it scrolls down; each tab starts with it shown.
     val barScroll = rememberAppBarScrollBehavior()
+    // On Air the bar stays with the held hero and leaves with it; Air reports how far it is held.
+    var airHeld by remember { mutableFloatStateOf(Float.MAX_VALUE) }
     LaunchedEffect(tab) {
         if (tab != Tab.EMBER) todayOpen = false
+        if (tab == Tab.AIR) barScroll.holdWhile({ airScroll.value.toFloat() }, { airHeld }) else barScroll.clearHold()
         barScroll.show()
     }
     // The bars belong to the tab screens: when a full-screen route pushes in, they recede with the
@@ -214,7 +218,7 @@ private fun MainNav(state: ExhaleState, logged: LoggedEvent?, vm: ExhaleViewMode
                     onUrge = { nav.navigate(WAVE) },
                 )
             }
-            composable(Tab.AIR.route) { AirScreen(state, scroll = airScroll) }
+            composable(Tab.AIR.route) { AirScreen(state, scroll = airScroll, onHeld = { airHeld = it }) }
             composable(Tab.MONEY.route) { MoneyScreen(state, scrollState = moneyScroll) }
             composable(WAVE) {
                 UrgeWaveScreen(
