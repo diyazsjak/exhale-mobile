@@ -71,4 +71,13 @@ class MoneyTest {
         assertEquals(1f, reached.goalProgress, 0f)
         assertEquals(0, reached.weeksToGoal)
     }
+
+    @Test fun keptFollowingPlan_countsTheAllowanceAgainstTheBaseline() {
+        // 18 before, starting at 14 and dropping one a week: 4, 5, 6 and 7 fewer a day over four weeks.
+        val s = settings.copy(startAllowance = 14, taper = TaperType.MINUS_ONE_WEEKLY)
+        assertEquals(7L * (4 + 5 + 6 + 7) * 50, Money.keptFollowingPlan(s, days = 28))
+        assertEquals(4L * 50, Money.keptFollowingPlan(s, days = 1))
+        // A start above the baseline keeps nothing, never less.
+        assertEquals(0L, Money.keptFollowingPlan(s.copy(startAllowance = 30, taper = TaperType.HOLD)))
+    }
 }

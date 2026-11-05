@@ -11,6 +11,7 @@ import app.exhale.domain.History
 import app.exhale.domain.Milestones
 import app.exhale.domain.Money
 import app.exhale.domain.MoneySummary
+import app.exhale.domain.PlanMath
 import app.exhale.domain.Recovery
 import app.exhale.domain.RecoverySummary
 import app.exhale.domain.SmokeLog
@@ -64,7 +65,40 @@ data class ExhaleState(
 ) {
     val remainingToNext: Duration?
         get() = nextAllowedAt?.let { Duration.between(now, it) }?.takeIf { !it.isNegative && !it.isZero }
+
+    /** The next one is earned: something is logged and its interval has passed. */
+    val earned: Boolean get() = lastLog != null && remainingToNext == null
+
+    /** How much of the gap to the next one is earned, 0..1 (Ember's countdown ring); full before any log. */
+    val earnedFraction: Float
+        get() = sinceLast?.let { (it.toMillis().toFloat() / Duration.ofMinutes(intervalMinutes.toLong()).toMillis()).coerceIn(0f, 1f) } ?: 1f
+
+    /** Today's allowance is used up, so the next log goes over. */
     val overAllowance: Boolean get() = todayCount >= allowance
+
+    /** Cigarettes over today's allowance, borrowed from tomorrow; 0 within it. */
+    val overToday: Int get() = (todayCount - allowance).coerceAtLeast(0)
+
+    /** Cigarettes left within today's allowance. */
+    val leftToday: Int get() = (allowance - todayCount).coerceAtLeast(0)
+
+    /** Today's allowance was lowered by yesterday and the Today popover hasn't been opened since. */
+    val borrowNoticeDue: Boolean get() = borrowedToday > 0 && !settings.borrowNoticeSeenOn(today)
+
+    /** The plan's allowance today, before anything borrowed yesterday. */
+    val baseToday: Int get() = PlanMath.baseAllowance(settings, today)
+
+    /** The plan's allowance tomorrow, before anything borrowed. */
+    val baseTomorrow: Int get() = PlanMath.baseAllowance(settings, today.plusDays(1))
+
+    /** What tomorrow starts at once today's [overToday] is taken from [baseTomorrow]. */
+    val tomorrowStart: Int get() = (baseTomorrow - overToday).coerceAtLeast(0)
+
+    /** The first day of the next plan week. */
+    val nextWeekStart: LocalDate get() = settings.planStart.plusWeeks(PlanMath.weeksIntoPlan(settings.planStart, today) + 1L)
+
+    /** The plan's allowance from [nextWeekStart]. */
+    val baseNextWeek: Int get() = PlanMath.baseAllowance(settings, nextWeekStart)
 }
 
 /** One-shot UI feedback after logging, used for the undo + trigger toast. */

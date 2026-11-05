@@ -1,112 +1,87 @@
 package app.exhale.ui.screens
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.graphics.PathEffect
-import androidx.compose.ui.graphics.TransformOrigin
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.stateDescription
-import androidx.compose.ui.text.font.FontWeight
-import app.exhale.domain.PlanMath
-import app.exhale.ui.theme.ExRadius
-import java.time.format.DateTimeFormatter
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.togetherWith
-import androidx.compose.ui.semantics.LiveRegionMode
-import androidx.compose.ui.semantics.liveRegion
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.withStyle
-import app.exhale.ui.components.rememberHaptics
-import java.time.Duration
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
-import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawscope.scale
-import androidx.compose.ui.graphics.lerp
-import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.onLongClick
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.exhale.domain.Trigger
 import app.exhale.ui.ExhaleState
 import app.exhale.ui.Fmt
 import app.exhale.ui.LoggedEvent
+import app.exhale.ui.components.ButtonSize
 import app.exhale.ui.components.ButtonStyle
-import app.exhale.ui.components.ExBadge
 import app.exhale.ui.components.ExButton
 import app.exhale.ui.components.ExCard
-import app.exhale.ui.components.ExIconButton
 import app.exhale.ui.components.ExIcons
 import app.exhale.ui.components.ExScreen
-import app.exhale.ui.components.Fill
 import app.exhale.ui.components.TriggerChips
 import app.exhale.ui.components.rememberHaptics
 import app.exhale.ui.theme.Ex
+import app.exhale.ui.theme.ExRadius
 import app.exhale.ui.theme.ExSize
 import app.exhale.ui.theme.ExSpace
 import app.exhale.ui.theme.ExType
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
+import java.time.format.DateTimeFormatter
 
 @Composable
 fun EmberScreen(
@@ -122,12 +97,9 @@ fun EmberScreen(
 ) {
     val c = Ex.colors
     val heat by animateFloatAsState(state.heat, tween(1200), label = "heat")
-    val earned = state.lastLog != null && state.remainingToNext == null
+    val earned = state.earned
     // Countdown ring around the ember: how much of the gap to the next one is earned.
-    val ringTarget = state.sinceLast?.let {
-        (it.toMillis().toFloat() / Duration.ofMinutes(state.intervalMinutes.toLong()).toMillis()).coerceIn(0f, 1f)
-    } ?: 1f
-    val ring by animateFloatAsState(ringTarget, tween(800), label = "ring")
+    val ring by animateFloatAsState(state.earnedFraction, tween(800), label = "ring")
 
     // Soft double tick when the next one becomes earned while the screen is open.
     val haptics = rememberHaptics()
@@ -182,7 +154,7 @@ fun EmberScreen(
                     heat = heat,
                     onLog = onLog,
                     ring = ring,
-                    nextLogIsOver = state.todayCount >= state.allowance,
+                    nextLogIsOver = state.overAllowance,
                     onHoldStart = { hint = EmberHint.Holding; onTodayOpen(false) },
                     onHoldEnd = { held -> hint = if (held < 0.08f) EmberHint.Tapped else EmberHint.TooShort },
                 )
@@ -271,30 +243,29 @@ private fun LoggedCard(ev: LoggedEvent, state: ExhaleState, onUndo: () -> Unit, 
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text("Logged", style = ExType.headline, color = c.ink)
-                val over = state.todayCount - state.allowance
+                val over = state.overToday
                 Text(
-                    if (over > 0) "${state.todayCount} of ${state.allowance} today · $over borrowed from tomorrow" else "${state.todayCount} of ${state.allowance} today",
+                    "${state.todayCount} of ${state.allowance} today" + if (over > 0) " · $over borrowed from tomorrow" else "",
                     style = ExType.caption, color = if (over > 0) c.flareInk else c.inkSoft,
                 )
             }
-            ExButton("Undo", onUndo, style = ButtonStyle.Ghost, size = app.exhale.ui.components.ButtonSize.Medium, icon = ExIcons.Undo)
+            ExButton("Undo", onUndo, style = ButtonStyle.Ghost, size = ButtonSize.Medium, icon = ExIcons.Undo)
         }
         Text("What set it off? Optional.", style = ExType.caption, color = c.inkSoft, modifier = Modifier.padding(top = ExSpace.xxs))
         TriggerChips(selected = null, onPick = onTag)
     }
 }
 
-/** True on a day whose allowance was lowered by yesterday, until the user opens the Today popover. */
-internal fun borrowDot(state: ExhaleState): Boolean =
-    state.borrowedToday > 0 && !state.settings.borrowNoticeSeenOn(state.today)
-
-/** Today's count, the Ember tab's leading in the app bar. A couple of px larger than a plain badge,
- *  pink while over, with a dot on a day whose allowance was lowered by yesterday. Tapping opens the
- *  Today popover. */
+/**
+ * Today's count, the Ember tab's leading in the app bar. A couple of px larger than a plain badge,
+ * pink while over, with a dot on a day whose allowance was lowered by yesterday
+ * ([ExhaleState.borrowNoticeDue]). Tapping opens the Today popover.
+ */
 @Composable
-internal fun TodayBadge(state: ExhaleState, showDot: Boolean, expanded: Boolean, onClick: () -> Unit) {
+internal fun TodayBadge(state: ExhaleState, expanded: Boolean, onClick: () -> Unit) {
     val c = Ex.colors
-    val over = state.overAllowance && state.todayCount > state.allowance
+    val showDot = state.borrowNoticeDue
+    val over = state.overToday > 0
     val bg by animateColorAsState(if (over) c.tint(c.flare) else c.surface, label = "badge-bg")
     val fg by animateColorAsState(if (over) c.flareInk else c.ink, label = "badge-fg")
     Box {
@@ -327,17 +298,15 @@ internal fun TodayBadge(state: ExhaleState, showDot: Boolean, expanded: Boolean,
     }
 }
 
+/** The popover's sentences: body type, a size down. */
+private val PopoverText = ExType.body.copy(fontSize = 14.sp, lineHeight = 20.sp)
+
 /** Popover under the badge: today's count, sticks, and why the number is what it is. */
 @Composable
 private fun TodayPopover(state: ExhaleState) {
     val c = Ex.colors
-    val s = state.settings
-    val base = PlanMath.baseAllowance(s, state.today)
-    val over = state.todayCount - state.allowance
-    val left = state.allowance - state.todayCount
-    val tomorrowBase = PlanMath.baseAllowance(s, state.today.plusDays(1))
-    val nextWeekDate = s.planStart.plusDays(((PlanMath.weeksIntoPlan(s.planStart, state.today) + 1) * 7).toLong())
-    val nextWeek = PlanMath.baseAllowance(s, nextWeekDate)
+    val over = state.overToday
+    val left = state.leftToday
     Column(
         Modifier
             .fillMaxWidth()
@@ -358,7 +327,7 @@ private fun TodayPopover(state: ExhaleState) {
             when {
                 over > 0 -> {
                     withStyle(SpanStyle(color = c.flareInk, fontWeight = FontWeight.SemiBold)) { append("$over over today. ") }
-                    append("It's borrowed from tomorrow, so tomorrow starts at ${(tomorrowBase - over).coerceAtLeast(0)} instead of $tomorrowBase.")
+                    append("It's borrowed from tomorrow, so tomorrow starts at ${state.tomorrowStart} instead of ${state.baseTomorrow}.")
                 }
                 left == 0 -> {
                     withStyle(SpanStyle(color = c.ink, fontWeight = FontWeight.SemiBold)) { append("That's all for today. ") }
@@ -370,23 +339,23 @@ private fun TodayPopover(state: ExhaleState) {
                 }
             }
         }
-        Text(line, style = ExType.body.copy(fontSize = 14.sp, lineHeight = 20.sp), color = c.inkSoft)
+        Text(line, style = PopoverText, color = c.inkSoft)
         if (state.borrowedToday > 0) {
             Text(
                 buildAnnotatedString {
-                    withStyle(SpanStyle(color = c.sunInk, fontWeight = FontWeight.SemiBold)) { append("Today is ${state.allowance} instead of $base: ") }
+                    withStyle(SpanStyle(color = c.sunInk, fontWeight = FontWeight.SemiBold)) { append("Today is ${state.allowance} instead of ${state.baseToday}: ") }
                     append("${state.borrowedToday} ${if (state.borrowedToday == 1) "was" else "were"} borrowed yesterday.")
                 },
-                style = ExType.body.copy(fontSize = 14.sp, lineHeight = 20.sp), color = c.inkSoft,
+                style = PopoverText, color = c.inkSoft,
             )
         }
-        Box(Modifier.fillMaxWidth().height(1.dp).background(c.line))
+        Box(Modifier.fillMaxWidth().height(ExSize.hairline).background(c.line))
         Text(
             buildAnnotatedString {
                 append("This week ")
-                withStyle(SpanStyle(color = c.ink, fontWeight = FontWeight.SemiBold)) { append("$base a day") }
-                append("  ·  From ${nextWeekDate.format(DateTimeFormatter.ofPattern("MMM d"))} ")
-                withStyle(SpanStyle(color = c.ink, fontWeight = FontWeight.SemiBold)) { append("$nextWeek") }
+                withStyle(SpanStyle(color = c.ink, fontWeight = FontWeight.SemiBold)) { append("${state.baseToday} a day") }
+                append("  ·  From ${state.nextWeekStart.format(DateTimeFormatter.ofPattern("MMM d"))} ")
+                withStyle(SpanStyle(color = c.ink, fontWeight = FontWeight.SemiBold)) { append("${state.baseNextWeek}") }
             },
             style = ExType.caption, color = c.inkSoft,
         )

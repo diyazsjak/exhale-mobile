@@ -2,6 +2,8 @@ package app.exhale.ui
 
 import java.text.NumberFormat
 import java.time.Duration
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 import java.util.Currency
 import java.util.Locale
 import kotlin.math.roundToInt
@@ -41,6 +43,9 @@ object Fmt {
         val s = d.seconds.coerceAtLeast(0)
         return "%02d:%02d:%02d".format(s / 3600, (s % 3600) / 60, s % 60)
     }
+
+    /** "4 September": a date within the year, e.g. when the plan started. */
+    fun dayMonth(date: LocalDate): String = date.format(DateTimeFormatter.ofPattern("d MMMM", Locale.getDefault()))
 
     fun mmss(seconds: Long): String = "%02d:%02d".format(seconds / 60, seconds % 60)
 

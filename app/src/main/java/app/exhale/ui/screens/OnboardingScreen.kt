@@ -36,6 +36,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import app.exhale.domain.Money
 import app.exhale.domain.PlanMath
 import app.exhale.domain.SettingsInput
 import app.exhale.domain.TaperType
@@ -57,8 +58,6 @@ import app.exhale.ui.theme.ExSize
 import app.exhale.ui.theme.ExSpace
 import app.exhale.ui.theme.ExType
 import java.time.LocalDate
-import java.util.Currency
-import java.util.Locale
 import kotlin.math.roundToLong
 
 /** Steps after the welcome screen. The welcome screen is step 0 and has no progress bar. */
@@ -78,15 +77,15 @@ fun OnboardingScreen(onFinish: (UserSettings) -> Unit, initialStep: Int = 0) {
     var baseline by rememberSaveable { mutableIntStateOf(15) }
     var perPack by rememberSaveable { mutableStateOf("20") }
     var price by rememberSaveable { mutableStateOf("") }
-    var currency by rememberSaveable { mutableStateOf(defaultCurrency()) }
+    var currency by rememberSaveable { mutableStateOf(SettingsInput.regionCurrency() ?: "USD") }
     var allowanceOverride by rememberSaveable { mutableStateOf<Int?>(null) }
     var taper by rememberSaveable { mutableStateOf(TaperType.MINUS_ONE_WEEKLY) }
     var goalName by rememberSaveable { mutableStateOf("") }
     var goal by rememberSaveable { mutableStateOf("") }
 
-    val perPackN = perPack.toIntOrNull()?.takeIf { it in 1..100 }
+    val perPackN = SettingsInput.packSize(perPack)
     val priceMinor = price.replace(',', '.').toDoubleOrNull()?.takeIf { it >= 0 }?.let { (it * 100).roundToLong() }
-    val currencyOk = currency.length == 3 && runCatching { Currency.getInstance(currency) }.isSuccess
+    val currencyOk = SettingsInput.currencyOk(currency)
     val allowance = (allowanceOverride ?: (baseline - 2)).coerceIn(0, baseline)
     val goalMinor = if (goal.isBlank()) null else goal.replace(',', '.').toDoubleOrNull()?.takeIf { it > 0 }?.let { (it * 100).roundToLong() }
 
@@ -161,7 +160,7 @@ fun OnboardingScreen(onFinish: (UserSettings) -> Unit, initialStep: Int = 0) {
                     4 -> GoalStep(
                         goalName, { goalName = it },
                         goal, { goal = it },
-                        estimateFourWeeksMinor(draft(withGoal = false)),
+                        Money.keptFollowingPlan(draft(withGoal = false), days = 28),
                         if (currencyOk) currency else "USD",
                     )
                 }
@@ -217,7 +216,6 @@ private fun WelcomeStep() {
     Spacer(Modifier.height(ExSpace.lg))
     Text("Everything stays on this phone. No account, no cloud.", style = ExType.caption, color = c.inkFaint)
 }
-
 
 @Composable
 private fun StepTitle(eyebrow: String, title: String, body: String) {
@@ -300,15 +298,3 @@ private fun GoalStep(
         )
     }
 }
-
-/** Money kept in the first 28 days if the user smokes exactly their allowance. */
-private fun estimateFourWeeksMinor(s: UserSettings): Long {
-    val perCig = s.pricePerCigMinor
-    return (0 until 28).sumOf { d ->
-        val allowed = PlanMath.baseAllowance(s, s.planStart.plusDays(d.toLong()))
-        ((s.baselinePerDay - allowed).coerceAtLeast(0) * perCig)
-    }.toLong()
-}
-
-private fun defaultCurrency(): String =
-    runCatching { Currency.getInstance(Locale.getDefault()).currencyCode }.getOrNull() ?: "USD"

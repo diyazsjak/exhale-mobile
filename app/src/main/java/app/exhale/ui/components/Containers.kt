@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -155,4 +156,15 @@ fun RowScope.Fill() = Spacer(Modifier.weight(1f))
 @Composable
 fun RowScope.HeaderLabel(text: String) {
     Text(text, style = ExType.labelSmall, color = Ex.colors.inkSoft, modifier = Modifier.weight(1f).padding(horizontal = ExSpace.xs), textAlign = TextAlign.Center)
+}
+
+/**
+ * The header row of a full-screen route: a back button, the [title] centred, and room on the right
+ * so it stays centred. [backLabel] says what going back does when it does more than leave.
+ */
+@Composable
+fun RowScope.BackHeader(title: String, onBack: () -> Unit, backLabel: String = "Back") {
+    ExIconButton(ExIcons.Back, backLabel, onBack)
+    HeaderLabel(title)
+    Spacer(Modifier.size(ExSize.iconButton))
 }
