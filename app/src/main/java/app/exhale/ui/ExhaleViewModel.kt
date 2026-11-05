@@ -12,6 +12,7 @@ import app.exhale.domain.Milestones
 import app.exhale.domain.Money
 import app.exhale.domain.MoneySummary
 import app.exhale.domain.PlanMath
+import app.exhale.domain.PlanOutlook
 import app.exhale.domain.Recovery
 import app.exhale.domain.RecoverySummary
 import app.exhale.domain.SmokeLog
@@ -85,20 +86,8 @@ data class ExhaleState(
     /** Today's allowance was lowered by yesterday and the Today popover hasn't been opened since. */
     val borrowNoticeDue: Boolean get() = borrowedToday > 0 && !settings.borrowNoticeSeenOn(today)
 
-    /** The plan's allowance today, before anything borrowed yesterday. */
-    val baseToday: Int get() = PlanMath.baseAllowance(settings, today)
-
-    /** The plan's allowance tomorrow, before anything borrowed. */
-    val baseTomorrow: Int get() = PlanMath.baseAllowance(settings, today.plusDays(1))
-
-    /** What tomorrow starts at once today's [overToday] is taken from [baseTomorrow]. */
-    val tomorrowStart: Int get() = (baseTomorrow - overToday).coerceAtLeast(0)
-
-    /** The first day of the next plan week. */
-    val nextWeekStart: LocalDate get() = settings.planStart.plusWeeks(PlanMath.weeksIntoPlan(settings.planStart, today) + 1L)
-
-    /** The plan's allowance from [nextWeekStart]. */
-    val baseNextWeek: Int get() = PlanMath.baseAllowance(settings, nextWeekStart)
+    /** The plan's base allowances today, tomorrow and next week (the Today popover). */
+    val outlook: PlanOutlook get() = PlanMath.outlook(settings, today)
 }
 
 /** One-shot UI feedback after logging, used for the undo + trigger toast. */

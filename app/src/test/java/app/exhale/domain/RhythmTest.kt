@@ -34,7 +34,7 @@ class RhythmTest {
         assertNotNull(v.before)
         assertArrayEquals(Stats.hourly(logs, Period.lastDays(today, 30, 30), now, zone, start), v.before, 0.0001f)
         assertEquals(v.hours.sum(), v.average, 0.0001f)
-        assertEquals(29, v.logs.size)
+        assertEquals(29, v.triggers.total)
         assertEquals(Stats.peaks(v.hours), v.peaks)
         assertFalse(v.sinceStart)
         assertTrue(v.showPlan)

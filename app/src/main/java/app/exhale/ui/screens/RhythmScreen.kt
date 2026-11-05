@@ -251,11 +251,10 @@ fun RhythmScreen(
             )
         }
         if (beforeHours == null && day == null && view.covered > 0) {
-            val tracked = view.trackedDays
             val left = view.daysToCompare
             ExCard {
                 AverageHead(average)
-                Text(if (tracked <= 30) "Your first month." else "Almost enough to compare.", style = ExType.body, color = c.ink)
+                Text(if (view.trackedDays <= 30) "Your first month." else "Almost enough to compare.", style = ExType.body, color = c.ink)
                 Text(
                     if (dayFilter == DayFilter.ALL && left > 0) "In $left day${if (left == 1L) "" else "s"} you'll see how each hour compares with the 30 days before."
                     else "Once there's more history, you'll see how each hour compares with the 30 days before.",

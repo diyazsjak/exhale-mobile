@@ -307,6 +307,7 @@ private fun TodayPopover(state: ExhaleState) {
     val c = Ex.colors
     val over = state.overToday
     val left = state.leftToday
+    val plan = state.outlook
     Column(
         Modifier
             .fillMaxWidth()
@@ -327,7 +328,7 @@ private fun TodayPopover(state: ExhaleState) {
             when {
                 over > 0 -> {
                     withStyle(SpanStyle(color = c.flareInk, fontWeight = FontWeight.SemiBold)) { append("$over over today. ") }
-                    append("It's borrowed from tomorrow, so tomorrow starts at ${state.tomorrowStart} instead of ${state.baseTomorrow}.")
+                    append("It's borrowed from tomorrow, so tomorrow starts at ${plan.tomorrowAfter(over)} instead of ${plan.baseTomorrow}.")
                 }
                 left == 0 -> {
                     withStyle(SpanStyle(color = c.ink, fontWeight = FontWeight.SemiBold)) { append("That's all for today. ") }
@@ -343,7 +344,7 @@ private fun TodayPopover(state: ExhaleState) {
         if (state.borrowedToday > 0) {
             Text(
                 buildAnnotatedString {
-                    withStyle(SpanStyle(color = c.sunInk, fontWeight = FontWeight.SemiBold)) { append("Today is ${state.allowance} instead of ${state.baseToday}: ") }
+                    withStyle(SpanStyle(color = c.sunInk, fontWeight = FontWeight.SemiBold)) { append("Today is ${state.allowance} instead of ${plan.baseToday}: ") }
                     append("${state.borrowedToday} ${if (state.borrowedToday == 1) "was" else "were"} borrowed yesterday.")
                 },
                 style = PopoverText, color = c.inkSoft,
@@ -353,9 +354,9 @@ private fun TodayPopover(state: ExhaleState) {
         Text(
             buildAnnotatedString {
                 append("This week ")
-                withStyle(SpanStyle(color = c.ink, fontWeight = FontWeight.SemiBold)) { append("${state.baseToday} a day") }
-                append("  ·  From ${state.nextWeekStart.format(DateTimeFormatter.ofPattern("MMM d"))} ")
-                withStyle(SpanStyle(color = c.ink, fontWeight = FontWeight.SemiBold)) { append("${state.baseNextWeek}") }
+                withStyle(SpanStyle(color = c.ink, fontWeight = FontWeight.SemiBold)) { append("${plan.baseToday} a day") }
+                append("  ·  From ${plan.nextWeekStart.format(DateTimeFormatter.ofPattern("MMM d"))} ")
+                withStyle(SpanStyle(color = c.ink, fontWeight = FontWeight.SemiBold)) { append("${plan.baseNextWeek}") }
             },
             style = ExType.caption, color = c.inkSoft,
         )

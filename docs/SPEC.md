@@ -323,6 +323,8 @@ Full-screen route from Rhythm's "All history ›" (back button, no tab bar).
 - **Debt**: `max(0, smokedYesterday − baseAllowance(yesterday))`, only for days on/after plan start.
   Today's allowance = `max(0, base(today) − debt)`. Debt only looks back one day.
 - **Interval** (minutes) = `wakingMinutes / allowance`; when allowance is 0, = `wakingMinutes`.
+- `outlook(s, today)`: base allowance today, tomorrow and from the next plan week (its first day),
+  for the Today popover.
 
 ### Today — `TodayPlan`
 `TodayPlan.of(settings, logs, now, zone)` is everything Ember needs about today: the count, the

@@ -70,4 +70,21 @@ class PlanMathTest {
         assertEquals(80, PlanMath.intervalMinutes(12, 960))
         assertEquals(960, PlanMath.intervalMinutes(0, 960))
     }
+
+    @Test fun outlook_todayTomorrowAndNextPlanWeek() {
+        val st = s(TaperType.MINUS_ONE_WEEKLY)
+        // Day 6 is the last of week 0: tomorrow and next week both start week 1.
+        val o = PlanMath.outlook(st, start.plusDays(6))
+        assertEquals(12, o.baseToday)
+        assertEquals(11, o.baseTomorrow)
+        assertEquals(start.plusWeeks(1), o.nextWeekStart)
+        assertEquals(11, o.baseNextWeek)
+        val mid = PlanMath.outlook(st, start.plusDays(9))
+        assertEquals(start.plusWeeks(2), mid.nextWeekStart)
+        assertEquals(10, mid.baseNextWeek)
+        // Before the plan starts, next week is the plan's second week.
+        assertEquals(start.plusWeeks(1), PlanMath.outlook(st, start.minusDays(3)).nextWeekStart)
+        assertEquals(9, o.tomorrowAfter(2))
+        assertEquals(0, o.tomorrowAfter(20))
+    }
 }

@@ -78,6 +78,6 @@ class MoneyTest {
         assertEquals(7L * (4 + 5 + 6 + 7) * 50, Money.keptFollowingPlan(s, days = 28))
         assertEquals(4L * 50, Money.keptFollowingPlan(s, days = 1))
         // A start above the baseline keeps nothing, never less.
-        assertEquals(0L, Money.keptFollowingPlan(s.copy(startAllowance = 30, taper = TaperType.HOLD)))
+        assertEquals(0L, Money.keptFollowingPlan(s.copy(startAllowance = 30, taper = TaperType.HOLD), days = 28))
     }
 }

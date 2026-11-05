@@ -293,11 +293,15 @@ private fun PlanLine(plan: UserSettings, today: LocalDate, baseline: Int) {
 /** A caption under a card, inset to line up with the card's rows. */
 @Composable
 private fun Footnote(text: AnnotatedString, color: Color = Ex.colors.inkFaint) {
-    Text(text, style = ExType.caption, color = color, modifier = Modifier.padding(horizontal = 4.dp))
+    Text(text, style = ExType.caption, color = color, modifier = FootnoteInset)
 }
 
 @Composable
-private fun Footnote(text: String, color: Color = Ex.colors.inkFaint) = Footnote(AnnotatedString(text), color)
+private fun Footnote(text: String, color: Color = Ex.colors.inkFaint) {
+    Text(text, style = ExType.caption, color = color, modifier = FootnoteInset)
+}
+
+private val FootnoteInset = Modifier.padding(horizontal = ExSpace.xxs)
 
 /** An edit screen: back saves (see [SettingsInput]); a faint line says so under the content. */
 @Composable

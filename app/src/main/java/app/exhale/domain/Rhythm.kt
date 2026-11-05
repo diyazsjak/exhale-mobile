@@ -20,8 +20,6 @@ class RhythmView(
     val covered: Int,
     /** Tracking began inside [period], so its average is "since you started". */
     val sinceStart: Boolean,
-    /** The logs in [period]. */
-    val logs: List<SmokeLog>,
     val triggers: TriggerSummary,
     /** The busiest hour first; see [Stats.peaks]. Empty with nothing logged. */
     val peaks: List<Int>,
@@ -33,6 +31,8 @@ class RhythmView(
     val daysToCompare: Long,
     /** The picked day's count and allowance; null for the last [Rhythm.WINDOW] days. */
     val day: DayTally?,
+    /** The logs in [period], for [topTrigger]. */
+    private val logs: List<SmokeLog>,
     private val zone: ZoneId,
 ) {
     /** The average a day over [period]: the sum of [hours]. */
@@ -76,7 +76,6 @@ object Rhythm {
             before = if (compare) Stats.hourly(logs, before, now, zone, dataStart) else null,
             covered = Stats.coveredDays(period, now, zone, dataStart),
             sinceStart = dataStart != null && dataStart.isAfter(period.first),
-            logs = inPeriod,
             triggers = Stats.triggers(inPeriod),
             peaks = Stats.peaks(hours),
             wavesRidden = urges.count { period.contains(it.startedAt, zone) && it.outcome == UrgeOutcome.SURVIVED },
@@ -84,6 +83,7 @@ object Rhythm {
             // The days before cover MIN_DAYS once tracking began WINDOW + MIN_DAYS - 1 days ago.
             daysToCompare = dataStart?.let { ChronoUnit.DAYS.between(today, it.plusDays(WINDOW + MIN_DAYS - 1L)) } ?: 0,
             day = day?.let { History.tally(s, History.countsByDay(logs, zone), it) },
+            logs = inPeriod,
             zone = zone,
         )
     }

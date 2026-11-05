@@ -84,7 +84,7 @@ object Money {
      * Money kept over the plan's first [days] if exactly the allowance is smoked each day: the
      * estimate Onboarding shows before anything is logged.
      */
-    fun keptFollowingPlan(s: UserSettings, days: Int = 28): Long =
+    fun keptFollowingPlan(s: UserSettings, days: Int): Long =
         (0 until days).sumOf { d ->
             (s.baselinePerDay - PlanMath.baseAllowance(s, s.planStart.plusDays(d.toLong()))).coerceAtLeast(0) * s.pricePerCigMinor
         }.toLong()
