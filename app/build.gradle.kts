@@ -54,7 +54,11 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    buildFeatures { compose = true }
+    buildFeatures {
+        compose = true
+        // BuildConfig.DEBUG hides prototype tools (design system, demo data) from release builds.
+        buildConfig = true
+    }
     testOptions {
         unitTests.isIncludeAndroidResources = true
         unitTests.all {

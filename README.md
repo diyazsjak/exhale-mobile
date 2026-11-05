@@ -23,7 +23,7 @@ As you cut down, the app literally cools.
 - Step-by-step onboarding: habit, cost, plan, optional goal.
 - Dark and light themes (follows the phone, override in Settings).
 - Floating tab bar, big pill buttons, Newsreader + Figtree type.
-- Design system and live UI kit (Settings → Prototype tools → Design system).
+- Design system and live UI kit (Settings → Prototype tools → Design system, debug builds only).
 - Demo data loader in Settings for trying every screen.
 
 ## Install on a phone

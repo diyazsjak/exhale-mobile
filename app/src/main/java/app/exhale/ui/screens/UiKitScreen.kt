@@ -51,6 +51,13 @@ import app.exhale.ui.components.ExTextField
 import app.exhale.ui.components.FloatingTabBar
 import app.exhale.ui.components.GradientRing
 import app.exhale.ui.components.HeaderLabel
+import app.exhale.ui.components.CounterRow
+import app.exhale.ui.components.DialogAction
+import app.exhale.ui.components.ExChoiceDialog
+import app.exhale.ui.components.ExToast
+import app.exhale.ui.components.FieldNote
+import app.exhale.ui.components.rememberToastState
+import androidx.compose.foundation.layout.fillMaxSize
 import app.exhale.ui.components.ListRow
 import app.exhale.ui.components.OptionCard
 import app.exhale.ui.components.Overline
@@ -77,6 +84,8 @@ import java.time.YearMonth
 @Composable
 fun UiKitScreen(theme: ThemeMode, onTheme: (ThemeMode) -> Unit, onClose: () -> Unit) {
     val c = Ex.colors
+    val toast = rememberToastState()
+    Box(Modifier.fillMaxSize()) {
     ExScreen(
         bottomClearance = ExSpace.xl,
         header = {
@@ -146,6 +155,12 @@ fun UiKitScreen(theme: ThemeMode, onTheme: (ThemeMode) -> Unit, onClose: () -> U
         ExTextField("With a length cap", capped, { capped = it }, maxLength = 40)
         var n by remember { mutableIntStateOf(12) }
         Stepper(n, { n = it }, 0..60, "stepper")
+        var count by remember { mutableIntStateOf(14) }
+        ExCard(padding = ExSpace.sm) {
+            CounterRow("Counter row", count, { count = it }, 0..100, caption = "Light pill; hold to repeat", changed = count != 14)
+        }
+        ExTextField("With a suffix", "10.00", {}, suffix = "USD")
+        FieldNote("A note under a field. Going back keeps 10.00 USD.")
         var seg by remember { mutableIntStateOf(0) }
         SegmentedControl(listOf("One", "Two", "Three"), seg, { seg = it })
         ActiveFilter("Sunday · 10, 2 borrowed", "Back to 30 days", {})
@@ -154,7 +169,10 @@ fun UiKitScreen(theme: ThemeMode, onTheme: (ThemeMode) -> Unit, onClose: () -> U
         var opt by remember { mutableIntStateOf(0) }
         OptionCard("Option card", "Selected state with accent ring", opt == 0, { opt = 0 }, trailing = "13 → 12 → 11")
         OptionCard("Option card", "Unselected state", opt == 1, { opt = 1 })
-        ExCard(padding = ExSpace.sm) { ListRow("List row", {}, value = "Value"); ListRow("Another row", {}) }
+        ExCard(padding = ExSpace.sm) {
+            ListRow("List row", {}, value = "Value"); ListRow("Another row", {})
+            ListRow("Two lines", {}, value = "1,250,000 ₸", sub = "A long name is cut short so the number stays whole")
+        }
 
         Section("Cards & stats")
         ExCard {
@@ -164,6 +182,18 @@ fun UiKitScreen(theme: ThemeMode, onTheme: (ThemeMode) -> Unit, onClose: () -> U
         var dialog by remember { mutableStateOf(false) }
         ExButton("Open a dialog", { dialog = true }, Modifier.fillMaxWidth(), style = ButtonStyle.Secondary, size = ButtonSize.Medium)
         if (dialog) ExDialog({ dialog = false }) { Overline("Saving for"); Text("A weekend trip to the mountains with my family", style = ExType.headline, color = c.ink) }
+        var choice by remember { mutableStateOf(false) }
+        ExButton("Open a choice dialog", { choice = true }, Modifier.fillMaxWidth(), style = ButtonStyle.Secondary, size = ButtonSize.Medium)
+        if (choice) ExChoiceDialog(
+            "Save your changes?", "You changed the starting allowance.",
+            listOf(
+                DialogAction("Save changes", ButtonStyle.Primary) { choice = false },
+                DialogAction("Discard", ButtonStyle.Tonal) { choice = false },
+                DialogAction("Keep editing", ButtonStyle.Ghost) { choice = false },
+            ),
+            onDismiss = { choice = false },
+        )
+        ExButton("Show a toast", { toast.show("Saved") }, Modifier.fillMaxWidth(), style = ButtonStyle.Secondary, size = ButtonSize.Medium)
         var lit by remember { mutableStateOf(true) }
         ExCard(onClick = { lit = !lit }, outlined = lit) { Text("Tappable card, outlined while on", style = ExType.body, color = c.ink) }
 
@@ -200,7 +230,7 @@ fun UiKitScreen(theme: ThemeMode, onTheme: (ThemeMode) -> Unit, onClose: () -> U
         Section("Icons")
         FlowRow(horizontalArrangement = Arrangement.spacedBy(ExSpace.md), verticalArrangement = Arrangement.spacedBy(ExSpace.md)) {
             listOf(
-                ExIcons.Ember, ExIcons.Regulate, ExIcons.Rhythm, ExIcons.Air, ExIcons.Money, ExIcons.Wave, ExIcons.Plus,
+                ExIcons.Ember, ExIcons.Regulate, ExIcons.Rhythm, ExIcons.Air, ExIcons.Money, ExIcons.Wave, ExIcons.Plus, ExIcons.Minus,
                 ExIcons.Check, ExIcons.Close, ExIcons.Back, ExIcons.Forward, ExIcons.Settings, ExIcons.Undo, ExIcons.Sun,
                 ExIcons.Moon, ExIcons.Palette,
             ).forEach { Icon(it, null, Modifier.size(28.dp), tint = c.ink) }
@@ -223,6 +253,8 @@ fun UiKitScreen(theme: ThemeMode, onTheme: (ThemeMode) -> Unit, onClose: () -> U
         ExAppBar(tab, {}) { t ->
             Overline(listOf("Ember · today", "Rhythm · Last 30 days", "Recovery · if you stop now", "Money · since 4 October")[t])
         }
+    }
+    ExToast(toast, Modifier.align(Alignment.BottomCenter))
     }
 }
 

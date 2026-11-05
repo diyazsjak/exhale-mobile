@@ -258,10 +258,42 @@ A segmented progress bar (steps 1–4) fills in one colour (`ink`).
 No demo data in onboarding.
 
 ### 3.8 Settings — `SettingsScreen.kt`
-Appearance (System / Light / Dark, applies instantly) and all onboarding fields in one form; keeps the original plan start.
-Prototype tools: Design system (opens `UiKitScreen`, the live component catalogue).
-Prototype tools: replace data with 60 days of demo data (explained in-screen; 60 so Rhythm has a "30 days
-before" to compare with), erase all data (two-tap confirm).
+Edits everything set during onboarding; keeps the original plan start. Sections, top to bottom:
+- **Appearance**: System / Light / Dark. Applies and saves the moment it's tapped.
+- **Plan**, one card: **Before Exhale** and **Starting allowance** as counter rows (1–100 and 0–100;
+  holding −/+ repeats), then **How it drops** (current taper) opening its own screen. Under the card a
+  caption shows the plan as counted on screen: "This week 10 a day, next week 9." ("Holding at 14 a
+  day." for Hold steady), plus "That start is above your usual 16." when the start is above Before Exhale.
+- **Money**, one card: **A pack** ("20 for 10.00 $") and **Saving for** (the amount on the right, the
+  goal name on a second line that is cut short when long, so the amount always shows whole). Each opens
+  its own screen.
+- **Your data**: Erase all data, then "Exhale keeps everything on this phone. No account, no cloud."
+- **Prototype tools**, debug builds only (`BuildConfig.DEBUG`): Design system (opens `UiKitScreen`,
+  the live component catalogue; its route only exists in debug builds) and Load demo data (60 days, so
+  Rhythm has a "30 days before" to compare with).
+
+Saving:
+- The counters don't save on their own. While either differs from what's saved, its value shows in
+  `sky` ink and **Save changes** rises from the bottom; saving shows a "Saved" toast and hides it.
+- Back (button or system) with unsaved counts asks "Save your changes?": Save changes, Discard, Keep editing.
+- **How it drops**, **A pack** and **Saving for** have no Save button: going back saves what changed and
+  shows "Saved". A faint line on each says "Changes save when you go back." If nothing changed, nothing is said.
+- How it drops: the three taper cards with their "Weeks 1–4" preview from the starting allowance on screen
+  (saved or not; the subtitle says when it isn't saved yet).
+- A pack: Per pack and Pack price fields, currency chips (the phone region's currency first, then USD,
+  EUR, KZT; three in all) and Other, which shows a 3-letter code field.
+- Saving for: name (40 characters at most; empty is saved as "Something nice") and amount.
+
+Validation (`domain/SettingsInput`): fields filter what is typed. Pack size takes digits only, three at
+most; prices and amounts take digits, one decimal mark (`.` or `,`) and two decimals, seven whole digits
+at most; currency codes take three Latin letters and turn upper case. What filtering can't prevent (an
+empty field, a pack of 0 or over 100, an unknown currency) gets a note under the field in `ink` after a
+`sky` dot, naming what going back keeps: "Enter the pack price, like 10.00. Going back keeps 10.00 $."
+Going back with a note showing saves the valid fields, keeps the saved value of the others and says so:
+"Saved. Pack price stays 10.00 $."
+
+Erase all data and Load demo data each ask first in a dialog ("Erase everything?" / "Replace your
+data?") with the safe choice as a Ghost button; neither uses a warm colour.
 
 ### 3.9 Outside the app
 - **Quick-settings tile** — `tile/LogTileService.kt`: tap to log; subtitle shows today's count.

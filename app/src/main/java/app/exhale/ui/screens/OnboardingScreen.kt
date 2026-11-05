@@ -276,10 +276,8 @@ private fun PlanStep(
     StepTitle("Your plan", "Start at", "Cigarettes allowed per day this week. Two under your usual is a gentle start.")
     Stepper(allowance, onAllowance, 0..baseline, "a day this week")
     Overline("Then each week", Modifier.padding(top = ExSpace.xs))
-    val today = LocalDate.now()
     TaperType.entries.forEach { t ->
-        val plan = UserSettings(startAllowance = allowance, taper = t, planStart = today)
-        val preview = (0..3).map { w -> PlanMath.baseAllowance(plan, today.plusDays(w * 7L)) }
+        val preview = PlanMath.firstWeeks(allowance, t)
         OptionCard(t.label, t.description, t == taper, { onTaper(t) }, trailing = "Weeks 1–4: " + preview.joinToString(" → "))
     }
     Text("Going over isn't failing. It's borrowed from tomorrow's allowance.", style = ExType.caption, color = c.inkSoft)

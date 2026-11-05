@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Icon
@@ -45,10 +46,28 @@ import app.exhale.ui.theme.Ex
 import app.exhale.ui.theme.ExRadius
 
 import app.exhale.ui.theme.ExType
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.text.style.TextAlign
+import app.exhale.ui.theme.ExSpace
+import kotlinx.coroutines.delay
 
 /**
  * Filled text field: label above, soft surface box, accent ring while focused. With [maxLength],
- * input is cut at that many characters and a "12 / 40" counter sits beside the label.
+ * input is cut at that many characters and a "12 / 40" counter sits beside the label. [suffix] is a
+ * unit or currency shown at the end of the box ("USD", "cigs").
  */
 @Composable
 fun ExTextField(
@@ -59,6 +78,7 @@ fun ExTextField(
     type: KeyboardType = KeyboardType.Text,
     placeholder: String? = null,
     maxLength: Int? = null,
+    suffix: String? = null,
 ) {
     val c = Ex.colors
     val source = remember { MutableInteractionSource() }
@@ -88,8 +108,13 @@ fun ExTextField(
                         .padding(horizontal = 18.dp, vertical = 16.dp),
                     contentAlignment = Alignment.CenterStart,
                 ) {
-                    if (value.isEmpty() && placeholder != null) Text(placeholder, style = ExType.body, color = c.inkFaint)
-                    inner()
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.weight(1f)) {
+                            if (value.isEmpty() && placeholder != null) Text(placeholder, style = ExType.body, color = c.inkFaint)
+                            inner()
+                        }
+                        if (suffix != null) Text(suffix, style = ExType.labelSmall, color = c.inkSoft, modifier = Modifier.padding(start = 8.dp))
+                    }
                 }
             },
         )
@@ -164,7 +189,7 @@ fun SegmentedControl(options: List<String>, selected: Int, onSelect: (Int) -> Un
                         .weight(1f)
                         .fillMaxHeight()
                         .clip(ExRadius.pill)
-                        .clickable(role = Role.Tab) { onSelect(i) },
+                        .selectable(i == selected, role = Role.Tab) { onSelect(i) },
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(label, style = ExType.labelSmall, color = if (i == selected) c.ink else c.inkSoft)
@@ -228,5 +253,107 @@ fun ActiveFilter(text: String, action: String, onAction: () -> Unit, modifier: M
         ) {
             Text(action, style = ExType.labelSmall, color = c.ink)
         }
+    }
+}
+
+/**
+ * A count inside a list card: label and an optional caption on the left, a light − value + pill
+ * on the right. Lighter than [Stepper], for settings changed a step or two at a time. Holding a
+ * button repeats. [changed] shows the value in `sky` ink, e.g. while it waits to be saved.
+ */
+@Composable
+fun CounterRow(
+    label: String,
+    value: Int,
+    onChange: (Int) -> Unit,
+    range: IntRange,
+    modifier: Modifier = Modifier,
+    caption: String? = null,
+    changed: Boolean = false,
+) {
+    val c = Ex.colors
+    val line = c.line
+    Row(
+        modifier.fillMaxWidth().heightIn(min = 52.dp).padding(start = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(ExSpace.xs),
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(label, style = ExType.body, color = c.ink)
+            if (caption != null) Text(caption, style = ExType.caption, color = c.inkSoft)
+        }
+        Row(
+            // A 36dp hairline pill drawn inside 44dp buttons, so the touch area stays 44dp.
+            Modifier.height(44.dp).drawBehind {
+                val inset = 4.dp.toPx()
+                val w = 1.dp.toPx()
+                val h = size.height - 2 * inset
+                drawRoundRect(
+                    line,
+                    topLeft = Offset(inset + w / 2, inset + w / 2),
+                    size = Size(size.width - 2 * inset - w, h - w),
+                    cornerRadius = CornerRadius(h / 2),
+                    style = Stroke(w),
+                )
+            },
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            CounterButton(ExIcons.Minus, "Decrease $label", -1, value, range, onChange)
+            Text(
+                "$value",
+                style = ExType.numberSmall.copy(fontSize = ExType.body.fontSize),
+                color = if (changed) c.skyInk else c.ink,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.widthIn(min = 30.dp).semantics { liveRegion = LiveRegionMode.Polite },
+            )
+            CounterButton(ExIcons.Plus, "Increase $label", 1, value, range, onChange)
+        }
+    }
+}
+
+@Composable
+private fun CounterButton(icon: ImageVector, description: String, step: Int, value: Int, range: IntRange, onChange: (Int) -> Unit) {
+    val c = Ex.colors
+    val enabled = value + step in range
+    val source = remember { MutableInteractionSource() }
+    val pressed by source.collectIsPressedAsState()
+    val latest by rememberUpdatedState(value)
+    val change by rememberUpdatedState(onChange)
+    // Set once holding has stepped, so the click that ends the press doesn't step again.
+    var repeated by remember { mutableStateOf(false) }
+    LaunchedEffect(pressed) {
+        if (!pressed) return@LaunchedEffect
+        repeated = false
+        delay(420)
+        while (latest + step in range) {
+            repeated = true
+            change(latest + step)
+            delay(70)
+        }
+    }
+    Box(
+        Modifier
+            .size(44.dp)
+            .clickable(source, ripple(bounded = false, radius = 18.dp), enabled = enabled, role = Role.Button) {
+                if (repeated) repeated = false else onChange(value + step)
+            }
+            .semantics { contentDescription = description },
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(icon, null, Modifier.size(16.dp), tint = if (enabled) c.inkSoft else c.inkFaint.copy(alpha = 0.5f))
+    }
+}
+
+/**
+ * A note under a field or group about a value that can't be saved as typed, and what is kept
+ * instead. `ink` caption after a small `sky` dot: noticeable, never red. Shows nothing when empty.
+ */
+@Composable
+fun FieldNote(text: String, modifier: Modifier = Modifier) {
+    if (text.isEmpty()) return
+    val c = Ex.colors
+    Row(modifier.padding(horizontal = 4.dp), horizontalArrangement = Arrangement.spacedBy(ExSpace.xs)) {
+        Box(Modifier.padding(top = 7.dp).size(6.dp).clip(ExRadius.pill).background(c.sky))
+        Text(text, style = ExType.caption, color = c.ink)
     }
 }

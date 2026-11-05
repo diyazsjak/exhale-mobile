@@ -33,6 +33,13 @@ object PlanMath {
         }
     }
 
+    /** The allowance in each of the first [weeks] weeks of a plan from [start], e.g. 14 → 13 → 12 → 11. */
+    fun firstWeeks(start: Int, taper: TaperType, weeks: Int = 4): List<Int> {
+        val day0 = LocalDate.of(2026, 1, 5)
+        val plan = UserSettings(startAllowance = start, taper = taper, planStart = day0)
+        return (0 until weeks).map { w -> baseAllowance(plan, day0.plusWeeks(w.toLong())) }
+    }
+
     /** Today's allowance after subtracting what was borrowed yesterday. */
     fun allowance(s: UserSettings, date: LocalDate, smokedYesterday: Int): Int {
         val debt = debt(s, date.minusDays(1), smokedYesterday)

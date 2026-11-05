@@ -23,7 +23,10 @@ import app.exhale.ui.screens.HistoryScreen
 import app.exhale.ui.screens.MoneyScreen
 import app.exhale.ui.screens.OnboardingScreen
 import app.exhale.ui.screens.RhythmScreen
+import app.exhale.ui.screens.PrototypeTools
+import app.exhale.ui.screens.SettingsPage
 import app.exhale.ui.screens.SettingsScreen
+import app.exhale.ui.components.ExToastState
 import app.exhale.ui.screens.UrgeWaveScreen
 import app.exhale.ui.theme.Ex
 import app.exhale.ui.components.AppBarScrollBehavior
@@ -39,6 +42,7 @@ import app.exhale.domain.ThemeMode
 import androidx.compose.ui.Alignment
 import app.exhale.ui.theme.ExhaleTheme
 import com.github.takahirom.roborazzi.captureRoboImage
+import androidx.compose.runtime.remember
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -256,11 +260,40 @@ class ScreenshotTest {
         val s = st.settings.copy(goalName = "A weekend trip to the mountains with family", goalMinor = 105_000)
         MoneyScreen(st.copy(settings = s, money = Money.summary(s, st.logs, now, zone)))
     }
-    @Test fun settingsDark() = shot("7_settings", true) { SettingsScreen(sampleState().settings, {}, {}, {}, {}, {}, {}) }
-    @Test fun settingsLight() = shot("7_settings", false) { SettingsScreen(sampleState().settings, {}, {}, {}, {}, {}, {}) }
-    // Scrolled: the header stays pinned, with its hairline border while content is under it.
-    @Test fun settingsScrolledDark() = shot("7b_settings_scrolled", true) { SettingsScreen(sampleState().settings, {}, {}, {}, {}, {}, {}, initialScroll = 900) }
-    @Test fun settingsScrolledLight() = shot("7b_settings_scrolled", false) { SettingsScreen(sampleState().settings, {}, {}, {}, {}, {}, {}, initialScroll = 900) }
+    // Settings as in a release build (no prototype tools).
+    @Composable private fun Settings(
+        page: SettingsPage? = null,
+        allowance: Int? = null,
+        scroll: Int = 0,
+        tools: Boolean = false,
+        toast: String? = null,
+    ) {
+        val st = sampleState()
+        SettingsScreen(
+            st.settings, st.today, {}, {}, {}, {},
+            prototypeTools = if (tools) PrototypeTools({}, {}) else null,
+            initialScroll = scroll,
+            initialPage = page,
+            initialAllowance = allowance ?: st.settings.startAllowance,
+            toast = remember { ExToastState(toast) },
+        )
+    }
+    @Test fun settingsDark() = shot("7_settings", true) { Settings() }
+    @Test fun settingsLight() = shot("7_settings", false) { Settings() }
+    // Scrolled, as a debug build: the header stays pinned with its border; Prototype tools at the bottom.
+    @Test fun settingsScrolledDark() = shot("7b_settings_scrolled", true) { Settings(scroll = 900, tools = true) }
+    @Test fun settingsScrolledLight() = shot("7b_settings_scrolled", false) { Settings(scroll = 900, tools = true) }
+    // A count changed and not saved yet: the value in sky, "Save changes" up from the bottom.
+    @Test fun settingsCountedDark() = shot("7c_settings_counted", true) { Settings(allowance = 12) }
+    @Test fun settingsCountedLight() = shot("7c_settings_counted", false) { Settings(allowance = 12) }
+    @Test fun settingsTaperDark() = shot("7d_settings_taper", true) { Settings(page = SettingsPage.TAPER) }
+    @Test fun settingsTaperLight() = shot("7d_settings_taper", false) { Settings(page = SettingsPage.TAPER) }
+    @Test fun settingsPackDark() = shot("7e_settings_pack", true) { Settings(page = SettingsPage.PACK) }
+    @Test fun settingsPackLight() = shot("7e_settings_pack", false) { Settings(page = SettingsPage.PACK) }
+    @Test fun settingsGoalDark() = shot("7f_settings_goal", true) { Settings(page = SettingsPage.GOAL) }
+    @Test fun settingsGoalLight() = shot("7f_settings_goal", false) { Settings(page = SettingsPage.GOAL) }
+    // Back from A pack with the price left empty: the rest saved, the price kept.
+    @Test fun settingsSavedDark() = shot("7g_settings_saved", true) { Settings(toast = "Saved. Pack price stays 10.00 $.") }
 
     @Test fun onboardingWelcomeDark() = shot("0a_onboarding_welcome", true) { OnboardingScreen({}, initialStep = 0) }
     @Test fun onboardingWelcomeLight() = shot("0a_onboarding_welcome", false) { OnboardingScreen({}, initialStep = 0) }

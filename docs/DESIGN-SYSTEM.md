@@ -1,6 +1,6 @@
 # Exhale design system
 
-Web style guide with live previews: https://claude.ai/artifact/XNKeWbtRnqA7Nz2Nc3uEC6 (private until shared). In the app: Settings → Prototype tools → Design system.
+Web style guide with live previews: https://claude.ai/artifact/XNKeWbtRnqA7Nz2Nc3uEC6 (private until shared). In the app (debug builds): Settings → Prototype tools → Design system.
 
 Burn less. Exhale more. Exhale is an Android app (Jetpack Compose) that helps people track, regulate and cut down cigarettes. This system is the single source for how it looks and feels. The code of truth lives in the app at `app/src/main/java/app/exhale/ui/theme/` (tokens) and `ui/components/` (components); this page mirrors it for the web.
 
@@ -67,7 +67,7 @@ Plain, short, second person. A cigarette is information: "Logged. 8 of 12 today.
 
 ## Components
 
-Button, IconButton, Link, Chip, Badge, Card, OptionCard, TextField, Stepper, SegmentedControl, ActiveFilter, StepProgress, GradientRing, WeekStrip, MonthCalendar, LegendItem, ListRow, FloatingTabBar and AppBar. Each card below has guidelines and a live web rendition styled by `components/bundle.css`. In the app they are Compose functions in `ui/components/` (`ExButton`, `ExIconButton`, `ExLink`, `ExChip`, `ExBadge`, `ExCard`, `OptionCard`, `ExTextField`, `Stepper`, `SegmentedControl`, `ActiveFilter`, `StepProgress`, `GradientRing`, `WeekStrip`, `MonthCalendar`, `LegendItem`, `ListRow`, `FloatingTabBar`, `ExAppBar`). Every screen sits in `ExScreen`, which applies `bg`, the status-bar inset, the gutter and the tab-bar clearance. The app also has a live catalogue: Settings → Prototype tools → Design system.
+Button, IconButton, Link, Chip, Badge, Card, OptionCard, TextField, FieldNote, Stepper, CounterRow, SegmentedControl, ActiveFilter, StepProgress, GradientRing, WeekStrip, MonthCalendar, LegendItem, ListRow, Dialog, ChoiceDialog, Toast, FloatingTabBar and AppBar. Each card below has guidelines and a live web rendition styled by `components/bundle.css`. In the app they are Compose functions in `ui/components/` (`ExButton`, `ExIconButton`, `ExLink`, `ExChip`, `ExBadge`, `ExCard`, `OptionCard`, `ExTextField`, `FieldNote`, `Stepper`, `CounterRow`, `SegmentedControl`, `ActiveFilter`, `StepProgress`, `GradientRing`, `WeekStrip`, `MonthCalendar`, `LegendItem`, `ListRow`, `ExDialog`, `ExChoiceDialog`, `ExToast`, `FloatingTabBar`, `ExAppBar`). Every screen sits in `ExScreen`, which applies `bg`, the status-bar inset, the gutter and the tab-bar clearance. The app also has a live catalogue in debug builds: Settings → Prototype tools → Design system.
 
 ## Colour tokens
 
@@ -163,7 +163,17 @@ Filled text field with the label above and a soft focus ring.
 Label in `caption`/`ink-soft` above a 56px `surface` box with `radius-md`; text in `body`/`ink`, placeholder in `ink-faint`. Focus draws a 1.5px `sky` ring. Put related short fields side by side with `space-sm` gaps. Validation messages go in a caption below the group, not in red.
 
 - With `maxLength`, input is cut at that length and a "12 / 40" counter in `ink-faint` sits beside the label (goal names).
-- Compose: `ExTextField("Pack price", value, onChange, type = KeyboardType.Decimal, placeholder = "10.00")`; `maxLength = Money.GOAL_NAME_MAX`.
+- With `suffix`, a unit or currency code sits at the end of the box in `label-small`/`ink-soft` ("USD", "cigs").
+- Filter what is typed (`SettingsInput.digits`, `money`, `currency`) rather than reporting it; what filtering can't prevent goes in a FieldNote.
+- Compose: `ExTextField("Pack price", value, onChange, type = KeyboardType.Decimal, placeholder = "10.00", suffix = "USD")`; `maxLength = Money.GOAL_NAME_MAX`.
+
+### FieldNote
+
+A note under a field or group about a value that can't be saved as typed, and what is kept instead.
+
+`caption` in `ink` after a 6px `sky` dot: noticeable, never red. Say what to enter and what going back keeps: "Enter the pack price, like 10.00. Going back keeps 10.00 $." Shows nothing when the text is empty.
+
+- Compose: `FieldNote(if (SettingsInput.minor(price) == null) "Enter the pack price…" else "")`.
 
 ### Stepper
 
@@ -173,11 +183,19 @@ The value is the hero of its screen: Newsreader at 96px over a `caption` unit. B
 
 - Compose: `Stepper(value, onChange, 1..60, "cigarettes a day")`.
 
+### CounterRow
+
+A count inside a list card, lighter than the Stepper: for settings changed a step or two at a time, such as Before Exhale and Starting allowance in Settings.
+
+`body` label with an optional `caption` line on the left; on the right a 36px pill with a 1px `line` outline holding a 16px − in `ink-soft`, the value in `number-small` at body size, and a 16px +. Each button keeps a 44px touch area; holding repeats (after 420ms, every 70ms). At the range ends a button disables. `changed` shows the value in `sky-ink`, e.g. while it waits for Save. 52px minimum height, inset like ListRow so the labels line up.
+
+- Compose: `CounterRow("Starting allowance", value, onChange, 0..100, caption = "a day, since 4 October", changed = value != saved)`.
+
 ### SegmentedControl
 
 iOS-style segmented control with a sliding thumb for switching views or modes.
 
-44px track (`surface-high` in light, `surface` in dark) with a thumb one step lighter or darker; selected label `ink`, others `ink-soft`. 2–3 short options. Used for theme, time ranges, weekday filters.
+44px track (`surface-high` in light, `surface` in dark) with a thumb one step lighter or darker; selected label `ink`, others `ink-soft`. 2–3 short options. Used for theme, time ranges, weekday filters. Each segment is marked selected or not, so screen readers say which one is on.
 
 - Compose: `SegmentedControl(listOf("System", "Light", "Dark"), selected, onSelect)`.
 
@@ -212,6 +230,22 @@ A small centred card over the system scrim for something that didn't fit where i
 
 - Compose: `ExDialog(onDismiss) { Overline("Saving for"); Text(name, style = ExType.headline) }`.
 
+### ChoiceDialog
+
+A question before something that can't be undone or would be lost: erasing data, loading demo data, leaving with unsaved changes.
+
+A centred card (`space-xl` padding) over the scrim: a `headline` title as a question, a `body`/`ink-soft` line on what happens, then Medium buttons stacked full width, the main one first as Primary, others Tonal (inside the card) or Ghost for the safe choice. Tapping outside or Back is the safe choice. No warm colour: `flare` and `ember` keep their meanings; the dialog does the warning.
+
+- Compose: `ExChoiceDialog("Erase everything?", "Your logs… leave this phone for good.", listOf(DialogAction("Erase everything", ButtonStyle.Primary) { … }, DialogAction("Keep my data", ButtonStyle.Ghost) { … }), onDismiss)`.
+
+### Toast
+
+A short note that rises from the bottom for about two seconds after something saved quietly, e.g. "Saved" when going back from an edit screen, or "Saved. Pack price stays 10.00 $."
+
+`chrome` pill with a 1px `line` ring, an 18px check in `oxy-ink`, `label-small` in `ink`; 24px above the navigation bar, or above a bottom bar when one shows. Announced politely to screen readers. Not for errors or anything that needs an answer.
+
+- Compose: `val toast = rememberToastState()`; `toast.show("Saved")`; `ExToast(toast, Modifier.align(Alignment.BottomCenter))`.
+
 ### WeekStrip
 
 Row of seven day circles (Rhythm shows the last 7 days, today last): each tracked day shows its count, tinted oxygen within the allowance and ember when over.
@@ -238,9 +272,9 @@ Colour key entry: a 12px dot in the accent and its meaning in `caption`/`ink-sof
 
 Tappable row inside a card: label, optional value, chevron.
 
-52px minimum height, `body` label, `ink-soft` value, `ink-faint` chevron. Group rows in a `surface` card with `space-sm` padding; no dividers.
+52px minimum height, `body` label, `ink-soft` value, `ink-faint` chevron. Group rows in a `surface` card with `space-sm` padding; no dividers. Rows of different kinds (CounterRow, ListRow) can share one card. With `sub`, the label gets a second `caption` line, cut short with "…" when long, while the value (a number) always shows whole: Settings' "Saving for / New headphones … 599 $".
 
-- Compose: `ListRow("Design system", onClick, value = null)`.
+- Compose: `ListRow("Design system", onClick, value = null)`; `ListRow("Saving for", onClick, value = "599 $", sub = goalName)`.
 
 ### FloatingTabBar
 
@@ -262,4 +296,4 @@ Drawn over the screens (not inside them), so it stays put while pages slide. Lea
 
 - The web previews are static HTML/CSS renditions written by hand from the Compose components; they are not generated from the Kotlin code.
 - Animated and chart components (the Ember orb, the Urge Wave, the particle field, the Smoke Clock, Air's recovery sky, gap chart and timeline) are screen-specific and are not in this kit.
-- Link, ActiveFilter, MonthCalendar, LegendItem, Dialog, AppBar, the Tonal button, the outlined card and the capped text field are in the in-app catalogue but have no web preview yet.
+- Link, ActiveFilter, MonthCalendar, LegendItem, Dialog, ChoiceDialog, Toast, CounterRow, FieldNote, AppBar, the Tonal button, the outlined card, the two-line ListRow and the capped and suffixed text fields are in the in-app catalogue but have no web preview yet.

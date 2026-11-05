@@ -17,6 +17,13 @@ class PlanMathTest {
         assertEquals(0, PlanMath.baseAllowance(st, start.plusDays(7 * 20)))
     }
 
+    @Test fun firstWeeks_previewsEachTaper() {
+        assertEquals(listOf(14, 13, 12, 11), PlanMath.firstWeeks(14, TaperType.MINUS_ONE_WEEKLY))
+        assertEquals(listOf(20, 18, 17, 15), PlanMath.firstWeeks(20, TaperType.TEN_PERCENT_WEEKLY))
+        assertEquals(listOf(14, 14, 14, 14), PlanMath.firstWeeks(14, TaperType.HOLD))
+        assertEquals(listOf(1, 0), PlanMath.firstWeeks(1, TaperType.MINUS_ONE_WEEKLY, weeks = 2))
+    }
+
     @Test fun beforePlanStart_usesStartAllowance() {
         assertEquals(12, PlanMath.baseAllowance(s(TaperType.MINUS_ONE_WEEKLY), start.minusDays(3)))
     }

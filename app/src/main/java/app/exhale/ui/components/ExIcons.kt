@@ -38,6 +38,7 @@ object ExIcons {
     val Air = icon("air", "M3 8.5h10a2.5 2.5 0 1 0-2.5-2.5", "M3 12.5h15a2.5 2.5 0 1 1-2.5 2.5", "M3 16.5h7")
     val Money = icon("money", CIRCLE, "M14.5 9.5c-.5-.9-1.4-1.3-2.5-1.3-1.5 0-2.5.8-2.5 1.9 0 2.6 5 1.4 5 4 0 1.1-1 1.9-2.5 1.9-1.1 0-2.1-.5-2.6-1.4", "M12 6.5v1.7", "M12 15.9v1.6")
     val Plus = icon("plus", "M12 5v14", "M5 12h14")
+    val Minus = icon("minus", "M5 12h14")
     val Check = icon("check", "M5 12.5l4.5 4.5L19 7.5")
     val Close = icon("close", "M6 6l12 12", "M18 6L6 18")
     val Back = icon("back", "M19 12H5", "M11 6l-6 6 6 6")

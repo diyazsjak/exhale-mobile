@@ -51,6 +51,8 @@ import app.exhale.ui.screens.HistoryScreen
 import app.exhale.ui.screens.MoneyScreen
 import app.exhale.ui.screens.OnboardingScreen
 import app.exhale.ui.screens.RhythmScreen
+import app.exhale.BuildConfig
+import app.exhale.ui.screens.PrototypeTools
 import app.exhale.ui.screens.SettingsScreen
 import app.exhale.ui.screens.TodayBadge
 import app.exhale.ui.screens.borrowDot
@@ -237,12 +239,16 @@ private fun MainNav(state: ExhaleState, logged: LoggedEvent?, vm: ExhaleViewMode
             composable(SETTINGS) {
                 SettingsScreen(
                     current = state.settings,
-                    onSave = { vm.saveSettings(it); nav.popBackStack() },
+                    today = state.today,
+                    onSave = vm::saveSettings,
                     onTheme = vm::setTheme,
-                    onDemo = { vm.loadDemo(); nav.popBackStack() },
                     onErase = vm::eraseAll,
-                    onDesignSystem = { nav.navigate(UIKIT) },
                     onClose = { nav.popBackStack() },
+                    prototypeTools = if (BuildConfig.DEBUG) {
+                        PrototypeTools(onDesignSystem = { nav.navigate(UIKIT) }, onDemo = { vm.loadDemo(); nav.popBackStack() })
+                    } else {
+                        null
+                    },
                 )
             }
             composable(HISTORY) {
@@ -252,7 +258,8 @@ private fun MainNav(state: ExhaleState, logged: LoggedEvent?, vm: ExhaleViewMode
                     onClose = { nav.popBackStack() },
                 )
             }
-            composable(UIKIT) { UiKitScreen(state.settings.theme, vm::setTheme, onClose = { nav.popBackStack() }) }
+            // The component catalogue is a prototype tool: debug builds only.
+            if (BuildConfig.DEBUG) composable(UIKIT) { UiKitScreen(state.settings.theme, vm::setTheme, onClose = { nav.popBackStack() }) }
         }
         if (tab != null || away < 1f) {
             Box(

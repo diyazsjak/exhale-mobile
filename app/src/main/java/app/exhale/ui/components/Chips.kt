@@ -26,6 +26,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.exhale.domain.Trigger
 import app.exhale.ui.theme.Ex
@@ -130,9 +131,13 @@ fun OptionCard(
     }
 }
 
-/** A plain tappable row inside a card: label, optional value, chevron. */
+/**
+ * A plain tappable row inside a card: label, optional value, chevron. With [sub], the label gets a
+ * second line (a name, say) that is cut short with "…" when long, while the value (a number) is
+ * always shown whole.
+ */
 @Composable
-fun ListRow(label: String, onClick: () -> Unit, modifier: Modifier = Modifier, value: String? = null) {
+fun ListRow(label: String, onClick: () -> Unit, modifier: Modifier = Modifier, value: String? = null, sub: String? = null) {
     val c = Ex.colors
     Row(
         modifier
@@ -140,11 +145,14 @@ fun ListRow(label: String, onClick: () -> Unit, modifier: Modifier = Modifier, v
             .clip(ExRadius.sm)
             .clickable(role = Role.Button, onClick = onClick)
             .heightIn(min = 52.dp)
-            .padding(horizontal = 4.dp),
+            .padding(horizontal = 4.dp, vertical = if (sub != null) 6.dp else 0.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(label, style = ExType.body, color = c.ink, modifier = Modifier.weight(1f))
-        if (value != null) Text(value, style = ExType.body, color = c.inkSoft, modifier = Modifier.padding(end = 8.dp))
+        Column(Modifier.weight(1f).padding(end = 8.dp)) {
+            Text(label, style = ExType.body, color = c.ink)
+            if (sub != null) Text(sub, style = ExType.caption, color = c.inkSoft, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        if (value != null) Text(value, style = ExType.body, color = c.inkSoft, maxLines = 1, modifier = Modifier.padding(end = 8.dp))
         Icon(ExIcons.Forward, null, Modifier.size(20.dp), tint = c.inkFaint)
     }
 }
