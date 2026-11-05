@@ -335,7 +335,12 @@ private fun TodayPopover(state: ExhaleState) {
     val base = PlanMath.baseAllowance(s, state.today)
     val over = state.todayCount - state.allowance
     val left = state.allowance - state.todayCount
+    // Borrowing is measured against today's base, not the lowered allowance (§4 Debt): on a lowered
+    // day, going over today's allowance only borrows what goes past the base.
+    val borrowing = PlanMath.debt(s, state.today, state.todayCount)
     val tomorrowBase = PlanMath.baseAllowance(s, state.today.plusDays(1))
+    val tomorrow = PlanMath.allowance(s, state.today.plusDays(1), state.todayCount)
+    val lowered = state.allowance < base
     val nextWeekDate = s.planStart.plusDays(((PlanMath.weeksIntoPlan(s.planStart, state.today) + 1) * 7).toLong())
     val nextWeek = PlanMath.baseAllowance(s, nextWeekDate)
     Column(
@@ -358,15 +363,22 @@ private fun TodayPopover(state: ExhaleState) {
             when {
                 over > 0 -> {
                     withStyle(SpanStyle(color = c.flareInk, fontWeight = FontWeight.SemiBold)) { append("$over over today. ") }
-                    append("It's borrowed from tomorrow, so tomorrow starts at ${(tomorrowBase - over).coerceAtLeast(0)} instead of $tomorrowBase.")
+                    when {
+                        borrowing == 0 -> append("You're still within your usual $base, so nothing is borrowed: tomorrow starts at $tomorrow.")
+                        borrowing < over -> append(
+                            "$borrowing of them ${if (borrowing == 1) "is" else "are"} past your usual $base and borrowed from tomorrow, " +
+                                "so tomorrow starts at $tomorrow instead of $tomorrowBase."
+                        )
+                        else -> append("It's borrowed from tomorrow, so tomorrow starts at $tomorrow instead of $tomorrowBase.")
+                    }
                 }
                 left == 0 -> {
                     withStyle(SpanStyle(color = c.ink, fontWeight = FontWeight.SemiBold)) { append("That's all for today. ") }
-                    append("Anything more is borrowed from tomorrow.")
+                    append(if (lowered) "Anything past your usual $base is borrowed from tomorrow." else "Anything more is borrowed from tomorrow.")
                 }
                 else -> {
                     withStyle(SpanStyle(color = c.ink, fontWeight = FontWeight.SemiBold)) { append("$left left today. ") }
-                    append("Going over isn't failing; anything over is borrowed from tomorrow.")
+                    append("Going over isn't failing; anything ${if (lowered) "past your usual $base" else "over"} is borrowed from tomorrow.")
                 }
             }
         }

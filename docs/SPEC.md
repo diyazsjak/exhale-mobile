@@ -106,6 +106,13 @@ First launch shows **Onboarding** (§3.7). Regulate is no longer a tab: its coun
   Y." / "N left today. Going over isn't failing…" / "That's all for today…", plus "Today is A
   instead of B: N were borrowed yesterday." on a lowered day, and a footer with this week's and next
   week's allowance. Tap outside, press Back or start holding the ember to close it.
+  "Over today" (the badge's pink, the count, the flare sticks) is against today's allowance, but what
+  is borrowed from tomorrow follows §4 Debt: only what goes past today's *base*. X is
+  `PlanMath.allowance(tomorrow, todayCount)`, Y tomorrow's base. So on a lowered day (base 10, 2
+  borrowed, allowance 8) the over line reads "1 over today. You're still within your usual 10, so
+  nothing is borrowed: tomorrow starts at 10." at 9, and "4 over today. 2 of them are past your
+  usual 10 and borrowed from tomorrow, so tomorrow starts at 8 instead of 10." at 12; the other
+  lines say "anything past your usual 10" instead of "anything more/over".
 - Hero, one number that switches meaning: while waiting, time **until** the next one is earned
   ("58m · until your next one"); once earned, time **since** the last one ("2h 41m · since your last
   one · next one earned"). Before any log: "—" and "nothing logged yet".
@@ -320,7 +327,9 @@ Full-screen route from Rhythm's "All history ›" (back button, no tab bar).
 - `TEN_PERCENT_WEEKLY`: `max(0, min(ceil(start × 0.9^weeks), start − weeks))` (always ≥ 1 step/week)
 - `HOLD`: `start`
 - **Debt**: `max(0, smokedYesterday − baseAllowance(yesterday))`, only for days on/after plan start.
-  Today's allowance = `max(0, base(today) − debt)`. Debt only looks back one day.
+  Today's allowance = `max(0, base(today) − debt)`. Debt only looks back one day: it is measured
+  against the base, not the lowered allowance, so smoking past a lowered allowance but within the
+  base borrows nothing more.
 - **Interval** (minutes) = `wakingMinutes / allowance`; when allowance is 0, = `wakingMinutes`.
 
 ### Today — `TodayPlan`
