@@ -33,6 +33,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import app.exhale.ui.theme.Ex
@@ -70,8 +71,9 @@ fun ExScreen(
         Column(Modifier.fillMaxSize().statusBarsPadding()) {
             if (header != null) {
                 val under by remember(scroll) { derivedStateOf { scroll && st.value > 0 } }
+                val border = scrolledBorderColor(under)
                 Row(
-                    Modifier.scrolledBorder(under).barRow(),
+                    Modifier.bottomHairline { border.value }.barRow(),
                     verticalAlignment = Alignment.CenterVertically,
                     content = header,
                 )
@@ -147,6 +149,15 @@ fun Stat(value: String, label: String, modifier: Modifier = Modifier, color: Col
         Text(label, style = ExType.caption, color = c.inkSoft)
     }
 }
+
+/** A caption under a card, inset to line up with the card's rows: `caption` in `ink-faint` unless [color] says otherwise. */
+@Composable
+fun Footnote(text: AnnotatedString, modifier: Modifier = Modifier, color: Color? = null) {
+    Text(text, style = ExType.caption, color = color ?: Ex.colors.inkFaint, modifier = modifier.padding(horizontal = ExSpace.xxs))
+}
+
+@Composable
+fun Footnote(text: String, modifier: Modifier = Modifier, color: Color? = null) = Footnote(AnnotatedString(text), modifier, color)
 
 /** Pushes following header items to the end. */
 @Composable

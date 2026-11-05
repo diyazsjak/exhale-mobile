@@ -108,7 +108,7 @@ First launch shows **Onboarding** (§3.7). Regulate is no longer a tab: its coun
   week's allowance. Tap outside, press Back or start holding the ember to close it.
   "Over today" (the badge's pink, the count, the flare sticks) is against today's allowance, but what
   is borrowed from tomorrow follows §4 Debt: only what goes past today's *base*
-  (`ExhaleState.borrowingFromTomorrow`). X is `ExhaleState.tomorrowAllowance`
+  (`TodayPlan.borrowingFromTomorrow`). X is `TodayPlan.tomorrowAllowance`
   (`PlanMath.allowance(tomorrow, todayCount)`), Y tomorrow's base. So on a lowered day (base 10, 2
   borrowed, allowance 8) the over line reads "1 over today. You're still within your usual 10, so
   nothing is borrowed: tomorrow starts at 10." at 9, and "4 over today. 2 of them are past your
@@ -264,6 +264,9 @@ A segmented progress bar (steps 1–4) fills in one colour (`ink`).
 | 3 Plan | Starting allowance + taper type | Stepper 0..baseline, default baseline − 2. Taper cards preview weeks 1–4. |
 | 4 Goal (optional) | Goal name and amount | Shows money kept in the first 4 weeks if the plan is followed. "Start" or "Skip the goal for now". |
 
+Pack price and goal amount are filtered and read like Settings' (`SettingsInput.money` / `minor`):
+digits, one decimal mark and two decimals, so "1e3" can't be typed.
+
 No demo data in onboarding.
 
 ### 3.8 Settings — `SettingsScreen.kt`
@@ -340,8 +343,11 @@ Full-screen route from Rhythm's "All history ›" (back button, no tab bar).
 ### Today — `TodayPlan`
 `TodayPlan.of(settings, logs, now, zone)` is everything Ember needs about today: the count, the
 allowance (after yesterday's debt), the interval, the cigarettes borrowed, the last log and the time
-since it, when the next one is earned (last log + interval) and the heat. `ExhaleViewModel` only
-copies it into `ExhaleState`.
+since it, when the next one is earned (last log + interval) and the heat. It also answers what Ember
+and the Today popover ask: whether the next one is `earned` (and `earnedFraction` of the gap, the
+ring), `overAllowance`, `overToday`, `leftToday`, `borrowingFromTomorrow` (§4 Debt, against the base),
+`tomorrowAllowance`, `borrowNoticeDue` and the plan `outlook`. `ExhaleState` holds it as `plan` and
+reads through to it.
 
 ### Heat — `Stats.heat`
 `1 − clamp(minutesSinceLast / interval, 0, 1)`. No logs ever → 0 (cool).
@@ -393,8 +399,9 @@ the picked day's tally. `topTrigger(hour)` is the busiest trigger at an hour (no
   otherwise the day's count and allowance (null before the plan start).
 
 ### Demo data — `DemoData`
-`DemoData.generate(today, now, zone, random)` is what Settings → Load demo data writes: an onboarded
-profile whose plan started 59 days ago, 60 days of logs tapering from about 16 to 8 a day with
+`DemoData.generate(today, now, zone, current, random)` is what Settings → Load demo data writes: an
+onboarded profile (written over the `current` settings, so theme and waking hours are kept; the taper
+is −1 a week, which the history follows) whose plan started 59 days ago, 60 days of logs tapering from about 16 to 8 a day with
 hour-of-day weights and triggers, and 0–2 urges a day (4 min, trigger Stress). Nothing after `now`.
 
 ### Milestones — `Milestones`

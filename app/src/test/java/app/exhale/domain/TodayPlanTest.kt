@@ -1,7 +1,9 @@
 package app.exhale.domain
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.Duration
 import java.time.Instant
@@ -63,5 +65,55 @@ class TodayPlanTest {
         val logs = listOf(log(today.minusDays(1), 23, 30, ZoneOffset.UTC))
         assertEquals(1, TodayPlan.of(settings, logs, now, tokyo).count)
         assertEquals(0, TodayPlan.of(settings, logs, now, ZoneOffset.UTC).count)
+    }
+
+    @Test fun earned_onceTheIntervalHasPassed() {
+        val waiting = TodayPlan.of(settings, listOf(log(today, 13)), now, zone) // 60 of 96 min
+        assertFalse(waiting.earned)
+        assertEquals(Duration.ofMinutes(36), waiting.remainingToNext)
+        assertEquals(60f / 96f, waiting.earnedFraction, 0.0001f)
+        val earned = TodayPlan.of(settings, listOf(log(today, 12)), now, zone) // 120 of 96 min
+        assertTrue(earned.earned)
+        assertNull(earned.remainingToNext)
+        assertEquals(1f, earned.earnedFraction, 0f)
+        val none = TodayPlan.of(settings, emptyList(), now, zone)
+        assertFalse(none.earned)
+        assertEquals(1f, none.earnedFraction, 0f)
+    }
+
+    @Test fun overAndLeft_areAgainstTodaysAllowance() {
+        val within = TodayPlan.of(settings, List(7) { log(today, 6 + it) }, now, zone)
+        assertFalse(within.overAllowance)
+        assertEquals(3, within.leftToday)
+        assertEquals(0, within.overToday)
+        val over = TodayPlan.of(settings, List(12) { log(today, 1 + it) }, now, zone)
+        assertTrue(over.overAllowance)
+        assertEquals(0, over.leftToday)
+        assertEquals(2, over.overToday)
+        assertEquals(2, over.borrowingFromTomorrow)
+        assertEquals(8, over.tomorrowAllowance)
+    }
+
+    @Test fun loweredDay_borrowsOnlyWhatGoesPastTheBase() {
+        // Base 10; 12 yesterday lowers today to 8. Debt is measured against the base (§4).
+        val yesterday = List(12) { log(today.minusDays(1), 8 + it) }
+        val nine = TodayPlan.of(settings, yesterday + List(9) { log(today, 1 + it) }, now, zone)
+        assertEquals(8, nine.allowance)
+        assertEquals(1, nine.overToday)
+        assertEquals(0, nine.borrowingFromTomorrow)
+        assertEquals(10, nine.tomorrowAllowance)
+        val twelve = TodayPlan.of(settings, yesterday + List(12) { log(today, 1 + it) }, now, zone)
+        assertEquals(4, twelve.overToday)
+        assertEquals(2, twelve.borrowingFromTomorrow)
+        assertEquals(8, twelve.tomorrowAllowance)
+        assertEquals(10, twelve.outlook.baseToday)
+        assertEquals(10, twelve.outlook.baseTomorrow)
+    }
+
+    @Test fun borrowNotice_dueOnALoweredDayUntilSeen() {
+        val logs = List(12) { log(today.minusDays(1), 8 + it) }
+        assertTrue(TodayPlan.of(settings, logs, now, zone).borrowNoticeDue)
+        assertFalse(TodayPlan.of(settings.withBorrowNoticeSeen(today), logs, now, zone).borrowNoticeDue)
+        assertFalse(TodayPlan.of(settings, emptyList(), now, zone).borrowNoticeDue)
     }
 }

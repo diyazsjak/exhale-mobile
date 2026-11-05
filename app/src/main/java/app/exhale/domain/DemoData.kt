@@ -22,15 +22,19 @@ data class DemoData(val settings: UserSettings, val logs: List<SmokeLog>, val ur
             .7f, 1.3f, .6f, .5f, .7f, .8f, 1.2f, 1.1f, .9f, 1f, .7f, .3f,
         )
 
-        /** Days run from [today] − 59 to [today]; nothing is placed after [now]. */
-        fun generate(today: LocalDate, now: Instant, zone: ZoneId, random: Random = Random(42)): DemoData {
+        /**
+         * Days run from [today] − 59 to [today]; nothing is placed after [now]. The demo profile and plan are
+         * written over [current], so the user's own preferences (theme, waking hours) stay as they were.
+         */
+        fun generate(today: LocalDate, now: Instant, zone: ZoneId, current: UserSettings = UserSettings(), random: Random = Random(42)): DemoData {
             val start = today.minusDays(DAYS - 1L)
-            val settings = UserSettings(
+            val settings = current.copy(
                 onboarded = true,
                 baselinePerDay = 18,
                 cigsPerPack = 20,
                 packPriceMinor = 1000,
                 currencyCode = "USD",
+                taper = TaperType.MINUS_ONE_WEEKLY,
                 startAllowance = 16,
                 planStart = start,
                 goalName = "New headphones",

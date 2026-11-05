@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.windowInsetsTopHeight
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.State
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -34,6 +35,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
@@ -116,17 +118,19 @@ class AppBarScrollBehavior : NestedScrollConnection {
 fun rememberAppBarScrollBehavior(): AppBarScrollBehavior = remember { AppBarScrollBehavior() }
 
 /**
- * The scrolled-under border of a bar (the app bar, an [ExScreen] header): a hairline `line` along
- * the bottom edge that fades in while content is [under] the bar (Material 3's scrolled state).
+ * The scrolled-under border colour of a bar (the app bar, an [ExScreen] header): `line` that fades in
+ * while content is [under] the bar (Material 3's scrolled state). Draw it with [bottomHairline].
  */
 @Composable
-internal fun Modifier.scrolledBorder(under: Boolean): Modifier {
+internal fun scrolledBorderColor(under: Boolean): State<Color> {
     val line = Ex.colors.line
-    val color by animateColorAsState(if (under) line else line.copy(alpha = 0f), tween(BORDER_MS), label = "bar-border")
-    return drawBehind {
-        val w = ExSize.hairline.toPx()
-        drawLine(color, Offset(0f, size.height - w / 2f), Offset(size.width, size.height - w / 2f), w)
-    }
+    return animateColorAsState(if (under) line else line.copy(alpha = 0f), tween(BORDER_MS), label = "bar-border")
+}
+
+/** A hairline along the bottom edge in [color], read while drawing so an animated colour only redraws. */
+internal fun Modifier.bottomHairline(color: () -> Color): Modifier = drawBehind {
+    val w = ExSize.hairline.toPx()
+    drawLine(color(), Offset(0f, size.height - w / 2f), Offset(size.width, size.height - w / 2f), w)
 }
 
 /** A bar's content row: full width, gutter at the sides, 8 + 48 + 8 = 64dp tall. For the app bar and [ExScreen] headers. */
@@ -153,6 +157,7 @@ fun <T> ExAppBar(
     leading: @Composable RowScope.(T) -> Unit,
 ) {
     val bg = Ex.colors.bg
+    val border = scrolledBorderColor(scrolled)
     val drop = with(LocalDensity.current) { DROP.roundToPx() }
     Box(modifier.fillMaxWidth()) {
         Box(
@@ -162,7 +167,7 @@ fun <T> ExAppBar(
                 .onSizeChanged { scrollBehavior?.heightPx = it.height.toFloat() }
                 .graphicsLayer { translationY = -(scrollBehavior?.hiddenPx ?: 0f) }
                 .background(bg)
-                .scrolledBorder(scrolled)
+                .bottomHairline { border.value }
         ) {
             Row(
                 Modifier.barRow(),

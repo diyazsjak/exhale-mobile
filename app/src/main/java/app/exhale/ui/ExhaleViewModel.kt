@@ -11,7 +11,6 @@ import app.exhale.domain.History
 import app.exhale.domain.Milestones
 import app.exhale.domain.Money
 import app.exhale.domain.MoneySummary
-import app.exhale.domain.PlanMath
 import app.exhale.domain.PlanOutlook
 import app.exhale.domain.Recovery
 import app.exhale.domain.RecoverySummary
@@ -45,15 +44,8 @@ data class ExhaleState(
     val settings: UserSettings = UserSettings(),
     val logs: List<SmokeLog> = emptyList(),
     val urges: List<Urge> = emptyList(),
-    val today: LocalDate = LocalDate.now(),
-    val todayCount: Int = 0,
-    val allowance: Int = 0,
-    val intervalMinutes: Int = 60,
-    val lastLog: SmokeLog? = null,
-    val sinceLast: Duration? = null,
-    val nextAllowedAt: Instant? = null,
-    val heat: Float = 0f,
-    val borrowedToday: Int = 0,
+    /** Today against the plan: count, allowance, interval, last log, heat and what goes over. */
+    val plan: TodayPlan = TodayPlan.of(settings, emptyList(), now, ZoneId.systemDefault()),
     /** Everything the Money screen shows. */
     val money: MoneySummary? = null,
     val clearFraction: Float = 1f,
@@ -64,36 +56,26 @@ data class ExhaleState(
     /** The last 7 days, today last, for the week strip on Rhythm. */
     val week: List<DayDot> = emptyList(),
 ) {
-    val remainingToNext: Duration?
-        get() = nextAllowedAt?.let { Duration.between(now, it) }?.takeIf { !it.isNegative && !it.isZero }
-
-    /** The next one is earned: something is logged and its interval has passed. */
-    val earned: Boolean get() = lastLog != null && remainingToNext == null
-
-    /** How much of the gap to the next one is earned, 0..1 (Ember's countdown ring); full before any log. */
-    val earnedFraction: Float
-        get() = sinceLast?.let { (it.toMillis().toFloat() / Duration.ofMinutes(intervalMinutes.toLong()).toMillis()).coerceIn(0f, 1f) } ?: 1f
-
-    /** Today's allowance is used up, so the next log goes over. */
-    val overAllowance: Boolean get() = todayCount >= allowance
-
-    /** Cigarettes over today's allowance; 0 within it. On a lowered day not all of them are borrowed: see [borrowingFromTomorrow]. */
-    val overToday: Int get() = (todayCount - allowance).coerceAtLeast(0)
-
-    /** Cigarettes past today's base allowance, which lower tomorrow (§4 Debt: measured against the base, never carried over). */
-    val borrowingFromTomorrow: Int get() = PlanMath.debt(settings, today, todayCount)
-
-    /** Tomorrow's allowance if nothing more is logged today. */
-    val tomorrowAllowance: Int get() = PlanMath.allowance(settings, today.plusDays(1), todayCount)
-
-    /** Cigarettes left within today's allowance. */
-    val leftToday: Int get() = (allowance - todayCount).coerceAtLeast(0)
-
-    /** Today's allowance was lowered by yesterday and the Today popover hasn't been opened since. */
-    val borrowNoticeDue: Boolean get() = borrowedToday > 0 && !settings.borrowNoticeSeenOn(today)
-
-    /** The plan's base allowances today, tomorrow and next week (the Today popover). */
-    val outlook: PlanOutlook get() = PlanMath.outlook(settings, today)
+    // Today's numbers live in [plan] (domain/TodayPlan, unit-tested); these read through to it.
+    val today: LocalDate get() = plan.date
+    val todayCount: Int get() = plan.count
+    val allowance: Int get() = plan.allowance
+    val intervalMinutes: Int get() = plan.intervalMinutes
+    val lastLog: SmokeLog? get() = plan.last
+    val sinceLast: Duration? get() = plan.sinceLast
+    val nextAllowedAt: Instant? get() = plan.nextAllowedAt
+    val heat: Float get() = plan.heat
+    val borrowedToday: Int get() = plan.borrowed
+    val remainingToNext: Duration? get() = plan.remainingToNext
+    val earned: Boolean get() = plan.earned
+    val earnedFraction: Float get() = plan.earnedFraction
+    val overAllowance: Boolean get() = plan.overAllowance
+    val overToday: Int get() = plan.overToday
+    val leftToday: Int get() = plan.leftToday
+    val borrowingFromTomorrow: Int get() = plan.borrowingFromTomorrow
+    val tomorrowAllowance: Int get() = plan.tomorrowAllowance
+    val borrowNoticeDue: Boolean get() = plan.borrowNoticeDue
+    val outlook: PlanOutlook get() = plan.outlook
 }
 
 /** One-shot UI feedback after logging, used for the undo + trigger toast. */
@@ -127,15 +109,7 @@ class ExhaleViewModel(private val repo: ExhaleRepository) : ViewModel() {
             settings = s,
             logs = logs,
             urges = urges,
-            today = plan.date,
-            todayCount = plan.count,
-            allowance = plan.allowance,
-            intervalMinutes = plan.intervalMinutes,
-            lastLog = plan.last,
-            sinceLast = plan.sinceLast,
-            nextAllowedAt = plan.nextAllowedAt,
-            heat = plan.heat,
-            borrowedToday = plan.borrowed,
+            plan = plan,
             money = Money.summary(s, logs, now, zone),
             clearFraction = Milestones.clearFraction(plan.sinceLast),
             recovery = Recovery.summary(s, logs, now, zone),

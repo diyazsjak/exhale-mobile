@@ -298,9 +298,6 @@ internal fun TodayBadge(state: ExhaleState, expanded: Boolean, onClick: () -> Un
     }
 }
 
-/** The popover's sentences: body type, a size down. */
-private val PopoverText = ExType.body.copy(fontSize = 14.sp, lineHeight = 20.sp)
-
 /** Popover under the badge: today's count, sticks, and why the number is what it is. */
 @Composable
 private fun TodayPopover(state: ExhaleState) {
@@ -350,14 +347,14 @@ private fun TodayPopover(state: ExhaleState) {
                 }
             }
         }
-        Text(line, style = PopoverText, color = c.inkSoft)
+        Text(line, style = ExType.bodySmall, color = c.inkSoft)
         if (state.borrowedToday > 0) {
             Text(
                 buildAnnotatedString {
                     withStyle(SpanStyle(color = c.sunInk, fontWeight = FontWeight.SemiBold)) { append("Today is ${state.allowance} instead of ${plan.baseToday}: ") }
                     append("${state.borrowedToday} ${if (state.borrowedToday == 1) "was" else "were"} borrowed yesterday.")
                 },
-                style = PopoverText, color = c.inkSoft,
+                style = ExType.bodySmall, color = c.inkSoft,
             )
         }
         Box(Modifier.fillMaxWidth().height(ExSize.hairline).background(c.line))
