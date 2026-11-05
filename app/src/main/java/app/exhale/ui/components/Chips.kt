@@ -100,33 +100,31 @@ fun OptionCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     trailing: String? = null,
-    accent: Color? = null,
 ) {
     val c = Ex.colors
-    val a = accent ?: c.oxy
     val source = remember { MutableInteractionSource() }
     Row(
         modifier
             .fillMaxWidth()
             .scale(pressScale(source))
             .clip(ExRadius.md)
-            .background(if (selected) c.tint(a) else c.surface)
-            .border(1.5.dp, if (selected) a else Color.Transparent, ExRadius.md)
+            .background(if (selected) c.tint(c.oxy) else c.surface)
+            .border(ExSize.ring, if (selected) c.oxy else Color.Transparent, ExRadius.md)
             .selectable(selected, source, ripple(), role = Role.RadioButton, onClick = onClick)
             .padding(18.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(ExSpace.sm),
     ) {
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(ExSpace.xxs)) {
             Text(title, style = ExType.bodyStrong, color = c.ink)
             Text(description, style = ExType.caption, color = c.inkSoft)
-            if (trailing != null) Text(trailing, style = ExType.numberSmall, color = if (selected) c.inkOf(a) else c.inkSoft)
+            if (trailing != null) Text(trailing, style = ExType.numberSmall, color = if (selected) c.oxyInk else c.inkSoft)
         }
         Box(
-            Modifier.size(24.dp).clip(ExRadius.pill).background(if (selected) c.inkOf(a) else c.surfaceHigh),
+            Modifier.size(24.dp).clip(ExRadius.pill).background(if (selected) c.oxyInk else c.surfaceHigh),
             contentAlignment = Alignment.Center,
         ) {
-            if (selected) Icon(ExIcons.Check, null, Modifier.size(16.dp), tint = if (c.isDark) c.bg else Color.White)
+            if (selected) Icon(ExIcons.Check, null, Modifier.size(ExSize.iconSmall), tint = c.onOxy)
         }
     }
 }
@@ -144,15 +142,15 @@ fun ListRow(label: String, onClick: () -> Unit, modifier: Modifier = Modifier, v
             .fillMaxWidth()
             .clip(ExRadius.sm)
             .clickable(role = Role.Button, onClick = onClick)
-            .heightIn(min = 52.dp)
+            .heightIn(min = ExSize.row)
             .padding(horizontal = 4.dp, vertical = if (sub != null) 6.dp else 0.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Column(Modifier.weight(1f).padding(end = 8.dp)) {
+        Column(Modifier.weight(1f).padding(end = ExSpace.xs)) {
             Text(label, style = ExType.body, color = c.ink)
             if (sub != null) Text(sub, style = ExType.caption, color = c.inkSoft, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
-        if (value != null) Text(value, style = ExType.body, color = c.inkSoft, maxLines = 1, modifier = Modifier.padding(end = 8.dp))
+        if (value != null) Text(value, style = ExType.body, color = c.inkSoft, maxLines = 1, modifier = Modifier.padding(end = ExSpace.xs))
         Icon(ExIcons.Forward, null, Modifier.size(20.dp), tint = c.inkFaint)
     }
 }

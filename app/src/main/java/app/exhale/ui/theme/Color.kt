@@ -34,6 +34,8 @@ data class ExColors(
     /** Primary button fill and its label: inverted ink, like the white buttons on black. */
     val primary: Color,
     val onPrimary: Color,
+    /** Label or check on an `oxyInk` fill: the Accent button, a selected option's dot (white in light, 5.7:1). */
+    val onOxy: Color,
     val ember: Color,
     val flare: Color,
     val sky: Color,
@@ -45,7 +47,6 @@ data class ExColors(
     val skyInk: Color,
     val oxyInk: Color,
     val sunInk: Color,
-    val scrim: Color,
 ) {
     /** The text-safe version of an accent. Use for any text or small icon drawn in an accent. */
     fun inkOf(accent: Color): Color = when (accent) {
@@ -58,13 +59,16 @@ data class ExColors(
     }
 
     /** heat 1 = just smoked (ember), 0.5 = sky, 0 = earned (oxy). */
-    fun heat(h: Float): Color = if (h >= 0.5f) lerp(sky, ember, (h - 0.5f) * 2f) else lerp(oxy, sky, h * 2f)
+    fun heat(h: Float): Color = scale(h, oxy, sky, ember)
 
     /** Secondary hue used next to [heat] in gradients (rose on the hot side). */
-    fun heatAccent(h: Float): Color = if (h >= 0.5f) lerp(sky, flare, (h - 0.5f) * 2f) else lerp(oxy, sky, h * 2f)
+    fun heatAccent(h: Float): Color = scale(h, oxy, sky, flare)
 
     /** [heat] for icons and text: the same scale built from the ink variants. */
-    fun heatInk(h: Float): Color = if (h >= 0.5f) lerp(skyInk, emberInk, (h - 0.5f) * 2f) else lerp(oxyInk, skyInk, h * 2f)
+    fun heatInk(h: Float): Color = scale(h, oxyInk, skyInk, emberInk)
+
+    private fun scale(h: Float, cool: Color, mid: Color, hot: Color): Color =
+        if (h >= 0.5f) lerp(mid, hot, (h - 0.5f) * 2f) else lerp(cool, mid, h * 2f)
 
     /** Soft tinted fill for selected chips and badges. */
     fun tint(accent: Color): Color = accent.copy(alpha = if (isDark) 0.18f else 0.14f)
@@ -83,6 +87,7 @@ val DarkColors = ExColors(
     inkFaint = Color(0xFF8A8894),
     primary = Color(0xFFF4F3F7),
     onPrimary = Color(0xFF0C0C10),
+    onOxy = Color(0xFF0C0C10),
     ember = Color(0xFFFFA285),
     flare = Color(0xFFF59DC3),
     sky = Color(0xFF8FA2FF),
@@ -93,7 +98,6 @@ val DarkColors = ExColors(
     skyInk = Color(0xFF8FA2FF),
     oxyInk = Color(0xFF86E3B6),
     sunInk = Color(0xFFF3D27A),
-    scrim = Color(0x99000000),
 )
 
 val LightColors = ExColors(
@@ -109,6 +113,7 @@ val LightColors = ExColors(
     inkFaint = Color(0xFF6F6D79),
     primary = Color(0xFF131318),
     onPrimary = Color(0xFFF3F3F6),
+    onOxy = Color(0xFFFFFFFF),
     ember = Color(0xFFE97E5A),
     flare = Color(0xFFD9689A),
     sky = Color(0xFF5B6FE6),
@@ -119,5 +124,4 @@ val LightColors = ExColors(
     skyInk = Color(0xFF4253CC),
     oxyInk = Color(0xFF187550),
     sunInk = Color(0xFF86600F),
-    scrim = Color(0x66000000),
 )

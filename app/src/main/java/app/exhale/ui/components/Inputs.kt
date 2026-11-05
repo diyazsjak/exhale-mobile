@@ -7,6 +7,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -20,6 +21,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
@@ -27,41 +29,40 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.stateDescription
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import app.exhale.ui.theme.Ex
-import app.exhale.ui.theme.ExRadius
-
-import app.exhale.ui.theme.ExType
-import androidx.compose.foundation.interaction.collectIsPressedAsState
-import androidx.compose.foundation.layout.widthIn
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import app.exhale.ui.theme.Ex
+import app.exhale.ui.theme.ExColors
+import app.exhale.ui.theme.ExRadius
+import app.exhale.ui.theme.ExSize
 import app.exhale.ui.theme.ExSpace
+import app.exhale.ui.theme.ExType
 import kotlinx.coroutines.delay
 
 /**
@@ -104,7 +105,7 @@ fun ExTextField(
                         .heightIn(min = 56.dp)
                         .clip(ExRadius.md)
                         .background(c.surface)
-                        .border(1.5.dp, if (focused) c.sky else Color.Transparent, ExRadius.md)
+                        .border(ExSize.ring, if (focused) c.sky else Color.Transparent, ExRadius.md)
                         .padding(horizontal = 18.dp, vertical = 16.dp),
                     contentAlignment = Alignment.CenterStart,
                 ) {
@@ -113,7 +114,7 @@ fun ExTextField(
                             if (value.isEmpty() && placeholder != null) Text(placeholder, style = ExType.body, color = c.inkFaint)
                             inner()
                         }
-                        if (suffix != null) Text(suffix, style = ExType.labelSmall, color = c.inkSoft, modifier = Modifier.padding(start = 8.dp))
+                        if (suffix != null) Text(suffix, style = ExType.labelSmall, color = c.inkSoft, modifier = Modifier.padding(start = ExSpace.xs))
                     }
                 }
             },
@@ -135,17 +136,18 @@ fun Stepper(
         modifier.fillMaxWidth().semantics { stateDescription = "$value $unit" },
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        StepButton(ExIcons.Close, "Decrease", enabled = value > range.first, minus = true) { onChange(value - 1) }
+        StepButton(icon = null, "Decrease", enabled = value > range.first) { onChange(value - 1) }
         Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
             Text("$value", style = ExType.display.copy(fontSize = 96.sp), color = c.ink)
             Text(unit, style = ExType.caption, color = c.inkSoft)
         }
-        StepButton(ExIcons.Plus, "Increase", enabled = value < range.last, minus = false) { onChange(value + 1) }
+        StepButton(ExIcons.Plus, "Increase", enabled = value < range.last) { onChange(value + 1) }
     }
 }
 
+/** A 64dp round [Stepper] button: [icon], or a drawn minus bar when null (thinner than [ExIcons.Minus]). */
 @Composable
-private fun StepButton(icon: androidx.compose.ui.graphics.vector.ImageVector, description: String, enabled: Boolean, minus: Boolean, onClick: () -> Unit) {
+private fun StepButton(icon: ImageVector?, description: String, enabled: Boolean, onClick: () -> Unit) {
     val c = Ex.colors
     val source = remember { MutableInteractionSource() }
     Box(
@@ -159,29 +161,28 @@ private fun StepButton(icon: androidx.compose.ui.graphics.vector.ImageVector, de
         contentAlignment = Alignment.Center,
     ) {
         val tint = if (enabled) c.ink else c.inkFaint
-        if (minus) Box(Modifier.width(18.dp).height(1.8.dp).clip(ExRadius.pill).background(tint))
-        else Icon(icon, null, Modifier.size(24.dp), tint = tint)
+        if (icon == null) Box(Modifier.width(18.dp).height(1.8.dp).clip(ExRadius.pill).background(tint))
+        else Icon(icon, null, Modifier.size(ExSize.icon), tint = tint)
     }
 }
+
+/** Segmented track tones: the track sits a step below cards, the thumb a step above it. */
+private val ExColors.segmentTrack: Color get() = if (isDark) surface else surfaceHigh
+private val ExColors.segmentThumb: Color get() = if (isDark) surfaceHigh else surface
+
+/** The pill track shared by [SegmentedControl] and [ActiveFilter]. */
+private fun Modifier.segmentTrack(c: ExColors): Modifier =
+    fillMaxWidth().height(ExSize.segment).clip(ExRadius.pill).background(c.segmentTrack)
 
 /** iOS-style segmented control with a sliding thumb. */
 @Composable
 fun SegmentedControl(options: List<String>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier) {
     val c = Ex.colors
-    val track = if (c.isDark) c.surface else c.surfaceHigh
-    val thumb = if (c.isDark) c.surfaceHigh else c.surface
-    BoxWithConstraints(
-        modifier
-            .fillMaxWidth()
-            .height(44.dp)
-            .clip(ExRadius.pill)
-            .background(track)
-            .padding(4.dp),
-    ) {
+    BoxWithConstraints(modifier.segmentTrack(c).padding(ExSpace.xxs)) {
         val w = maxWidth / options.size
         val x by animateDpAsState(w * selected, spring(dampingRatio = 0.8f, stiffness = 500f), label = "thumb")
         // selected outside the options (e.g. -1) means nothing is selected: no thumb.
-        if (selected in options.indices) Box(Modifier.offset(x = x).width(w).fillMaxHeight().clip(ExRadius.pill).background(thumb))
+        if (selected in options.indices) Box(Modifier.offset(x = x).width(w).fillMaxHeight().clip(ExRadius.pill).background(c.segmentThumb))
         Row(Modifier.fillMaxWidth()) {
             options.forEachIndexed { i, label ->
                 Box(
@@ -219,7 +220,6 @@ fun StepProgress(step: Int, total: Int, modifier: Modifier = Modifier) {
     }
 }
 
-
 /**
  * Stands in for a [SegmentedControl] while something more specific is filtering the screen
  * (e.g. a day picked in the week strip): same track and height, the filter's [text], and a thumb
@@ -228,16 +228,11 @@ fun StepProgress(step: Int, total: Int, modifier: Modifier = Modifier) {
 @Composable
 fun ActiveFilter(text: String, action: String, onAction: () -> Unit, modifier: Modifier = Modifier) {
     val c = Ex.colors
-    val track = if (c.isDark) c.surface else c.surfaceHigh
-    val thumb = if (c.isDark) c.surfaceHigh else c.surface
     val source = remember { MutableInteractionSource() }
     Row(
         modifier
-            .fillMaxWidth()
-            .height(44.dp)
-            .clip(ExRadius.pill)
-            .background(track)
-            .padding(start = 16.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
+            .segmentTrack(c)
+            .padding(start = ExSpace.md, end = ExSpace.xxs, top = ExSpace.xxs, bottom = ExSpace.xxs),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(text, style = ExType.labelSmall, color = c.ink, modifier = Modifier.weight(1f))
@@ -246,7 +241,7 @@ fun ActiveFilter(text: String, action: String, onAction: () -> Unit, modifier: M
                 .scale(pressScale(source))
                 .fillMaxHeight()
                 .clip(ExRadius.pill)
-                .background(thumb)
+                .background(c.segmentThumb)
                 .clickable(source, ripple(), role = Role.Button, onClick = onAction)
                 .padding(horizontal = 14.dp),
             contentAlignment = Alignment.Center,
@@ -274,7 +269,7 @@ fun CounterRow(
     val c = Ex.colors
     val line = c.line
     Row(
-        modifier.fillMaxWidth().heightIn(min = 52.dp).padding(start = 4.dp),
+        modifier.fillMaxWidth().heightIn(min = ExSize.row).padding(start = ExSpace.xxs),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(ExSpace.xs),
     ) {
@@ -284,9 +279,9 @@ fun CounterRow(
         }
         Row(
             // A 36dp hairline pill drawn inside 44dp buttons, so the touch area stays 44dp.
-            Modifier.height(44.dp).drawBehind {
+            Modifier.height(ExSize.touch).drawBehind {
                 val inset = 4.dp.toPx()
-                val w = 1.dp.toPx()
+                val w = ExSize.hairline.toPx()
                 val h = size.height - 2 * inset
                 drawRoundRect(
                     line,
@@ -333,14 +328,14 @@ private fun CounterButton(icon: ImageVector, description: String, step: Int, val
     }
     Box(
         Modifier
-            .size(44.dp)
+            .size(ExSize.touch)
             .clickable(source, ripple(bounded = false, radius = 18.dp), enabled = enabled, role = Role.Button) {
                 if (repeated) repeated = false else onChange(value + step)
             }
             .semantics { contentDescription = description },
         contentAlignment = Alignment.Center,
     ) {
-        Icon(icon, null, Modifier.size(16.dp), tint = if (enabled) c.inkSoft else c.inkFaint.copy(alpha = 0.5f))
+        Icon(icon, null, Modifier.size(ExSize.iconSmall), tint = if (enabled) c.inkSoft else c.inkFaint.copy(alpha = 0.5f))
     }
 }
 
@@ -352,7 +347,7 @@ private fun CounterButton(icon: ImageVector, description: String, step: Int, val
 fun FieldNote(text: String, modifier: Modifier = Modifier) {
     if (text.isEmpty()) return
     val c = Ex.colors
-    Row(modifier.padding(horizontal = 4.dp), horizontalArrangement = Arrangement.spacedBy(ExSpace.xs)) {
+    Row(modifier.padding(horizontal = ExSpace.xxs), horizontalArrangement = Arrangement.spacedBy(ExSpace.xs)) {
         Box(Modifier.padding(top = 7.dp).size(6.dp).clip(ExRadius.pill).background(c.sky))
         Text(text, style = ExType.caption, color = c.ink)
     }

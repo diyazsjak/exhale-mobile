@@ -50,6 +50,20 @@ class Haptics(context: Context, private val view: View?) {
         vibrator!!.vibrate(VibrationEffect.createOneShot(ms, amp))
     }
 
+    /** Two plain pulses of [ms] with [gapMs] between, at [amp] 1..255 where amplitude control exists. */
+    private fun twoPulses(ms: Long, gapMs: Long, amp: Int) {
+        val timings = longArrayOf(0, ms, gapMs, ms)
+        vibrator!!.vibrate(
+            if (amplitude) VibrationEffect.createWaveform(timings, intArrayOf(0, amp, 0, amp), -1)
+            else VibrationEffect.createWaveform(timings, -1)
+        )
+    }
+
+    /** Last resort on phones without a usable vibrator: the view's own haptic feedback. */
+    private fun viewFeedback(constant: Int) {
+        view?.performHapticFeedback(constant)
+    }
+
     private val tick = if (Build.VERSION.SDK_INT >= 31) VibrationEffect.Composition.PRIMITIVE_TICK else -1
     private val lowTick = if (Build.VERSION.SDK_INT >= 31) VibrationEffect.Composition.PRIMITIVE_LOW_TICK else -1
     private val thud = if (Build.VERSION.SDK_INT >= 31) VibrationEffect.Composition.PRIMITIVE_THUD else -1
@@ -59,37 +73,35 @@ class Haptics(context: Context, private val view: View?) {
     fun charge(level: Float) = when {
         supported(tick) -> primitive(tick, 0.25f + 0.75f * level)
         hasMotor -> oneShot(8 + (10 * level).toLong(), 0.2f + 0.6f * level)
-        else -> { view?.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK); Unit }
+        else -> viewFeedback(HapticFeedbackConstants.CLOCK_TICK)
     }
 
     fun logged() = when {
         supported(thud) -> primitive(thud, 1f)
         supported(click) -> primitive(click, 1f)
         hasMotor -> oneShot(45, 1f)
-        else -> { view?.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS); Unit }
+        else -> viewFeedback(HapticFeedbackConstants.LONG_PRESS)
     }
 
     /** A log that goes over today's allowance: two soft thuds, distinct but not alarming. */
     fun loggedOver() = when {
         supported(thud) -> primitive(thud, 0.8f, delayMs = 70, repeat = 2)
         supported(click) -> primitive(click, 0.8f, delayMs = 70, repeat = 2)
-        amplitude -> vibrator!!.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 30, 70, 30), intArrayOf(0, 200, 0, 200), -1))
-        hasMotor -> vibrator!!.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 30, 70, 30), -1))
-        else -> { view?.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS); Unit }
+        hasMotor -> twoPulses(30, 70, 200)
+        else -> viewFeedback(HapticFeedbackConstants.LONG_PRESS)
     }
 
     fun earned() = when {
         supported(tick) -> primitive(tick, 0.6f, delayMs = 80, repeat = 2)
-        amplitude -> vibrator!!.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 18, 80, 18), intArrayOf(0, 150, 0, 150), -1))
-        hasMotor -> vibrator!!.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 18, 80, 18), -1))
-        else -> { view?.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY); Unit }
+        hasMotor -> twoPulses(18, 80, 150)
+        else -> viewFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
     }
 
     fun breath() = when {
         supported(lowTick) -> primitive(lowTick, 0.8f)
         supported(tick) -> primitive(tick, 0.5f)
         hasMotor -> oneShot(20, 0.35f)
-        else -> { view?.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK); Unit }
+        else -> viewFeedback(HapticFeedbackConstants.CLOCK_TICK)
     }
 
     fun cancel() = vibrator?.cancel()

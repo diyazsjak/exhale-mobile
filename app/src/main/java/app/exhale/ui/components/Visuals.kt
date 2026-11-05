@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import app.exhale.ui.theme.Ex
 import app.exhale.ui.theme.ExRadius
+import app.exhale.ui.theme.ExSize
 import app.exhale.ui.theme.ExType
 import java.time.LocalDate
 import java.time.YearMonth
@@ -117,8 +118,8 @@ private fun DayCircle(d: DayDot, today: LocalDate, outlined: Boolean) {
             .background(fill)
             .then(
                 when {
-                    outlined -> Modifier.border(1.5.dp, c.ink, ExRadius.pill)
-                    d.count == null && !future -> Modifier.border(1.dp, c.line, ExRadius.pill)
+                    outlined -> Modifier.border(ExSize.ring, c.ink, ExRadius.pill)
+                    d.count == null && !future -> Modifier.border(ExSize.hairline, c.line, ExRadius.pill)
                     else -> Modifier
                 }
             )

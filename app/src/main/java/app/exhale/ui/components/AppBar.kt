@@ -34,8 +34,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
@@ -117,11 +115,23 @@ class AppBarScrollBehavior : NestedScrollConnection {
 @Composable
 fun rememberAppBarScrollBehavior(): AppBarScrollBehavior = remember { AppBarScrollBehavior() }
 
-/** A 1dp `line` hairline along the bottom edge, as the scrolled-under border of a bar. */
-internal fun DrawScope.bottomBorder(color: Color) {
-    val w = 1.dp.toPx()
-    drawLine(color, Offset(0f, size.height - w / 2f), Offset(size.width, size.height - w / 2f), w)
+/**
+ * The scrolled-under border of a bar (the app bar, an [ExScreen] header): a hairline `line` along
+ * the bottom edge that fades in while content is [under] the bar (Material 3's scrolled state).
+ */
+@Composable
+internal fun Modifier.scrolledBorder(under: Boolean): Modifier {
+    val line = Ex.colors.line
+    val color by animateColorAsState(if (under) line else line.copy(alpha = 0f), tween(BORDER_MS), label = "bar-border")
+    return drawBehind {
+        val w = ExSize.hairline.toPx()
+        drawLine(color, Offset(0f, size.height - w / 2f), Offset(size.width, size.height - w / 2f), w)
+    }
 }
+
+/** A bar's content row: full width, gutter at the sides, 8 + 48 + 8 = 64dp tall. For the app bar and [ExScreen] headers. */
+internal fun Modifier.barRow(): Modifier =
+    fillMaxWidth().padding(horizontal = ExSpace.gutter).padding(vertical = ExSpace.xs).heightIn(min = ExSize.iconButton)
 
 /**
  * The shared top bar of the tabs, drawn over them like the tab bar. [leading] fills the left and
@@ -142,10 +152,8 @@ fun <T> ExAppBar(
     scrollBehavior: AppBarScrollBehavior? = null,
     leading: @Composable RowScope.(T) -> Unit,
 ) {
-    val c = Ex.colors
-    val bg = c.bg
+    val bg = Ex.colors.bg
     val drop = with(LocalDensity.current) { DROP.roundToPx() }
-    val border by animateColorAsState(if (scrolled) c.line else c.line.copy(alpha = 0f), tween(BORDER_MS), label = "app-bar-border")
     Box(modifier.fillMaxWidth()) {
         Box(
             Modifier
@@ -154,14 +162,10 @@ fun <T> ExAppBar(
                 .onSizeChanged { scrollBehavior?.heightPx = it.height.toFloat() }
                 .graphicsLayer { translationY = -(scrollBehavior?.hiddenPx ?: 0f) }
                 .background(bg)
-                .drawBehind { bottomBorder(border) }
+                .scrolledBorder(scrolled)
         ) {
             Row(
-                Modifier
-                    .padding(horizontal = ExSpace.gutter)
-                    .padding(vertical = ExSpace.xs)
-                    .fillMaxWidth()
-                    .heightIn(min = ExSize.iconButton),
+                Modifier.barRow(),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 AnimatedContent(

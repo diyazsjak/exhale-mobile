@@ -30,10 +30,10 @@ private fun figtree(weight: Int) = Font(
 )
 
 /** Serif for headlines and big states. Calm, editorial. */
-val SerifFamily = FontFamily(newsreader(400), newsreader(500), newsreader(400, italic = true), newsreader(500, italic = true))
+private val SerifFamily = FontFamily(newsreader(400), newsreader(500), newsreader(400, italic = true), newsreader(500, italic = true))
 
 /** Sans for everything you read or tap. */
-val SansFamily = FontFamily(figtree(400), figtree(500), figtree(600), figtree(700))
+private val SansFamily = FontFamily(figtree(400), figtree(500), figtree(600), figtree(700))
 
 /**
  * Type scale. Serif = what you feel (headlines, big states). Sans = what you read and tap.

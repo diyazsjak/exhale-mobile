@@ -11,11 +11,9 @@ object ExSpace {
     val md = 16.dp
     val lg = 20.dp
     val xl = 24.dp
-    val xxl = 32.dp
-    val xxxl = 48.dp
 
     /** Side gutter for every screen. */
-    val gutter = 20.dp
+    val gutter = lg
 }
 
 object ExRadius {
@@ -35,6 +33,22 @@ object ExSize {
     val chip = 40.dp
     val tabBar = 68.dp
     val icon = 24.dp
+    val iconSmall = 16.dp
+
+    /** Smallest touch target. */
+    val touch = 44.dp
+
+    /** Height of segmented tracks (SegmentedControl, ActiveFilter). */
+    val segment = 44.dp
+
+    /** Minimum height of a row inside a list card (ListRow, CounterRow). */
+    val row = 52.dp
+
+    /** Stroke of hairline borders (`line`). */
+    val hairline = 1.dp
+
+    /** Stroke of selection and focus rings. */
+    val ring = 1.5.dp
 
     /** Space screens leave above the navigation-bar inset so content clears the floating tab bar. */
     val tabBarClearance = 100.dp

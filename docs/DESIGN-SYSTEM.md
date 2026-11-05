@@ -34,7 +34,8 @@ Neutrals carry the UI; accents carry meaning.
 
 - 4px spacing scale; screens use a 20px side gutter (`space-lg`) and 16px between blocks (`space-md`).
 - Radii: `radius-pill` for anything tappable that is a single line (buttons, chips, badges, tab bar, segmented control), `radius-md` for inputs and option cards, `radius-lg` for cards, `radius-xs` (6) for small drawn objects such as Money's pack icons.
-- Sizes: `button-large` 60, `button-medium` 48, `icon-button` 48, `chip` 40, `tab-bar` 68. Touch targets are never under 44.
+- Sizes: `button-large` 60, `button-medium` 48, `icon-button` 48, `chip` 40, `tab-bar` 68, `row` 52 (list rows), `icon` 24 and `icon-small` 16. Touch targets are never under `touch` (44); segmented tracks are `segment` (44) tall.
+- Strokes: `hairline` (1) for `line` borders, `ring` (1.5) for selection and focus rings.
 - Elevation: flat. The only shadow is a soft one on the floating tab bar in light. Dark uses tone and a `line` outline instead of shadows.
 
 ## Navigation
@@ -84,6 +85,7 @@ Button, IconButton, Link, Chip, Badge, Card, OptionCard, TextField, FieldNote, S
 | `ink-faint` | `#8a8894` | `#6f6d79` | Tertiary text: placeholders, source lines, empty week days (4.5:1 on bg). |
 | `primary` | `#f4f3f7` | `#131318` | Primary button fill. Inverted ink: white on dark, near-black on light. |
 | `on-primary` | `#0c0c10` | `#f3f3f6` | Label on the primary button. |
+| `on-oxy` | `#0c0c10` | `#ffffff` | Label or check on the oxygen fill (`oxy` in dark, `oxy-ink` in light): the Accent button, a selected OptionCard's dot. |
 | `ember` | `#ffa285` | `#e97e5a` | Smoke. A cigarette, a log, used allowance sticks, the hot end of heat. Fills and graphics only. |
 | `flare` | `#f59dc3` | `#d9689a` | Craving and over-allowance: hot wedges, over sticks, trigger chips. Fills and graphics only. |
 | `sky` | `#8fa2ff` | `#5b6fe6` | In between hot and cool: the middle of heat, the start of the interval ring, focused input ring. |
@@ -101,7 +103,7 @@ Button, IconButton, Link, Chip, Badge, Card, OptionCard, TextField, FieldNote, S
 
 Pill button in five styles; Large (60) is the default and spans the width for screen actions.
 
-Use **Primary** for the one main action of a screen (`primary` fill, `on-primary` label). **Secondary** (`surface`) for other actions, optionally with a leading icon. **Tonal** (`surface-high`) is Secondary inside a card, where `surface` would disappear, such as "Help me wait" on Rhythm's plan card. **Accent** for an action with meaning, such as "I'm okay now" in the Urge Wave: `oxy` in dark, `oxy-ink` in light so the white label stays 5.7:1. **Ghost** for skip or cancel.
+Use **Primary** for the one main action of a screen (`primary` fill, `on-primary` label). **Secondary** (`surface`) for other actions, optionally with a leading icon. **Tonal** (`surface-high`) is Secondary inside a card, where `surface` would disappear, such as "Help me wait" on Rhythm's plan card. **Accent** for an action with meaning, such as "I'm okay now" in the Urge Wave: `oxy` in dark, `oxy-ink` in light so the `on-oxy` (white) label stays 5.7:1. **Ghost** for skip or cancel.
 
 - Sizes: Large `button-large` (60) with `label`; Medium `button-medium` (48) with `label-small`.
 - Disabled: `surface-high` fill, `ink-faint` label. Explain why nearby in a caption.

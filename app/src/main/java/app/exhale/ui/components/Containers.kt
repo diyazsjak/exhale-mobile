@@ -1,11 +1,7 @@
 package app.exhale.ui.components
 
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.derivedStateOf
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -20,24 +16,24 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
 import app.exhale.ui.theme.Ex
 import app.exhale.ui.theme.ExRadius
 import app.exhale.ui.theme.ExSize
@@ -73,15 +69,8 @@ fun ExScreen(
         Column(Modifier.fillMaxSize().statusBarsPadding()) {
             if (header != null) {
                 val under by remember(scroll) { derivedStateOf { scroll && st.value > 0 } }
-                val border by animateColorAsState(if (under) c.line else c.line.copy(alpha = 0f), tween(150), label = "header-border")
                 Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .drawBehind { bottomBorder(border) }
-                        .padding(horizontal = ExSpace.gutter)
-                        // 8 + 48 + 8 = 64dp, the same as the tabs' app bar.
-                        .padding(vertical = ExSpace.xs)
-                        .heightIn(min = ExSize.iconButton),
+                    Modifier.scrolledBorder(under).barRow(),
                     verticalAlignment = Alignment.CenterVertically,
                     content = header,
                 )
@@ -124,7 +113,7 @@ fun ExCard(
             .then(if (onClick != null) Modifier.scale(pressScale(source)) else Modifier)
             .clip(ExRadius.lg)
             .background(color ?: c.surface)
-            .then(if (outlined) Modifier.border(1.5.dp, c.ink, ExRadius.lg) else Modifier)
+            .then(if (outlined) Modifier.border(ExSize.ring, c.ink, ExRadius.lg) else Modifier)
             .then(if (onClick != null) Modifier.clickable(source, ripple(), onClick = onClick) else Modifier)
             .padding(padding),
         verticalArrangement = Arrangement.spacedBy(ExSpace.xs),
@@ -141,23 +130,22 @@ fun Overline(text: String, modifier: Modifier = Modifier, color: Color? = null) 
 /** Serif screen title with optional supporting line. */
 @Composable
 fun ScreenTitle(title: String, modifier: Modifier = Modifier, subtitle: String? = null) {
+    val c = Ex.colors
     Column(modifier, verticalArrangement = Arrangement.spacedBy(ExSpace.xs)) {
-        Text(title, style = ExType.title, color = Ex.colors.ink)
-        if (subtitle != null) Text(subtitle, style = ExType.body, color = Ex.colors.inkSoft)
+        Text(title, style = ExType.title, color = c.ink)
+        if (subtitle != null) Text(subtitle, style = ExType.body, color = c.inkSoft)
     }
 }
 
 /** Big value + caption pair used in stat rows. */
 @Composable
 fun Stat(value: String, label: String, modifier: Modifier = Modifier, color: Color? = null) {
+    val c = Ex.colors
     Column(modifier) {
-        Text(value, style = ExType.number, color = color ?: Ex.colors.ink)
-        Text(label, style = ExType.caption, color = Ex.colors.inkSoft)
+        Text(value, style = ExType.number, color = color ?: c.ink)
+        Text(label, style = ExType.caption, color = c.inkSoft)
     }
 }
-
-@Composable
-fun VSpace(height: Dp) = Spacer(Modifier.height(height))
 
 /** Pushes following header items to the end. */
 @Composable
@@ -166,23 +154,5 @@ fun RowScope.Fill() = Spacer(Modifier.weight(1f))
 /** Header label centered between header buttons. */
 @Composable
 fun RowScope.HeaderLabel(text: String) {
-    Text(text, style = ExType.labelSmall, color = Ex.colors.inkSoft, modifier = Modifier.weight(1f).padding(horizontal = ExSpace.xs), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-}
-
-/**
- * A small centred card over a scrim, for something that didn't fit where it was, such as a long
- * goal name. Tap outside, press Back or the button to close.
- */
-@Composable
-fun ExDialog(onDismiss: () -> Unit, modifier: Modifier = Modifier, action: String = "Close", content: @Composable ColumnScope.() -> Unit) {
-    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
-        ExCard(modifier) {
-            content()
-            ExButton(
-                action, onDismiss,
-                Modifier.fillMaxWidth().padding(top = ExSpace.sm),
-                style = ButtonStyle.Tonal, size = ButtonSize.Medium,
-            )
-        }
-    }
+    Text(text, style = ExType.labelSmall, color = Ex.colors.inkSoft, modifier = Modifier.weight(1f).padding(horizontal = ExSpace.xs), textAlign = TextAlign.Center)
 }

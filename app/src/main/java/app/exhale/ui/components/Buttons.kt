@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import app.exhale.ui.theme.Ex
 import app.exhale.ui.theme.ExRadius
 import app.exhale.ui.theme.ExSize
+import app.exhale.ui.theme.ExSpace
 import app.exhale.ui.theme.ExType
 
 enum class ButtonStyle {
@@ -41,7 +42,7 @@ enum class ButtonStyle {
     Secondary,
     /** Secondary inside a card (which is already `surface`): `surfaceHigh` fill. */
     Tonal,
-    /** Accent fill for a meaningful action (e.g. "I rode it out" in oxygen). */
+    /** Oxygen fill for a meaningful action (e.g. "I'm okay now"): `oxy` in dark, `oxyInk` in light. */
     Accent,
     /** Low emphasis text button: skip, cancel. */
     Ghost,
@@ -66,16 +67,14 @@ fun ExButton(
     size: ButtonSize = ButtonSize.Large,
     enabled: Boolean = true,
     icon: ImageVector? = null,
-    accent: Color? = null,
 ) {
     val c = Ex.colors
-    val accentColor = accent ?: c.oxy
     val (bg, fg) = when {
         !enabled -> c.surfaceHigh to c.inkFaint
         style == ButtonStyle.Primary -> c.primary to c.onPrimary
         style == ButtonStyle.Secondary -> c.surface to c.ink
         style == ButtonStyle.Tonal -> c.surfaceHigh to c.ink
-        style == ButtonStyle.Accent -> c.inkOf(accentColor) to (if (c.isDark) c.bg else Color.White)
+        style == ButtonStyle.Accent -> c.oxyInk to c.onOxy
         else -> Color.Transparent to c.inkSoft
     }
     val source = remember { MutableInteractionSource() }
@@ -86,7 +85,7 @@ fun ExButton(
             .clip(ExRadius.pill)
             .background(bg)
             .clickable(source, ripple(color = fg), enabled = enabled, role = Role.Button, onClick = onClick)
-            .padding(horizontal = 24.dp),
+            .padding(horizontal = ExSpace.xl),
         horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -103,7 +102,6 @@ fun ExIconButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     filled: Boolean = true,
-    tint: Color? = null,
 ) {
     val c = Ex.colors
     val source = remember { MutableInteractionSource() }
@@ -116,7 +114,7 @@ fun ExIconButton(
             .clickable(source, ripple(), role = Role.Button, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(icon, contentDescription, Modifier.size(ExSize.icon), tint = tint ?: c.ink)
+        Icon(icon, contentDescription, Modifier.size(ExSize.icon), tint = c.ink)
     }
 }
 
@@ -137,6 +135,6 @@ fun ExLink(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
         horizontalArrangement = Arrangement.spacedBy(2.dp),
     ) {
         Text(text, style = ExType.labelSmall, color = c.ink)
-        Icon(ExIcons.Forward, null, Modifier.size(16.dp), tint = c.ink)
+        Icon(ExIcons.Forward, null, Modifier.size(ExSize.iconSmall), tint = c.ink)
     }
 }

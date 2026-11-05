@@ -10,6 +10,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -36,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import app.exhale.ui.theme.Ex
 import app.exhale.ui.theme.ExRadius
+import app.exhale.ui.theme.ExSize
 import app.exhale.ui.theme.ExSpace
 import app.exhale.ui.theme.ExType
 import kotlinx.coroutines.delay
@@ -79,7 +81,7 @@ fun ExToast(state: ExToastState, modifier: Modifier = Modifier, bottom: Dp = ExS
                     .padding(horizontal = ExSpace.gutter)
                     .clip(ExRadius.pill)
                     .background(c.chrome)
-                    .border(1.dp, c.line, ExRadius.pill)
+                    .border(ExSize.hairline, c.line, ExRadius.pill)
                     .padding(horizontal = 18.dp, vertical = 12.dp)
                     .semantics { liveRegion = LiveRegionMode.Polite },
                 horizontalArrangement = Arrangement.spacedBy(ExSpace.xs),
@@ -88,6 +90,24 @@ fun ExToast(state: ExToastState, modifier: Modifier = Modifier, bottom: Dp = ExS
                 Icon(ExIcons.Check, null, Modifier.size(18.dp), tint = c.oxyInk)
                 Text(state.message.orEmpty(), style = ExType.labelSmall, color = c.ink)
             }
+        }
+    }
+}
+
+/**
+ * A small centred card over a scrim, for something that didn't fit where it was, such as a long
+ * goal name. Tap outside, press Back or the button to close.
+ */
+@Composable
+fun ExDialog(onDismiss: () -> Unit, modifier: Modifier = Modifier, action: String = "Close", content: @Composable ColumnScope.() -> Unit) {
+    Dialog(onDismissRequest = onDismiss) {
+        ExCard(modifier) {
+            content()
+            ExButton(
+                action, onDismiss,
+                Modifier.fillMaxWidth().padding(top = ExSpace.sm),
+                style = ButtonStyle.Tonal, size = ButtonSize.Medium,
+            )
         }
     }
 }

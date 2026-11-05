@@ -84,7 +84,7 @@ fun FloatingTabBar(items: List<TabItem>, selected: Int, onSelect: (Int) -> Unit,
                     )
                     .clip(ExRadius.pill)
                     .background(c.chrome)
-                    .border(1.dp, if (c.isDark) c.line else c.line.copy(alpha = 0.6f), ExRadius.pill)
+                    .border(ExSize.hairline, if (c.isDark) c.line else c.line.copy(alpha = 0.6f), ExRadius.pill)
                     .padding(6.dp)
                     .selectableGroup(),
             ) {
