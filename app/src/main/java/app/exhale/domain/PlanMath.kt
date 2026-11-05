@@ -65,7 +65,4 @@ object PlanMath {
 }
 
 /** The plan's base allowances around a day; see [PlanMath.outlook]. */
-data class PlanOutlook(val baseToday: Int, val baseTomorrow: Int, val nextWeekStart: LocalDate, val baseNextWeek: Int) {
-    /** What the Today popover says tomorrow starts at when [over] are taken from [baseTomorrow]. */
-    fun tomorrowAfter(over: Int): Int = (baseTomorrow - over).coerceAtLeast(0)
-}
+data class PlanOutlook(val baseToday: Int, val baseTomorrow: Int, val nextWeekStart: LocalDate, val baseNextWeek: Int)

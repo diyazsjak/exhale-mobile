@@ -106,6 +106,14 @@ First launch shows **Onboarding** (§3.7). Regulate is no longer a tab: its coun
   Y." / "N left today. Going over isn't failing…" / "That's all for today…", plus "Today is A
   instead of B: N were borrowed yesterday." on a lowered day, and a footer with this week's and next
   week's allowance. Tap outside, press Back or start holding the ember to close it.
+  "Over today" (the badge's pink, the count, the flare sticks) is against today's allowance, but what
+  is borrowed from tomorrow follows §4 Debt: only what goes past today's *base*
+  (`ExhaleState.borrowingFromTomorrow`). X is `ExhaleState.tomorrowAllowance`
+  (`PlanMath.allowance(tomorrow, todayCount)`), Y tomorrow's base. So on a lowered day (base 10, 2
+  borrowed, allowance 8) the over line reads "1 over today. You're still within your usual 10, so
+  nothing is borrowed: tomorrow starts at 10." at 9, and "4 over today. 2 of them are past your
+  usual 10 and borrowed from tomorrow, so tomorrow starts at 8 instead of 10." at 12; the other
+  lines say "anything past your usual 10" instead of "anything more/over".
 - Hero, one number that switches meaning: while waiting, time **until** the next one is earned
   ("58m · until your next one"); once earned, time **since** the last one ("2h 41m · since your last
   one · next one earned"). Before any log: "—" and "nothing logged yet".
@@ -126,7 +134,8 @@ First launch shows **Onboarding** (§3.7). Regulate is no longer a tab: its coun
   that goes over gets a pink burst and a `loggedOver()` double thud),
   "Hold a little longer" (released early), and on a quick tap the ember wobbles and the hint repeats
   "Hold the ember to log".
-- **Logged card** after logging: count, **Undo**, optional trigger chips. Auto-dismisses after 8 s.
+- **Logged card** after logging: count ("12 of 8 today · 2 borrowed from tomorrow", the borrowed part only
+  when something is, §4 Debt), **Undo**, optional trigger chips. Auto-dismisses after 8 s.
 - "I want one. Help me wait." → Urge Wave.
 
 ### 3.3 Urge Wave — `UrgeWaveScreen.kt`
@@ -321,7 +330,9 @@ Full-screen route from Rhythm's "All history ›" (back button, no tab bar).
 - `TEN_PERCENT_WEEKLY`: `max(0, min(ceil(start × 0.9^weeks), start − weeks))` (always ≥ 1 step/week)
 - `HOLD`: `start`
 - **Debt**: `max(0, smokedYesterday − baseAllowance(yesterday))`, only for days on/after plan start.
-  Today's allowance = `max(0, base(today) − debt)`. Debt only looks back one day.
+  Today's allowance = `max(0, base(today) − debt)`. Debt only looks back one day: it is measured
+  against the base, not the lowered allowance, so smoking past a lowered allowance but within the
+  base borrows nothing more.
 - **Interval** (minutes) = `wakingMinutes / allowance`; when allowance is 0, = `wakingMinutes`.
 - `outlook(s, today)`: base allowance today, tomorrow and from the next plan week (its first day),
   for the Today popover.

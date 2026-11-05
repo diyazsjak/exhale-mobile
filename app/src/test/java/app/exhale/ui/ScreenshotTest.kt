@@ -215,6 +215,9 @@ class ScreenshotTest {
     @Test fun emberOverDark() = shot("1d_ember_over", true, 0, bar = overState()) { EmberScreen(overState(), null, {}, {}, { _, _ -> }, {}, {}) }
     @Test fun emberTodayDark() = shot("1e_ember_today", true, 0, bar = overState(), todayOpen = true) { EmberScreen(overState(), null, {}, {}, { _, _ -> }, {}, {}, todayOpen = true) }
     @Test fun emberTodayLight() = shot("1e_ember_today", false, 0, bar = overState(), todayOpen = true) { EmberScreen(overState(), null, {}, {}, { _, _ -> }, {}, {}, todayOpen = true) }
+    /** A lowered day (base 10, 2 borrowed) that is over today's 8 but still within the base: nothing more is borrowed. */
+    private fun loweredWithinState() = overState().copy(todayCount = 9)
+    @Test fun emberTodayLoweredWithinDark() = shot("1g_ember_today_lowered", true, 0, bar = loweredWithinState(), todayOpen = true) { EmberScreen(loweredWithinState(), null, {}, {}, { _, _ -> }, {}, {}, todayOpen = true) }
     @Test fun emberTodayWithinLight() = shot("1f_ember_today_within", false, 0, bar = sampleState(38), todayOpen = true) { EmberScreen(sampleState(38), null, {}, {}, { _, _ -> }, {}, {}, todayOpen = true) }
     @Test fun emberHotDark() = shot("1b_ember_logged", true, 0, bar = sampleState(4)) { EmberScreen(sampleState(4), LoggedEvent(1, 5, 12), {}, {}, { _, _ -> }, {}, {}) }
     @Test fun emberHotLight() = shot("1b_ember_logged", false, 0, bar = sampleState(4)) { EmberScreen(sampleState(4), LoggedEvent(1, 5, 12), {}, {}, { _, _ -> }, {}, {}) }

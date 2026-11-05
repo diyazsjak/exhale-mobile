@@ -243,10 +243,10 @@ private fun LoggedCard(ev: LoggedEvent, state: ExhaleState, onUndo: () -> Unit, 
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text("Logged", style = ExType.headline, color = c.ink)
-                val over = state.overToday
+                val borrowing = state.borrowingFromTomorrow
                 Text(
-                    "${state.todayCount} of ${state.allowance} today" + if (over > 0) " · $over borrowed from tomorrow" else "",
-                    style = ExType.caption, color = if (over > 0) c.flareInk else c.inkSoft,
+                    "${state.todayCount} of ${state.allowance} today" + if (borrowing > 0) " · $borrowing borrowed from tomorrow" else "",
+                    style = ExType.caption, color = if (state.overToday > 0) c.flareInk else c.inkSoft,
                 )
             }
             ExButton("Undo", onUndo, style = ButtonStyle.Ghost, size = ButtonSize.Medium, icon = ExIcons.Undo)
@@ -308,6 +308,9 @@ private fun TodayPopover(state: ExhaleState) {
     val over = state.overToday
     val left = state.leftToday
     val plan = state.outlook
+    val borrowing = state.borrowingFromTomorrow
+    val tomorrow = state.tomorrowAllowance
+    val lowered = state.allowance < plan.baseToday
     Column(
         Modifier
             .fillMaxWidth()
@@ -328,15 +331,22 @@ private fun TodayPopover(state: ExhaleState) {
             when {
                 over > 0 -> {
                     withStyle(SpanStyle(color = c.flareInk, fontWeight = FontWeight.SemiBold)) { append("$over over today. ") }
-                    append("It's borrowed from tomorrow, so tomorrow starts at ${plan.tomorrowAfter(over)} instead of ${plan.baseTomorrow}.")
+                    when {
+                        borrowing == 0 -> append("You're still within your usual ${plan.baseToday}, so nothing is borrowed: tomorrow starts at $tomorrow.")
+                        borrowing < over -> append(
+                            "$borrowing of them ${if (borrowing == 1) "is" else "are"} past your usual ${plan.baseToday} and borrowed from tomorrow, " +
+                                "so tomorrow starts at $tomorrow instead of ${plan.baseTomorrow}."
+                        )
+                        else -> append("It's borrowed from tomorrow, so tomorrow starts at $tomorrow instead of ${plan.baseTomorrow}.")
+                    }
                 }
                 left == 0 -> {
                     withStyle(SpanStyle(color = c.ink, fontWeight = FontWeight.SemiBold)) { append("That's all for today. ") }
-                    append("Anything more is borrowed from tomorrow.")
+                    append(if (lowered) "Anything past your usual ${plan.baseToday} is borrowed from tomorrow." else "Anything more is borrowed from tomorrow.")
                 }
                 else -> {
                     withStyle(SpanStyle(color = c.ink, fontWeight = FontWeight.SemiBold)) { append("$left left today. ") }
-                    append("Going over isn't failing; anything over is borrowed from tomorrow.")
+                    append("Going over isn't failing; anything ${if (lowered) "past your usual ${plan.baseToday}" else "over"} is borrowed from tomorrow.")
                 }
             }
         }

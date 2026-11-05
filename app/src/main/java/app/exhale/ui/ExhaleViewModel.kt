@@ -77,8 +77,14 @@ data class ExhaleState(
     /** Today's allowance is used up, so the next log goes over. */
     val overAllowance: Boolean get() = todayCount >= allowance
 
-    /** Cigarettes over today's allowance, borrowed from tomorrow; 0 within it. */
+    /** Cigarettes over today's allowance; 0 within it. On a lowered day not all of them are borrowed: see [borrowingFromTomorrow]. */
     val overToday: Int get() = (todayCount - allowance).coerceAtLeast(0)
+
+    /** Cigarettes past today's base allowance, which lower tomorrow (§4 Debt: measured against the base, never carried over). */
+    val borrowingFromTomorrow: Int get() = PlanMath.debt(settings, today, todayCount)
+
+    /** Tomorrow's allowance if nothing more is logged today. */
+    val tomorrowAllowance: Int get() = PlanMath.allowance(settings, today.plusDays(1), todayCount)
 
     /** Cigarettes left within today's allowance. */
     val leftToday: Int get() = (allowance - todayCount).coerceAtLeast(0)
