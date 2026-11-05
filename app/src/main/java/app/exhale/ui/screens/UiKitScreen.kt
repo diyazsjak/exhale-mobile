@@ -52,6 +52,7 @@ import app.exhale.ui.components.ExScreen
 import app.exhale.ui.components.ExTextField
 import app.exhale.ui.components.ExToast
 import app.exhale.ui.components.FieldNote
+import app.exhale.ui.components.Footnote
 import app.exhale.ui.components.FloatingTabBar
 import app.exhale.ui.components.GradientRing
 import app.exhale.ui.components.LegendItem
@@ -113,6 +114,7 @@ fun UiKitScreen(theme: ThemeMode, onTheme: (ThemeMode) -> Unit, onClose: () -> U
             TypeRow("headline · Newsreader 24", ExType.headline, "Logged")
             TypeRow("headlineItalic", ExType.headlineItalic, "then I ride one wave first.")
             TypeRow("body · Figtree 16", ExType.body, "Going over is borrowed from tomorrow.")
+            TypeRow("bodySmall · Figtree 14", ExType.bodySmall, "Today is 8 instead of 10.")
             TypeRow("label · Figtree 16 semibold", ExType.label, "Continue")
             TypeRow("caption · Figtree 13", ExType.caption, "Hold the ember to log.")
             TypeRow("overline · Figtree 12", ExType.overline, "REGULATE · WEEK 3")
@@ -167,6 +169,7 @@ fun UiKitScreen(theme: ThemeMode, onTheme: (ThemeMode) -> Unit, onClose: () -> U
                 ListRow("List row", {}, value = "Value"); ListRow("Another row", {})
                 ListRow("Two lines", {}, value = "1,250,000 ₸", sub = "A long name is cut short so the number stays whole")
             }
+            Footnote("Footnote: a caption under a card, lined up with its rows.")
 
             Section("Cards & stats")
             ExCard {

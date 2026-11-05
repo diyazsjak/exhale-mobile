@@ -37,8 +37,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.input.KeyboardType
@@ -65,6 +63,7 @@ import app.exhale.ui.components.ExTextField
 import app.exhale.ui.components.ExToast
 import app.exhale.ui.components.ExToastState
 import app.exhale.ui.components.FieldNote
+import app.exhale.ui.components.Footnote
 import app.exhale.ui.components.ListRow
 import app.exhale.ui.components.OptionCard
 import app.exhale.ui.components.Overline
@@ -287,21 +286,8 @@ private fun PlanLine(plan: UserSettings, today: LocalDate, baseline: Int) {
         }
         if (plan.startAllowance > baseline) append(" That start is above your usual $baseline.")
     }
-    Footnote(line, c.inkSoft)
+    Footnote(line, color = c.inkSoft)
 }
-
-/** A caption under a card, inset to line up with the card's rows. */
-@Composable
-private fun Footnote(text: AnnotatedString, color: Color = Ex.colors.inkFaint) {
-    Text(text, style = ExType.caption, color = color, modifier = FootnoteInset)
-}
-
-@Composable
-private fun Footnote(text: String, color: Color = Ex.colors.inkFaint) {
-    Text(text, style = ExType.caption, color = color, modifier = FootnoteInset)
-}
-
-private val FootnoteInset = Modifier.padding(horizontal = ExSpace.xxs)
 
 /** An edit screen: back saves (see [SettingsInput]); a faint line says so under the content. */
 @Composable
@@ -386,7 +372,7 @@ private fun GoalPage(current: UserSettings, onDone: (SettingsInput.Applied) -> U
             )
             FieldNote(if (SettingsInput.minor(amount) == null) "Enter an amount, like 599. Going back keeps ${Fmt.money(current.goalMinor, current.currencyCode)}." else "")
             if (name.isBlank()) {
-                Footnote("Left empty, it's called “${SettingsInput.GOAL_NAME_BLANK}”.", c.inkSoft)
+                Footnote("Left empty, it's called “${SettingsInput.GOAL_NAME_BLANK}”.", color = c.inkSoft)
             }
         }
     }

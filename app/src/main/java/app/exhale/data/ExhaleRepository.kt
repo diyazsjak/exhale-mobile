@@ -7,6 +7,7 @@ import app.exhale.domain.Urge
 import app.exhale.domain.UrgeOutcome
 import app.exhale.domain.UserSettings
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import java.time.Instant
 import java.time.LocalDate
@@ -50,7 +51,7 @@ class ExhaleRepository(
     suspend fun seedDemo() {
         clearHistory()
         val zone = ZoneId.systemDefault()
-        val demo = DemoData.generate(LocalDate.now(zone), Instant.now(), zone)
+        val demo = DemoData.generate(LocalDate.now(zone), Instant.now(), zone, current = settings.first())
         saveSettings(demo.settings)
         db.logs().insertAll(demo.logs.map { it.toEntity() })
         db.urges().insertAll(demo.urges.map { it.toEntity() })

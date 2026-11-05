@@ -8,7 +8,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onRoot
 import app.exhale.domain.Money
-import app.exhale.domain.PlanMath
+import app.exhale.domain.TodayPlan
 import app.exhale.domain.Recovery
 import app.exhale.domain.SmokeLog
 import app.exhale.domain.Stats
@@ -130,26 +130,16 @@ class ScreenshotTest {
     }
 
     private fun build(settings: UserSettings, logs: List<SmokeLog>, urges: List<Urge>): ExhaleState {
-        val today = now.atZone(zone).toLocalDate()
-        val todayCount = Stats.countOn(logs, today, zone)
-        val y = Stats.countOn(logs, today.minusDays(1), zone)
-        val allowance = PlanMath.allowance(settings, today, y)
-        val interval = PlanMath.intervalMinutes(allowance, settings.wakingMinutes)
-        val last = logs.last()
-        val start = settings.planStart.atStartOfDay(zone).toInstant()
+        val plan = TodayPlan.of(settings, logs, now, zone)
         val dataStart = Stats.dataStart(settings.planStart, logs, zone)
         val money = Money.summary(settings, logs, now, zone)
         return ExhaleState(
-            loaded = true, now = now, settings = settings, logs = logs, urges = urges, today = today,
-            todayCount = todayCount, allowance = allowance, intervalMinutes = interval,
-            lastLog = last, sinceLast = Duration.between(last.at, now),
-            nextAllowedAt = last.at.plus(Duration.ofMinutes(interval.toLong())),
-            heat = Stats.heat(now, last.at, interval),
+            loaded = true, now = now, settings = settings, logs = logs, urges = urges, plan = plan,
             money = money,
             clearFraction = 0.4f,
             recovery = Recovery.summary(settings, logs, now, zone),
             dataStart = dataStart,
-            week = weekDays(settings, logs, today, zone, dataStart),
+            week = weekDays(settings, logs, plan.date, zone, dataStart),
         )
     }
 
@@ -211,13 +201,14 @@ class ScreenshotTest {
     }
     @Test fun historyDark() = shot("10_history", true) { HistoryScreen(longState(), {}, {}) }
     @Test fun historyLight() = shot("10_history", false) { HistoryScreen(longState(), {}, {}) }
-    private fun overState() = sampleState(38).copy(todayCount = 12, allowance = 8, borrowedToday = 2)
+    private fun overState() = sampleState(38).let { it.copy(plan = it.plan.copy(count = 12, allowance = 8, borrowed = 2)) }
     @Test fun emberOverDark() = shot("1d_ember_over", true, 0, bar = overState()) { EmberScreen(overState(), null, {}, {}, { _, _ -> }, {}, {}) }
     @Test fun emberTodayDark() = shot("1e_ember_today", true, 0, bar = overState(), todayOpen = true) { EmberScreen(overState(), null, {}, {}, { _, _ -> }, {}, {}, todayOpen = true) }
     @Test fun emberTodayLight() = shot("1e_ember_today", false, 0, bar = overState(), todayOpen = true) { EmberScreen(overState(), null, {}, {}, { _, _ -> }, {}, {}, todayOpen = true) }
     /** A lowered day (base 10, 2 borrowed) that is over today's 8 but still within the base: nothing more is borrowed. */
-    private fun loweredWithinState() = overState().copy(todayCount = 9)
+    private fun loweredWithinState() = overState().let { it.copy(plan = it.plan.copy(count = 9)) }
     @Test fun emberTodayLoweredWithinDark() = shot("1g_ember_today_lowered", true, 0, bar = loweredWithinState(), todayOpen = true) { EmberScreen(loweredWithinState(), null, {}, {}, { _, _ -> }, {}, {}, todayOpen = true) }
+    @Test fun emberTodayLoweredWithinLight() = shot("1g_ember_today_lowered", false, 0, bar = loweredWithinState(), todayOpen = true) { EmberScreen(loweredWithinState(), null, {}, {}, { _, _ -> }, {}, {}, todayOpen = true) }
     @Test fun emberTodayWithinLight() = shot("1f_ember_today_within", false, 0, bar = sampleState(38), todayOpen = true) { EmberScreen(sampleState(38), null, {}, {}, { _, _ -> }, {}, {}, todayOpen = true) }
     @Test fun emberHotDark() = shot("1b_ember_logged", true, 0, bar = sampleState(4)) { EmberScreen(sampleState(4), LoggedEvent(1, 5, 12), {}, {}, { _, _ -> }, {}, {}) }
     @Test fun emberHotLight() = shot("1b_ember_logged", false, 0, bar = sampleState(4)) { EmberScreen(sampleState(4), LoggedEvent(1, 5, 12), {}, {}, { _, _ -> }, {}, {}) }
@@ -247,7 +238,7 @@ class ScreenshotTest {
     @Test fun airFullLight() = shot("5e_air_full", false) { AirScreen(sampleState()) }
     @Test fun airNewDark() = shot("5d_air_new", true, 2) {
         val st = sampleState()
-        AirScreen(st.copy(logs = emptyList(), lastLog = null, sinceLast = null, recovery = Recovery.summary(st.settings, emptyList(), now, zone)))
+        AirScreen(st.copy(logs = emptyList(), plan = TodayPlan.of(st.settings, emptyList(), now, zone), recovery = Recovery.summary(st.settings, emptyList(), now, zone)))
     }
     @Test fun moneyDark() = shot("6_money", true, 3) { MoneyScreen(sampleState()) }
     @Test fun moneyLight() = shot("6_money", false, 3) { MoneyScreen(sampleState()) }

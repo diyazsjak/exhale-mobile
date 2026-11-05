@@ -14,7 +14,7 @@ class DemoDataTest {
     private val zone = ZoneOffset.UTC
     private val today = LocalDate.parse("2026-11-02")
     private val endOfToday: Instant = today.plusDays(1).atStartOfDay(zone).toInstant()
-    private fun demo(now: Instant = endOfToday, seed: Int = 42) = DemoData.generate(today, now, zone, Random(seed))
+    private fun demo(now: Instant = endOfToday, seed: Int = 42) = DemoData.generate(today, now, zone, random = Random(seed))
 
     @Test fun profile_isOnboardedAndTheSixtyDayPlanEndsToday() {
         val s = demo().settings
@@ -22,6 +22,15 @@ class DemoDataTest {
         assertEquals(today.minusDays(59), s.planStart)
         assertEquals(18, s.baselinePerDay)
         assertEquals(16, s.startAllowance)
+    }
+
+    @Test fun profile_keepsTheUsersOwnPreferences() {
+        val current = UserSettings(theme = ThemeMode.LIGHT, wakingMinutes = 14 * 60, taper = TaperType.HOLD)
+        val s = DemoData.generate(today, endOfToday, zone, current).settings
+        assertEquals(ThemeMode.LIGHT, s.theme)
+        assertEquals(14 * 60, s.wakingMinutes)
+        assertEquals(TaperType.MINUS_ONE_WEEKLY, s.taper) // the demo history follows this plan
+        assertTrue(s.onboarded)
     }
 
     @Test fun history_staysInsideTheSixtyDaysAndNeverInTheFuture() {

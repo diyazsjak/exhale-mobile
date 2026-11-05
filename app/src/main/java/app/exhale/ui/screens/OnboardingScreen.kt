@@ -58,7 +58,6 @@ import app.exhale.ui.theme.ExSize
 import app.exhale.ui.theme.ExSpace
 import app.exhale.ui.theme.ExType
 import java.time.LocalDate
-import kotlin.math.roundToLong
 
 /** Steps after the welcome screen. The welcome screen is step 0 and has no progress bar. */
 private const val STEPS = 4
@@ -84,10 +83,10 @@ fun OnboardingScreen(onFinish: (UserSettings) -> Unit, initialStep: Int = 0) {
     var goal by rememberSaveable { mutableStateOf("") }
 
     val perPackN = SettingsInput.packSize(perPack)
-    val priceMinor = price.replace(',', '.').toDoubleOrNull()?.takeIf { it >= 0 }?.let { (it * 100).roundToLong() }
+    val priceMinor = SettingsInput.minor(price)
     val currencyOk = SettingsInput.currencyOk(currency)
     val allowance = (allowanceOverride ?: (baseline - 2)).coerceIn(0, baseline)
-    val goalMinor = if (goal.isBlank()) null else goal.replace(',', '.').toDoubleOrNull()?.takeIf { it > 0 }?.let { (it * 100).roundToLong() }
+    val goalMinor = if (goal.isBlank()) null else SettingsInput.minor(goal)?.takeIf { it > 0 }
 
     val stepValid = when (step) {
         2 -> perPackN != null && priceMinor != null && currencyOk
@@ -152,14 +151,14 @@ fun OnboardingScreen(onFinish: (UserSettings) -> Unit, initialStep: Int = 0) {
                     1 -> HabitStep(baseline) { baseline = it; allowanceOverride = allowanceOverride?.coerceAtMost(it) }
                     2 -> CostStep(
                         perPack, { perPack = it.filter(Char::isDigit).take(3) },
-                        price, { price = it },
+                        price, { price = SettingsInput.money(it) },
                         currency, { currency = it.uppercase().filter(Char::isLetter).take(3) },
                         baseline, perPackN, priceMinor, if (currencyOk) currency else null,
                     )
                     3 -> PlanStep(baseline, allowance, { allowanceOverride = it }, taper, { taper = it })
                     4 -> GoalStep(
                         goalName, { goalName = it },
-                        goal, { goal = it },
+                        goal, { goal = SettingsInput.money(it) },
                         Money.keptFollowingPlan(draft(withGoal = false), days = 28),
                         if (currencyOk) currency else "USD",
                     )

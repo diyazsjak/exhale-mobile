@@ -82,7 +82,8 @@ object Rhythm {
             trackedDays = dataStart?.let { ChronoUnit.DAYS.between(it, today) + 1 } ?: 0,
             // The days before cover MIN_DAYS once tracking began WINDOW + MIN_DAYS - 1 days ago.
             daysToCompare = dataStart?.let { ChronoUnit.DAYS.between(today, it.plusDays(WINDOW + MIN_DAYS - 1L)) } ?: 0,
-            day = day?.let { History.tally(s, History.countsByDay(logs, zone), it) },
+            // Only the day and the one before (for borrowing) matter: count those, not the whole history.
+            day = day?.let { d -> History.tally(s, listOf(d, d.minusDays(1)).associateWith { Stats.countOn(logs, it, zone) }, d) },
             logs = inPeriod,
             zone = zone,
         )
