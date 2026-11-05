@@ -165,7 +165,7 @@ Label in `caption`/`ink-soft` above a 56px `surface` box with `radius-md`; text 
 - With `maxLength`, input is cut at that length and a "12 / 40" counter in `ink-faint` sits beside the label (goal names).
 - With `suffix`, a unit or currency code sits at the end of the box in `label-small`/`ink-soft` ("USD", "cigs").
 - Filter what is typed (`SettingsInput.digits`, `money`, `currency`) rather than reporting it; what filtering can't prevent goes in a FieldNote.
-- Compose: `ExTextField("Pack price", value, onChange, type = KeyboardType.Decimal, placeholder = "10.00", suffix = "USD")`; `maxLength = Money.GOAL_NAME_MAX`.
+- Compose: `ExTextField("Pack price", value, onChange, type = KeyboardType.Decimal, placeholder = "10.00", suffix = "USD")`; `maxLength = SettingsInput.GOAL_NAME_MAX`.
 
 ### FieldNote
 

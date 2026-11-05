@@ -36,8 +36,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import app.exhale.domain.Money
 import app.exhale.domain.PlanMath
+import app.exhale.domain.SettingsInput
 import app.exhale.domain.TaperType
 import app.exhale.domain.UserSettings
 import app.exhale.ui.Fmt
@@ -64,7 +64,6 @@ import kotlin.math.roundToLong
 /** Steps after the welcome screen. The welcome screen is step 0 and has no progress bar. */
 private const val STEPS = 4
 
-private const val DEFAULT_GOAL_NAME = "Something nice"
 private const val DEFAULT_GOAL_MINOR = 30000L
 
 /**
@@ -106,7 +105,7 @@ fun OnboardingScreen(onFinish: (UserSettings) -> Unit, initialStep: Int = 0) {
         taper = taper,
         startAllowance = allowance,
         planStart = LocalDate.now(),
-        goalName = if (withGoal) goalName.ifBlank { DEFAULT_GOAL_NAME } else DEFAULT_GOAL_NAME,
+        goalName = if (withGoal) goalName.ifBlank { SettingsInput.GOAL_NAME_BLANK } else SettingsInput.GOAL_NAME_BLANK,
         goalMinor = if (withGoal) goalMinor ?: DEFAULT_GOAL_MINOR else DEFAULT_GOAL_MINOR,
     )
 
@@ -292,7 +291,7 @@ private fun GoalStep(
 ) {
     val c = Ex.colors
     StepTitle("Goal · optional", "What will the money go to?", "Something you'd like. The Money screen tracks how close you are.")
-    ExTextField("Saving for", goalName, onName, placeholder = "New headphones", maxLength = Money.GOAL_NAME_MAX)
+    ExTextField("Saving for", goalName, onName, placeholder = "New headphones", maxLength = SettingsInput.GOAL_NAME_MAX)
     ExTextField("Amount", goal, onGoal, type = KeyboardType.Decimal, placeholder = "300")
     if (fourWeeksMinor > 0) {
         Text(

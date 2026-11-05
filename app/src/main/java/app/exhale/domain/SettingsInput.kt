@@ -16,6 +16,9 @@ object SettingsInput {
     /** What an empty goal name is saved as. */
     const val GOAL_NAME_BLANK = "Something nice"
 
+    /** Longest goal name the app accepts. */
+    const val GOAL_NAME_MAX = 40
+
     /** Digits only, at most [max] of them. */
     fun digits(raw: String, max: Int = PACK_DIGITS): String = raw.filter { it in '0'..'9' }.take(max)
 
@@ -72,7 +75,7 @@ object SettingsInput {
     fun applyGoal(s: UserSettings, name: String, amount: String): Applied {
         val kept = mutableListOf<Field>()
         val goal = minor(amount) ?: s.goalMinor.also { kept += Field.GOAL_AMOUNT }
-        val next = s.copy(goalName = name.trim().ifEmpty { GOAL_NAME_BLANK }.take(Money.GOAL_NAME_MAX), goalMinor = goal)
+        val next = s.copy(goalName = name.trim().ifEmpty { GOAL_NAME_BLANK }.take(GOAL_NAME_MAX), goalMinor = goal)
         return Applied(next, next != s, kept)
     }
 }

@@ -51,6 +51,15 @@ class MoneyTest {
         assertEquals(146000L, m.projectedMinor(365)) // a year
     }
 
+    @Test fun notSmokedBetween_countsFractionalDaysInAHalfOpenWindow() {
+        val from = at(0)
+        // 10 a day over a day and a half is 15, minus the 2 logs inside; the one at the end is outside it.
+        val logs = listOf(SmokeLog(1, from, null, false), SmokeLog(2, from.plusSeconds(3600), null, false), SmokeLog(3, at(1).plusSeconds(43_200), null, false))
+        assertEquals(13, Money.notSmokedBetween(10, logs, from, at(1).plusSeconds(43_200)))
+        assertEquals(0, Money.notSmokedBetween(10, logs, from, from.plusSeconds(3600))) // floored at 0
+        assertEquals(0, Money.notSmokedBetween(10, emptyList(), at(1), at(0))) // an empty window
+    }
+
     @Test fun summary_flooredAndReached() {
         // Smoking above the old amount keeps nothing, and the pace is 0: no estimate.
         val over = Money.summary(settings, daily(20, 10), at(10), zone)

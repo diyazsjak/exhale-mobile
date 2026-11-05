@@ -5,6 +5,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.time.DayOfWeek
 import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
@@ -21,14 +22,12 @@ class StatsTest {
         assertEquals(0f, Stats.heat(now, null, 60), 0.001f)
     }
 
-    @Test fun notSmoked_comparesAgainstBaseline() {
-        val since = now.minus(Duration.ofDays(2))
-        assertEquals(10, Stats.notSmoked(10, since, now, 10))
-        assertEquals(0, Stats.notSmoked(10, since, now, 50))
-    }
-
-    @Test fun money_usesPricePerCigarette() {
-        assertEquals(500L, Stats.moneySavedMinor(10, 50.0))
+    @Test fun countOn_countsOneCalendarDay() {
+        val logs = listOf(log(60), log(11 * 60), log(13 * 60)) // 11:00 and 01:00 today, 23:00 yesterday
+        assertEquals(2, Stats.countOn(logs, LocalDate.parse("2026-03-10"), ZoneOffset.UTC))
+        assertEquals(1, Stats.countOn(logs, LocalDate.parse("2026-03-09"), ZoneOffset.UTC))
+        // The same 23:00 UTC log is on the 10th two hours east.
+        assertEquals(3, Stats.countOn(logs, LocalDate.parse("2026-03-10"), ZoneOffset.ofHours(2)))
     }
 
     private val today: LocalDate = LocalDate.parse("2026-03-10") // a Tuesday; now is 12:00 UTC
@@ -63,6 +62,13 @@ class StatsTest {
         val h = Stats.hourly(emptyList(), Period.lastDays(today, 30, offsetDays = 30), now, ZoneOffset.UTC, today.minusDays(4))
         assertEquals(0f, h.sum(), 0.001f)
         assertEquals(0f, Stats.hourly(emptyList(), Period.lastDays(today, 30), now, ZoneOffset.UTC, null).sum(), 0.001f)
+    }
+
+    @Test fun hourly_ignoresLogsAfterNow() {
+        val logs = listOf(at("2026-03-10", 11), at("2026-03-10", 18))
+        val h = Stats.hourly(logs, Period.day(today), now, ZoneOffset.UTC, today)
+        assertEquals(1f, h[11], 0.001f)
+        assertEquals(0f, h[18], 0.001f)
     }
 
     @Test fun hourly_dayFilterAndSingleDay() {
@@ -110,6 +116,8 @@ class StatsTest {
         assertEquals(0, Stats.coveredDays(Period.lastDays(today, 30, offsetDays = 30), now, ZoneOffset.UTC, today.minusDays(4)))
         assertEquals(30, Stats.coveredDays(Period.lastDays(today, 30), now, ZoneOffset.UTC, LocalDate.parse("2025-01-01")))
         assertEquals(0, Stats.coveredDays(Period.lastDays(today, 30), now, ZoneOffset.UTC, null))
+        // Days still to come don't count.
+        assertEquals(1, Stats.coveredDays(Period(today, today.plusDays(5)), now, ZoneOffset.UTC, today))
     }
 
     @Test fun peaks_busiestThenASecondFarEnoughAndBusyEnough() {
@@ -147,15 +155,22 @@ class StatsTest {
         assertFalse(p.contains(at("2026-03-03", 10).at, ZoneOffset.UTC)) // 8 days back
     }
 
-    @Test fun longestGap_includesTimeSinceLast() {
+    @Test fun longestGapBetween_includesTimeSinceLast() {
         val logs = listOf(log(300), log(240), log(30))
-        assertEquals(Duration.ofMinutes(210), Stats.longestGap(logs, now, Duration.ofDays(1)))
+        assertEquals(Duration.ofMinutes(210), Stats.longestGapBetween(logs, now.minus(Duration.ofDays(1)), now))
     }
 
-    @Test fun triggerCounts_sortedDescending() {
-        val logs = listOf(log(1, Trigger.COFFEE), log(2, Trigger.STRESS), log(3, Trigger.COFFEE), log(4))
-        val r = Stats.triggerCounts(logs, now.minusSeconds(3600))
-        assertEquals(Trigger.COFFEE to 2, r.first())
-        assertEquals(2, r.size)
+    @Test fun triggers_sortedDescending() {
+        val logs = listOf(log(1, Trigger.STRESS), log(2, Trigger.COFFEE), log(3, Trigger.COFFEE), log(4))
+        assertEquals(listOf(Trigger.COFFEE to 2, Trigger.STRESS to 1), Stats.triggers(logs).counts)
+    }
+
+    @Test fun dayFilter_splitsWeekdaysAndWeekends() {
+        val weekend = setOf(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY)
+        DayOfWeek.entries.forEach { d ->
+            assertTrue(DayFilter.ALL.accepts(d))
+            assertEquals(d in weekend, DayFilter.WEEKENDS.accepts(d))
+            assertEquals(d !in weekend, DayFilter.WEEKDAYS.accepts(d))
+        }
     }
 }

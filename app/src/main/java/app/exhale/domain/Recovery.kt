@@ -53,9 +53,9 @@ object Recovery {
     fun summary(s: UserSettings, logs: List<SmokeLog>, now: Instant, zone: ZoneId): RecoverySummary {
         val times = logs.map { it.at }.filter { !it.isAfter(now) }.sorted()
         val since = times.lastOrNull()?.let { Duration.between(it, now) }
-        val start = s.planStart.atStartOfDay(zone).toInstant()
+        val planStart = s.planStart.atStartOfDay(zone).toInstant()
         val weekAgo = now.minus(Duration.ofDays(7))
-        val from = maxOf(start, weekAgo)
+        val from = maxOf(planStart, weekAgo)
         val fewer = if (Duration.between(from, now) >= Duration.ofDays(1)) Money.notSmokedBetween(s.baselinePerDay, logs, from, now) else null
         return RecoverySummary(
             next = Milestones.next(since),

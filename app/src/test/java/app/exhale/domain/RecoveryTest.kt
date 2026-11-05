@@ -37,6 +37,13 @@ class RecoveryTest {
         assertEquals(0f, Milestones.position(null), 0.001f)
     }
 
+    @Test fun clearFraction_runsToTwelveHoursWithAFloor() {
+        assertEquals(1f, Milestones.clearFraction(null), 0f)
+        assertEquals(0.05f, Milestones.clearFraction(Duration.ZERO), 0f)
+        assertEquals(0.5f, Milestones.clearFraction(Duration.ofHours(6)), 0.001f)
+        assertEquals(1f, Milestones.clearFraction(Duration.ofDays(2)), 0f)
+    }
+
     @Test fun lastReached_remembersTheMostRecentGapThatGotThere() {
         val logs = listOf(
             t("2026-11-01T08:00:00Z"), // Sunday night gap from here: 13 hours, reaches 12 h

@@ -44,7 +44,6 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
-import app.exhale.domain.Money
 import app.exhale.domain.PlanMath
 import app.exhale.domain.SettingsInput
 import app.exhale.domain.SettingsInput.Field
@@ -383,7 +382,7 @@ private fun GoalPage(current: UserSettings, onDone: (SettingsInput.Applied) -> U
     EditPage("Saving for", { onDone(SettingsInput.applyGoal(current, name, amount)) }) {
         ScreenTitle("What are you saving for?", subtitle = "The Money tab fills a bar toward it.")
         Column(verticalArrangement = Arrangement.spacedBy(ExSpace.sm)) {
-            ExTextField("Saving for", name, { name = it }, placeholder = SettingsInput.GOAL_NAME_BLANK, maxLength = Money.GOAL_NAME_MAX)
+            ExTextField("Saving for", name, { name = it }, placeholder = SettingsInput.GOAL_NAME_BLANK, maxLength = SettingsInput.GOAL_NAME_MAX)
             ExTextField(
                 "Amount", amount, { amount = SettingsInput.money(it) },
                 type = KeyboardType.Decimal, placeholder = SettingsInput.amountText(current.goalMinor), suffix = current.currencyCode,

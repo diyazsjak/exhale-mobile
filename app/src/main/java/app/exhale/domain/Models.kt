@@ -56,7 +56,7 @@ data class UserSettings(
     val planStart: LocalDate = LocalDate.now(),
     /** Waking minutes the allowance is spread across when computing the interval. */
     val wakingMinutes: Int = 16 * 60,
-    val goalName: String = "Something nice",
+    val goalName: String = SettingsInput.GOAL_NAME_BLANK,
     val goalMinor: Long = 30000,
     val theme: ThemeMode = ThemeMode.SYSTEM,
     /** Epoch day on which the user opened the "borrowed from yesterday" note; hides the badge dot. */
