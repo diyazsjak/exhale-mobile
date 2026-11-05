@@ -52,29 +52,27 @@ object History {
     fun months(s: UserSettings, logs: List<SmokeLog>, today: LocalDate, now: Instant, zone: ZoneId, dataStart: LocalDate?): List<MonthTally> {
         if (dataStart == null || dataStart.isAfter(today)) return emptyList()
         val counts = countsByDay(logs, zone)
-        val out = mutableListOf<MonthTally>()
-        var m = YearMonth.from(today)
+        val trackingStart = dataStart.atStartOfDay(zone).toInstant()
         val first = YearMonth.from(dataStart)
-        while (!m.isBefore(first)) {
+        val newestFirst = generateSequence(YearMonth.from(today)) { it.minusMonths(1) }.takeWhile { !it.isBefore(first) }
+        return newestFirst.map { m ->
             val days = (1..m.lengthOfMonth()).map { d ->
                 val date = m.atDay(d)
                 if (date.isBefore(dataStart) || date.isAfter(today)) null else tally(s, counts, date)
             }
             val tracked = days.filterNotNull()
             val planned = tracked.filter { it.allowance != null }
-            val start = m.atDay(1).atStartOfDay(zone).toInstant()
-            val end = minOf(m.plusMonths(1).atDay(1).atStartOfDay(zone).toInstant(), now)
-            out += MonthTally(
+            val monthStart = m.atDay(1).atStartOfDay(zone).toInstant()
+            val monthEnd = m.plusMonths(1).atDay(1).atStartOfDay(zone).toInstant()
+            MonthTally(
                 month = m,
                 days = days,
                 average = if (tracked.isEmpty()) 0f else tracked.sumOf { it.count }.toFloat() / tracked.size,
                 tracked = tracked.size,
                 planned = planned.size,
                 within = planned.count { !it.over },
-                longestGap = Stats.longestGapBetween(logs, maxOf(start, dataStart.atStartOfDay(zone).toInstant()), end),
+                longestGap = Stats.longestGapBetween(logs, maxOf(monthStart, trackingStart), minOf(monthEnd, now)),
             )
-            m = m.minusMonths(1)
-        }
-        return out
+        }.toList()
     }
 }

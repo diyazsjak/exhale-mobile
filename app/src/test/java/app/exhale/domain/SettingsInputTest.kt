@@ -90,6 +90,10 @@ class SettingsInputTest {
         assertEquals(listOf(Field.GOAL_AMOUNT), a.kept)
     }
 
+    @Test fun goalNameBlank_isTheDefaultGoalName() {
+        assertEquals(SettingsInput.GOAL_NAME_BLANK, UserSettings().goalName)
+    }
+
     @Test fun applyGoal_savesNameAndAmount() {
         val a = SettingsInput.applyGoal(saved, "A weekend in Almaty", "1250000")
         assertEquals("A weekend in Almaty", a.settings.goalName)

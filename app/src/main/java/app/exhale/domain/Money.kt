@@ -36,19 +36,25 @@ data class MoneySummary(
 
 object Money {
 
-    /** Cigarettes not smoked in [from, to) against [baseline] a day. */
-    fun notSmokedBetween(baseline: Int, logs: List<SmokeLog>, from: Instant, to: Instant): Int =
-        Stats.notSmoked(baseline, from, to, logs.count { it.at >= from && it.at < to })
+    /**
+     * Cigarettes not smoked in [from, to) against [baseline] a day, counting fractional days and
+     * floored at 0.
+     */
+    fun notSmokedBetween(baseline: Int, logs: List<SmokeLog>, from: Instant, to: Instant): Int {
+        val days = daysBetween(from, to)
+        if (days <= 0) return 0
+        val smoked = logs.count { it.at >= from && it.at < to }
+        return ((baseline * days).toInt() - smoked).coerceAtLeast(0)
+    }
 
     fun summary(s: UserSettings, logs: List<SmokeLog>, now: Instant, zone: ZoneId): MoneySummary {
         val start = s.planStart.atStartOfDay(zone).toInstant()
-        val price = s.pricePerCigMinor
-        fun minor(n: Int) = Stats.moneySavedMinor(n, price)
-        val days = Duration.between(start, now).toMillis() / 86_400_000.0
-        val notSmoked = notSmokedBetween(s.baselinePerDay, logs, start, now)
+        fun notSmokedSince(from: Instant) = notSmokedBetween(s.baselinePerDay, logs, from, now)
+        fun minor(notSmoked: Int) = (notSmoked * s.pricePerCigMinor).toLong()
+        val days = daysBetween(start, now)
+        val notSmoked = notSmokedSince(start)
         val kept = minor(notSmoked)
-        fun window(d: Long): Long? =
-            if (days > d) minor(notSmokedBetween(s.baselinePerDay, logs, now.minus(Duration.ofDays(d)), now)) else null
+        fun window(d: Long): Long? = if (days > d) minor(notSmokedSince(now.minus(Duration.ofDays(d)))) else null
         val last7 = window(7)
         val last30 = window(30)
         val weekly = last7 ?: if (days >= 1) (kept * 7 / days).toLong() else 0L
@@ -74,6 +80,5 @@ object Money {
         )
     }
 
-    /** Longest goal name the app accepts. */
-    const val GOAL_NAME_MAX = 40
+    private fun daysBetween(from: Instant, to: Instant): Double = Duration.between(from, to).toMillis() / 86_400_000.0
 }

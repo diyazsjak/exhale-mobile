@@ -95,10 +95,12 @@ object Milestones {
         return all.size.toFloat()
     }
 
-    /** 0..1 progress used by the particle field: how far toward the 12 h milestone. */
+    /** 0..1 progress used by the particle field: how far toward the 12 h milestone, at least 0.05; 1 with no logs. */
     fun clearFraction(sinceLast: Duration?): Float {
         if (sinceLast == null) return 1f
-        val target = Duration.ofHours(12).toMinutes().toFloat()
-        return (sinceLast.toMinutes() / target).coerceIn(0.05f, 1f)
+        return (sinceLast.toMinutes() / CLEAR_MINUTES).coerceIn(0.05f, 1f)
     }
+
+    /** The 12 h milestone: the particle field is clear once a gap reaches it. */
+    private val CLEAR_MINUTES = all[1].after.toMinutes().toFloat()
 }

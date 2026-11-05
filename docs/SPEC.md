@@ -284,7 +284,8 @@ Saving:
   EUR, KZT; three in all) and Other, which shows a 3-letter code field.
 - Saving for: name (40 characters at most; empty is saved as "Something nice") and amount.
 
-Validation (`domain/SettingsInput`): fields filter what is typed. Pack size takes digits only, three at
+Validation (`domain/SettingsInput`): fields filter what is typed. Goal names are at most
+`GOAL_NAME_MAX` (40) characters; an empty one is `GOAL_NAME_BLANK` ("Something nice"). Pack size takes digits only, three at
 most; prices and amounts take digits, one decimal mark (`.` or `,`) and two decimals, seven whole digits
 at most; currency codes take three Latin letters and turn upper case. What filtering can't prevent (an
 empty field, a pack of 0 or over 100, an unknown currency) gets a note under the field in `ink` after a
@@ -325,16 +326,15 @@ Full-screen route from Rhythm's "All history ›" (back button, no tab bar).
 ### Heat — `Stats.heat`
 `1 − clamp(minutesSinceLast / interval, 0, 1)`. No logs ever → 0 (cool).
 
-### Other stats — `Stats`
-- `notSmoked(baseline, since, now, smokedSince)` uses fractional days.
-
 ### Money — `Money`
 - Kept over a stretch = (baseline × days in it − smoked in it) × price of one, floored at 0, only
-  counting time since the plan start (`notSmokedBetween`). `summary(...)` gives the total, the last
+  counting time since the plan start. `notSmokedBetween(baseline, logs, from, to)` counts fractional
+  days and the logs in `[from, to)`. `summary(...)` gives the total, the last
   7 and 30 days (null until the plan is older than the window), the weekly pace (last 7 days, else
   the average week so far once a day in), packs and remainder, goal left, progress and weeks to it
   (`ceil(left / weekly)`, 0 once reached, null at a pace of 0). Projections are `weekly × days / 7`.
-- Goal names: at most `GOAL_NAME_MAX` (40) characters.
+
+### Other stats — `Stats`
 - `hourly(logs, period, now, zone, dataStart)` returns 24 per-day averages. A `Period` is a range of
   calendar days (the last 30 is today and the 29 before it) plus a day filter. Each hour is averaged
   over the days on which it has started by `now` and that are on or after `dataStart` (earlier of
@@ -345,15 +345,16 @@ Full-screen route from Rhythm's "All history ›" (back button, no tab bar).
   started). Rhythm compares with the 30 days before only when that period covers 7+ days.
 - `peaks(hours)`: the busiest hour, plus the next busiest at least 3 hours away (round the clock)
   and at least 70% as busy.
-- `longestGapBetween(logs, from, to)`: as `longestGap`, for any window (History's months).
+- `longestGapBetween(logs, from, to)`: longest gap between consecutive logs or last log → `to`
+  inside the window; the gap before the first in-window log counts only if an earlier log anchors
+  it, clipped at `from`.
 
 ### History — `History`
 - `months(...)`: every month from the one tracking began in to today's, newest first. Each day is
   null before tracking began or after today; otherwise its count and allowance (`PlanMath.allowance`
   with the day before's count), null before the plan start. Per month: average over tracked days
-  (today counts so far), planned days, days within the allowance, longest gap clipped to the month.
-- `longestGap(...)` = longest gap between consecutive logs or last log → now inside the window;
-  the gap before the first in-window log counts only if an earlier log anchors it.
+  (today counts so far), planned days, days within the allowance, longest gap clipped to the month
+  (`Stats.longestGapBetween`, up to now).
 
 ### Milestones — `Milestones`
 WHO timeline; lower bound of each range unlocks it. `clearFraction` = progress to 12 h, min 0.05.
