@@ -14,9 +14,8 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
 import androidx.compose.foundation.ScrollState
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -32,6 +31,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -55,10 +55,10 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.liveRegion
-import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.SpanStyle
@@ -70,13 +70,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import app.exhale.domain.DayFilter
-import app.exhale.domain.Period
-import app.exhale.domain.History
-import app.exhale.domain.Stats
+import app.exhale.domain.Rhythm
 import app.exhale.domain.TopTrigger
-import app.exhale.domain.TriggerSummary
 import app.exhale.domain.Trigger
-import app.exhale.domain.UrgeOutcome
+import app.exhale.domain.TriggerSummary
 import app.exhale.ui.ExhaleState
 import app.exhale.ui.components.ActiveFilter
 import app.exhale.ui.components.ButtonSize
@@ -97,7 +94,6 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
-import java.time.temporal.ChronoUnit
 import java.util.Locale
 import kotlin.math.PI
 import kotlin.math.abs
@@ -105,9 +101,6 @@ import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.hypot
 import kotlin.math.sin
-
-/** Days of history (in the period and the one before) needed before averages and comparisons show. */
-private const val MIN_DAYS = 7
 
 /**
  * Rhythm: when the user smokes over the last 30 days, or on one picked [day] (hoisted so History
@@ -134,31 +127,26 @@ fun RhythmScreen(
     var lines by remember(day) { mutableStateOf(initialLines) }
     var idea by remember { mutableIntStateOf(0) }
 
-    val dataStart = state.dataStart
     val dayFilter = DayFilter.entries[filter]
     val minute = state.now.epochSecond / 60
-    val window = day?.let { Period.day(it) } ?: Period.lastDays(state.today, 30, 0, dayFilter)
-    val before = Period.lastDays(state.today, 30, 30, dayFilter)
-    val hours = remember(state.logs, window, minute, dataStart) { Stats.hourly(state.logs, window, state.now, zone, dataStart) }
-    val covered = Stats.coveredDays(window, state.now, zone, dataStart)
-    val compare = day == null && Stats.coveredDays(before, state.now, zone, dataStart) >= MIN_DAYS
-    val beforeHours = remember(state.logs, before, dataStart, compare) { if (compare) Stats.hourly(state.logs, before, state.now, zone, dataStart) else null }
-    val windowLogs = remember(state.logs, window) { state.logs.filter { window.contains(it.at, zone) } }
-    val triggers = remember(windowLogs) { Stats.triggers(windowLogs) }
-    val peaks = remember(hours) { Stats.peaks(hours) }
+    val view = remember(state.settings, state.logs, state.urges, state.today, minute, state.dataStart, day, dayFilter) {
+        Rhythm.view(state.settings, state.logs, state.urges, state.today, state.now, zone, state.dataStart, day, dayFilter)
+    }
+    val hours = view.hours
+    val beforeHours = view.before
+    val peaks = view.peaks
     val unit = when (dayFilter) { DayFilter.ALL -> "a day"; DayFilter.WEEKDAYS -> "a weekday"; DayFilter.WEEKENDS -> "a weekend day" }
     val where = when (dayFilter) { DayFilter.ALL -> ""; DayFilter.WEEKDAYS -> " on weekdays"; DayFilter.WEEKENDS -> " at weekends" }
     val label = { h: Int -> hourLabel(h, h24) }
 
     // The average a day leads the comparison card (or the first-month card). Its label says what it
     // covers: the last 30 days, or since tracking began when that is newer, and the day filter.
-    val sinceStart = dataStart != null && dataStart.isAfter(window.first)
     val average = Average(
-        value = hours.sum(),
+        value = view.average,
         unit = unit,
         over = "Average · " + when {
-            sinceStart && dayFilter == DayFilter.ALL -> "since you started"
-            sinceStart -> "${dayFilter.label.lowercase()} since you started"
+            view.sinceStart && dayFilter == DayFilter.ALL -> "since you started"
+            view.sinceStart -> "${dayFilter.label.lowercase()} since you started"
             dayFilter == DayFilter.ALL -> "last 30 days"
             else -> "${dayFilter.label.lowercase()}, last 30 days"
         },
@@ -182,10 +170,14 @@ fun RhythmScreen(
             })
         }
 
-        AnimatedContent(day, transitionSpec = { fadeIn(tween(FADE_MS)) togetherWith fadeOut(tween(FADE_MS)) }, label = "filter") { d ->
-            if (d != null) {
-                val tally = remember(state.logs, state.settings, d) { History.tally(state.settings, History.countsByDay(state.logs, zone), d) }
-                val name = dayName(d, state.today)
+        AnimatedContent(
+            view.day,
+            transitionSpec = { fadeIn(tween(FADE_MS)) togetherWith fadeOut(tween(FADE_MS)) },
+            contentKey = { it?.date },
+            label = "filter",
+        ) { tally ->
+            if (tally != null) {
+                val name = dayName(tally.date, state.today)
                 ActiveFilter(
                     when {
                         tally.allowance == null -> "$name · ${tally.count}"
@@ -204,7 +196,7 @@ fun RhythmScreen(
         val centre = when {
             sel != null -> {
                 val v = hours[sel]
-                val top = if (day == null) Stats.topTrigger(windowLogs.filter { it.at.atZone(zone).hour == sel }) else null
+                val top = view.topTrigger(sel)
                 Centre(
                     over = hourRange(sel, h24),
                     big = if (v == 0f) "None" else if (day != null) "${v.toInt()}" else "%.1f".format(v),
@@ -258,12 +250,11 @@ fun RhythmScreen(
                 onClick = { lines = !lines },
             )
         }
-        if (beforeHours == null && day == null && covered > 0) {
-            val tracked = dataStart?.let { ChronoUnit.DAYS.between(it, state.today) + 1 } ?: 0
-            val left = dataStart?.let { ChronoUnit.DAYS.between(state.today, it.plusDays(36)) } ?: 0
+        if (beforeHours == null && day == null && view.covered > 0) {
+            val left = view.daysToCompare
             ExCard {
                 AverageHead(average)
-                Text(if (tracked <= 30) "Your first month." else "Almost enough to compare.", style = ExType.body, color = c.ink)
+                Text(if (view.trackedDays <= 30) "Your first month." else "Almost enough to compare.", style = ExType.body, color = c.ink)
                 Text(
                     if (dayFilter == DayFilter.ALL && left > 0) "In $left day${if (left == 1L) "" else "s"} you'll see how each hour compares with the 30 days before."
                     else "Once there's more history, you'll see how each hour compares with the 30 days before.",
@@ -272,20 +263,20 @@ fun RhythmScreen(
             }
         }
 
-        AnimatedVisibility(day == null && covered >= MIN_DAYS && peaks.isNotEmpty(), enter = fadeIn(tween(FADE_MS)) + expandVertically(tween(FADE_MS)), exit = fadeOut(tween(FADE_MS)) + shrinkVertically(tween(FADE_MS))) {
+        AnimatedVisibility(view.showPlan, enter = fadeIn(tween(FADE_MS)) + expandVertically(tween(FADE_MS)), exit = fadeOut(tween(FADE_MS)) + shrinkVertically(tween(FADE_MS))) {
             val h = peaks.firstOrNull() ?: return@AnimatedVisibility
             PlanCard(
                 hour = label(h),
-                top = Stats.topTrigger(windowLogs.filter { it.at.atZone(zone).hour == h }),
+                top = view.topTrigger(h),
                 idea = idea,
                 onUrge = onUrge,
                 onIdea = { idea++ },
             )
         }
 
-        TriggersCard(triggers, pickedDay = day != null)
+        TriggersCard(view.triggers, pickedDay = day != null)
         WavesCard(
-            survived = state.urges.count { window.contains(it.startedAt, zone) && it.outcome == UrgeOutcome.SURVIVED },
+            survived = view.wavesRidden,
             span = if (day != null) "that day" else "$where in the last 30 days".trim(),
         )
     }

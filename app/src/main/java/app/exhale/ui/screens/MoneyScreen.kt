@@ -1,8 +1,7 @@
 package app.exhale.ui.screens
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.ScrollState
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material3.Text
@@ -48,6 +48,7 @@ import app.exhale.ui.components.Overline
 import app.exhale.ui.components.Stat
 import app.exhale.ui.theme.Ex
 import app.exhale.ui.theme.ExRadius
+import app.exhale.ui.theme.ExSize
 import app.exhale.ui.theme.ExSpace
 import app.exhale.ui.theme.ExType
 import java.text.NumberFormat
@@ -111,7 +112,7 @@ fun MoneyScreen(state: ExhaleState, scrollState: ScrollState = rememberScrollSta
                     style = ExType.caption, color = c.inkSoft, modifier = Modifier.padding(bottom = ExSpace.xs),
                 )
                 listOf("In a month" to 30, "In 6 months" to 182, "In a year" to 365).forEach { (label, days) ->
-                    Box(Modifier.fillMaxWidth().height(1.dp).background(c.surfaceHigh))
+                    Box(Modifier.fillMaxWidth().height(ExSize.hairline).background(c.surfaceHigh))
                     Row(Modifier.fillMaxWidth().padding(vertical = ExSpace.sm), verticalAlignment = Alignment.CenterVertically) {
                         Text(label, style = ExType.body, color = c.ink, modifier = Modifier.weight(1f))
                         Text("+${money(m.projectedMinor(days))}", style = ExType.numberSmall.copy(fontSize = 18.sp), color = c.sunInk)
@@ -189,6 +190,7 @@ private fun GoalCard(name: String, price: String, m: MoneySummary, money: (Long)
     var cut by remember(name) { mutableStateOf(false) }
     var open by remember { mutableStateOf(false) }
     val reached = m.goalLeftMinor == 0L
+    val percent = (m.goalProgress * 100).toInt()
     ExCard(
         color = c.tint(c.sun),
         onClick = if (cut) ({ open = true }) else null,
@@ -196,9 +198,9 @@ private fun GoalCard(name: String, price: String, m: MoneySummary, money: (Long)
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(18.dp)) {
             GradientRing(
                 m.goalProgress, listOf(c.sun, c.sun), Modifier.size(104.dp), stroke = 12.dp, track = c.tint(c.sun),
-                contentDescription = "${(m.goalProgress * 100).toInt()}% of the way",
+                contentDescription = "$percent% of the way",
             ) {
-                Text("${(m.goalProgress * 100).toInt()}%", style = ExType.numberSmall.copy(fontSize = 20.sp), color = c.ink, textAlign = TextAlign.Center)
+                Text("$percent%", style = ExType.numberSmall.copy(fontSize = 20.sp), color = c.ink, textAlign = TextAlign.Center)
             }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Overline("Saving for", color = c.sunInk)
@@ -209,7 +211,7 @@ private fun GoalCard(name: String, price: String, m: MoneySummary, money: (Long)
                 Text(price, style = ExType.caption, color = c.inkSoft)
             }
         }
-        Box(Modifier.padding(top = ExSpace.sm).fillMaxWidth().height(1.dp).background(c.tint(c.sun)))
+        Box(Modifier.padding(top = ExSpace.sm).fillMaxWidth().height(ExSize.hairline).background(c.tint(c.sun)))
         Row(Modifier.padding(top = ExSpace.xs)) {
             if (reached) {
                 Stat("Reached", "go get it", Modifier.weight(1f), color = c.sunInk)

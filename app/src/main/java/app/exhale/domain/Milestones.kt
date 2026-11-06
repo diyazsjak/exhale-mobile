@@ -101,6 +101,6 @@ object Milestones {
         return (sinceLast.toMinutes() / CLEAR_MINUTES).coerceIn(0.05f, 1f)
     }
 
-    /** The 12 h milestone: the particle field is clear once a gap reaches it. */
-    private val CLEAR_MINUTES = all[1].after.toMinutes().toFloat()
+    /** The 12 h milestone (carbon monoxide back to normal): the particle field is clear once a gap reaches it. */
+    private val CLEAR_MINUTES = Duration.ofHours(12).toMinutes().toFloat()
 }

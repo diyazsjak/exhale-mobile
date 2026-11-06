@@ -26,43 +26,10 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import app.exhale.domain.BreathPhase
+import app.exhale.domain.breathAt
 import app.exhale.ui.theme.Ex
 import app.exhale.ui.theme.ExType
-import kotlin.math.ceil
-import kotlin.math.cos
-
-/** Paced breathing: in 4, hold 2, out 6. A longer out-breath calms the body. */
-enum class BreathPhase(val verb: String, val seconds: Float) {
-    IN("Breathe in", 4f),
-    HOLD("Hold", 2f),
-    OUT("Breathe out", 6f);
-
-    val next: BreathPhase get() = entries[(ordinal + 1) % entries.size]
-}
-
-/** Where the breath is at time t: phase, progress through it 0..1, whole seconds left. */
-data class BreathState(val phase: BreathPhase, val progress: Float, val secondsLeft: Int) {
-    /** How full the lungs are, 0..1, eased like a real breath. Drives the wave dot's halo. */
-    val fullness: Float
-        get() = when (phase) {
-            BreathPhase.IN -> easeInOutSine(progress)
-            BreathPhase.HOLD -> 1f
-            BreathPhase.OUT -> 1f - easeInOutSine(progress)
-        }
-}
-
-private fun easeInOutSine(x: Float) = ((1 - cos(Math.PI * x)) / 2).toFloat()
-
-private val CYCLE = BreathPhase.entries.sumOf { it.seconds.toDouble() }.toFloat()
-
-fun breathAt(t: Float): BreathState {
-    var x = t % CYCLE
-    for (p in BreathPhase.entries) {
-        if (x < p.seconds) return BreathState(p, x / p.seconds, ceil(p.seconds - x).toInt().coerceAtLeast(1))
-        x -= p.seconds
-    }
-    return BreathState(BreathPhase.OUT, 1f, 1)
-}
 
 /** Next line sits this far below the current one and at this scale, so it can grow into place. */
 private const val NEXT_SCALE = 0.62f

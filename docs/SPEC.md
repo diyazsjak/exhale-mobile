@@ -106,6 +106,14 @@ First launch shows **Onboarding** (§3.7). Regulate is no longer a tab: its coun
   Y." / "N left today. Going over isn't failing…" / "That's all for today…", plus "Today is A
   instead of B: N were borrowed yesterday." on a lowered day, and a footer with this week's and next
   week's allowance. Tap outside, press Back or start holding the ember to close it.
+  "Over today" (the badge's pink, the count, the flare sticks) is against today's allowance, but what
+  is borrowed from tomorrow follows §4 Debt: only what goes past today's *base*
+  (`TodayPlan.borrowingFromTomorrow`). X is `TodayPlan.tomorrowAllowance`
+  (`PlanMath.allowance(tomorrow, todayCount)`), Y tomorrow's base. So on a lowered day (base 10, 2
+  borrowed, allowance 8) the over line reads "1 over today. You're still within your usual 10, so
+  nothing is borrowed: tomorrow starts at 10." at 9, and "4 over today. 2 of them are past your
+  usual 10 and borrowed from tomorrow, so tomorrow starts at 8 instead of 10." at 12; the other
+  lines say "anything past your usual 10" instead of "anything more/over".
 - Hero, one number that switches meaning: while waiting, time **until** the next one is earned
   ("58m · until your next one"); once earned, time **since** the last one ("2h 41m · since your last
   one · next one earned"). Before any log: "—" and "nothing logged yet".
@@ -126,7 +134,8 @@ First launch shows **Onboarding** (§3.7). Regulate is no longer a tab: its coun
   that goes over gets a pink burst and a `loggedOver()` double thud),
   "Hold a little longer" (released early), and on a quick tap the ember wobbles and the hint repeats
   "Hold the ember to log".
-- **Logged card** after logging: count, **Undo**, optional trigger chips. Auto-dismisses after 8 s.
+- **Logged card** after logging: count ("12 of 8 today · 2 borrowed from tomorrow", the borrowed part only
+  when something is, §4 Debt), **Undo**, optional trigger chips. Auto-dismisses after 8 s.
 - "I want one. Help me wait." → Urge Wave.
 
 #### Glow home (Settings → Home screen → Glow) — `Glow.kt`
@@ -273,6 +282,9 @@ A segmented progress bar (steps 1–4) fills in one colour (`ink`).
 | 3 Plan | Starting allowance + taper type | Stepper 0..baseline, default baseline − 2. Taper cards preview weeks 1–4. |
 | 4 Goal (optional) | Goal name and amount | Shows money kept in the first 4 weeks if the plan is followed. "Start" or "Skip the goal for now". |
 
+Pack price and goal amount are filtered and read like Settings' (`SettingsInput.money` / `minor`):
+digits, one decimal mark and two decimals, so "1e3" can't be typed.
+
 No demo data in onboarding.
 
 ### 3.8 Settings — `SettingsScreen.kt`
@@ -304,7 +316,8 @@ Saving:
   EUR, KZT; three in all) and Other, which shows a 3-letter code field.
 - Saving for: name (40 characters at most; empty is saved as "Something nice") and amount.
 
-Validation (`domain/SettingsInput`): fields filter what is typed. Goal names are at most
+Validation (`domain/SettingsInput`): fields filter what is typed. `quickCurrencies()` gives the currency chips
+(the region's, then USD, EUR, KZT; three). Goal names are at most
 `GOAL_NAME_MAX` (40) characters; an empty one is `GOAL_NAME_BLANK` ("Something nice"). Pack size takes digits only, three at
 most; prices and amounts take digits, one decimal mark (`.` or `,`) and two decimals, seven whole digits
 at most; currency codes take three Latin letters and turn upper case. What filtering can't prevent (an
@@ -340,14 +353,21 @@ Full-screen route from Rhythm's "All history ›" (back button, no tab bar).
 - `TEN_PERCENT_WEEKLY`: `max(0, min(ceil(start × 0.9^weeks), start − weeks))` (always ≥ 1 step/week)
 - `HOLD`: `start`
 - **Debt**: `max(0, smokedYesterday − baseAllowance(yesterday))`, only for days on/after plan start.
-  Today's allowance = `max(0, base(today) − debt)`. Debt only looks back one day.
+  Today's allowance = `max(0, base(today) − debt)`. Debt only looks back one day: it is measured
+  against the base, not the lowered allowance, so smoking past a lowered allowance but within the
+  base borrows nothing more.
 - **Interval** (minutes) = `wakingMinutes / allowance`; when allowance is 0, = `wakingMinutes`.
+- `outlook(s, today)`: base allowance today, tomorrow and from the next plan week (its first day),
+  for the Today popover.
 
 ### Today — `TodayPlan`
 `TodayPlan.of(settings, logs, now, zone)` is everything Ember needs about today: the count, the
 allowance (after yesterday's debt), the interval, the cigarettes borrowed, the last log and the time
-since it, when the next one is earned (last log + interval) and the heat. `ExhaleViewModel` only
-copies it into `ExhaleState`.
+since it, when the next one is earned (last log + interval) and the heat. It also answers what Ember
+and the Today popover ask: whether the next one is `earned` (and `earnedFraction` of the gap, the
+ring), `overAllowance`, `overToday`, `leftToday`, `borrowingFromTomorrow` (§4 Debt, against the base),
+`tomorrowAllowance`, `borrowNoticeDue` and the plan `outlook`. `ExhaleState` holds it as `plan` and
+reads through to it.
 
 ### Heat — `Stats.heat`
 `1 − clamp(minutesSinceLast / interval, 0, 1)`. No logs ever → 0 (cool).
@@ -359,6 +379,8 @@ copies it into `ExhaleState`.
   7 and 30 days (null until the plan is older than the window), the weekly pace (last 7 days, else
   the average week so far once a day in), packs and remainder, goal left, progress and weeks to it
   (`ceil(left / weekly)`, 0 once reached, null at a pace of 0). Projections are `weekly × days / 7`.
+- `keptFollowingPlan(s, days)`: what the first `days` of the plan keep if exactly the base allowance is
+  smoked each day (Onboarding's "first 4 weeks" line).
 
 ### Other stats — `Stats`
 - `hourly(logs, period, now, zone, dataStart)` returns 24 per-day averages. A `Period` is a range of
@@ -375,6 +397,18 @@ copies it into `ExhaleState`.
   inside the window; the gap before the first in-window log counts only if an earlier log anchors
   it, clipped at `from`.
 
+### Rhythm — `Rhythm`
+`Rhythm.view(...)` is everything Rhythm shows for the last 30 days under a day filter, or for one
+picked day: the hourly averages, the 30 days before (only when they cover 7+ days, never on a picked
+day), covered days, whether tracking began inside the period ("since you started"), the period's
+logs, triggers and peaks, craving waves ridden out, days tracked and days until a comparison, and
+the picked day's tally. `topTrigger(hour)` is the busiest trigger at an hour (not on a picked day);
+`showPlan` needs 7 covered days and something logged.
+
+### Breathing — `Breath.kt`
+`breathAt(t)`: the 4-2-6 cycle (in, hold, out) `t` seconds into a craving wave of `WAVE_SECONDS`
+(240): phase, progress through it, whole seconds left, and how full the lungs are (eased).
+
 ### History — `History`
 - `months(...)`: every month from the one tracking began in to today's, newest first. Each day is
   null before tracking began or after today; otherwise its count and allowance (`PlanMath.allowance`
@@ -385,8 +419,9 @@ copies it into `ExhaleState`.
   otherwise the day's count and allowance (null before the plan start).
 
 ### Demo data — `DemoData`
-`DemoData.generate(today, now, zone, random)` is what Settings → Load demo data writes: an onboarded
-profile whose plan started 59 days ago, 60 days of logs tapering from about 16 to 8 a day with
+`DemoData.generate(today, now, zone, current, random)` is what Settings → Load demo data writes: an
+onboarded profile (written over the `current` settings, so theme and waking hours are kept; the taper
+is −1 a week, which the history follows) whose plan started 59 days ago, 60 days of logs tapering from about 16 to 8 a day with
 hour-of-day weights and triggers, and 0–2 urges a day (4 min, trigger Stress). Nothing after `now`.
 Loading it keeps the current Appearance and Home screen.
 

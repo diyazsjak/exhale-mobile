@@ -66,8 +66,36 @@ class PlanMathTest {
         assertEquals(0, PlanMath.debt(st, start.minusDays(1), 30)) // before the plan
     }
 
+    @Test fun debt_onALoweredDay_isMeasuredAgainstTheBase_notTheLoweredAllowance() {
+        val st = s(TaperType.HOLD, 10)
+        val today = start.plusDays(2)
+        val tomorrow = today.plusDays(1)
+        assertEquals(8, PlanMath.allowance(st, today, smokedYesterday = 12)) // 2 borrowed yesterday
+        // Over today's 8 but within the base 10: nothing is borrowed, tomorrow is the full base.
+        assertEquals(0, PlanMath.debt(st, today, 9))
+        assertEquals(10, PlanMath.allowance(st, tomorrow, smokedYesterday = 9))
+        // Only what goes past the base is borrowed: 12 is 4 over today's 8 but 2 past the base.
+        assertEquals(2, PlanMath.debt(st, today, 12))
+        assertEquals(8, PlanMath.allowance(st, tomorrow, smokedYesterday = 12))
+    }
+
     @Test fun interval_spreadsAllowanceOverWakingDay() {
         assertEquals(80, PlanMath.intervalMinutes(12, 960))
         assertEquals(960, PlanMath.intervalMinutes(0, 960))
+    }
+
+    @Test fun outlook_todayTomorrowAndNextPlanWeek() {
+        val st = s(TaperType.MINUS_ONE_WEEKLY)
+        // Day 6 is the last of week 0: tomorrow and next week both start week 1.
+        val o = PlanMath.outlook(st, start.plusDays(6))
+        assertEquals(12, o.baseToday)
+        assertEquals(11, o.baseTomorrow)
+        assertEquals(start.plusWeeks(1), o.nextWeekStart)
+        assertEquals(11, o.baseNextWeek)
+        val mid = PlanMath.outlook(st, start.plusDays(9))
+        assertEquals(start.plusWeeks(2), mid.nextWeekStart)
+        assertEquals(10, mid.baseNextWeek)
+        // Before the plan starts, next week is the plan's second week.
+        assertEquals(start.plusWeeks(1), PlanMath.outlook(st, start.minusDays(3)).nextWeekStart)
     }
 }

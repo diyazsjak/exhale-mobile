@@ -6,6 +6,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.util.Locale
 
 class SettingsInputTest {
     private val saved = UserSettings(
@@ -99,5 +100,14 @@ class SettingsInputTest {
         assertEquals("A weekend in Almaty", a.settings.goalName)
         assertEquals(125_000_000L, a.settings.goalMinor)
         assertTrue(a.kept.isEmpty())
+    }
+
+    @Test fun quickCurrencies_regionFirstThenUsdEurKzt() {
+        assertEquals("CHF", SettingsInput.regionCurrency(Locale("de", "CH")))
+        assertEquals(listOf("CHF", "USD", "EUR"), SettingsInput.quickCurrencies(Locale("de", "CH")))
+        assertEquals(listOf("EUR", "USD", "KZT"), SettingsInput.quickCurrencies(Locale("de", "DE")))
+        // A locale without a region has no currency of its own.
+        assertNull(SettingsInput.regionCurrency(Locale("en")))
+        assertEquals(listOf("USD", "EUR", "KZT"), SettingsInput.quickCurrencies(Locale("en")))
     }
 }

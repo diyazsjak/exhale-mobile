@@ -3,36 +3,35 @@ package app.exhale.ui
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
-import app.exhale.ui.components.rememberAppBarScrollBehavior
-import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.drawscope.clipRect
-import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.derivedStateOf
-import androidx.compose.runtime.SideEffect
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
@@ -40,31 +39,29 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import app.exhale.domain.HomeStyle
+import app.exhale.BuildConfig
 import app.exhale.domain.UrgeOutcome
 import app.exhale.ui.components.ExAppBar
 import app.exhale.ui.components.ExIcons
-import app.exhale.ui.components.Overline
 import app.exhale.ui.components.FloatingTabBar
+import app.exhale.ui.components.Overline
 import app.exhale.ui.components.TabItem
+import app.exhale.ui.components.rememberAppBarScrollBehavior
 import app.exhale.ui.screens.AirScreen
 import app.exhale.ui.screens.EmberScreen
 import app.exhale.ui.screens.GlowEdge
 import app.exhale.ui.screens.HistoryScreen
 import app.exhale.ui.screens.MoneyScreen
 import app.exhale.ui.screens.OnboardingScreen
-import app.exhale.ui.screens.RhythmScreen
-import app.exhale.BuildConfig
 import app.exhale.ui.screens.PrototypeTools
+import app.exhale.ui.screens.RhythmScreen
 import app.exhale.ui.screens.SettingsScreen
 import app.exhale.ui.screens.TodayBadge
-import app.exhale.ui.screens.borrowDot
 import app.exhale.ui.screens.UiKitScreen
 import app.exhale.ui.screens.UrgeWaveScreen
 import app.exhale.ui.theme.Ex
 import app.exhale.ui.theme.ExColors
 import java.time.LocalDate
-import java.time.format.DateTimeFormatter
-import java.util.Locale
 
 internal enum class Tab(val route: String, val label: String, val icon: ImageVector) {
     EMBER("ember", "Ember", ExIcons.Ember),
@@ -91,10 +88,10 @@ internal data class LeadingKey(val tab: Tab, val picked: Boolean = false)
 @Composable
 internal fun RowScope.TabLeading(key: LeadingKey, state: ExhaleState, todayOpen: Boolean, onToday: () -> Unit) {
     when (key.tab) {
-        Tab.EMBER -> TodayBadge(state, showDot = borrowDot(state), expanded = todayOpen, onClick = onToday)
+        Tab.EMBER -> TodayBadge(state, expanded = todayOpen, onClick = onToday)
         Tab.RHYTHM -> Overline(if (key.picked) "Rhythm" else "Rhythm · Last 30 days")
         Tab.AIR -> Overline("Recovery · if you stop now")
-        Tab.MONEY -> Overline("Money · since ${state.settings.planStart.format(DateTimeFormatter.ofPattern("d MMMM", Locale.getDefault()))}")
+        Tab.MONEY -> Overline("Money · since ${Fmt.dayMonth(state.settings.planStart)}")
     }
 }
 
@@ -106,29 +103,24 @@ private fun tabIndex(route: String?) = Tab.entries.indexOfFirst { it.route == ro
 
 private fun isTabSwitch(from: String?, to: String?) = tabIndex(from) >= 0 && tabIndex(to) >= 0
 
+/** 1 when moving to a tab further right, -1 to one further left. */
+private fun tabDirection(from: String?, to: String?) = if (tabIndex(to) > tabIndex(from)) 1 else -1
+
 /**
  * Tabs slide like pages, full width, in tab order. A full-screen route (Urge Wave, Settings, History)
  * pushes in from the right over a screen that recedes a third and fades; popping reverses that.
  */
-private fun slideIn(from: String?, to: String?, forward: Boolean): EnterTransition =
-    if (isTabSwitch(from, to)) {
-        val dir = if (tabIndex(to) > tabIndex(from)) 1 else -1
-        slideInHorizontally(navSpec()) { w -> dir * w }
-    } else if (forward) {
-        slideInHorizontally(navSpec()) { w -> w }
-    } else {
-        slideInHorizontally(navSpec()) { w -> -w / 3 } + fadeIn(navSpec())
-    }
+private fun slideIn(from: String?, to: String?, forward: Boolean): EnterTransition = when {
+    isTabSwitch(from, to) -> slideInHorizontally(navSpec()) { w -> tabDirection(from, to) * w }
+    forward -> slideInHorizontally(navSpec()) { w -> w }
+    else -> slideInHorizontally(navSpec()) { w -> -w / 3 } + fadeIn(navSpec())
+}
 
-private fun slideOut(from: String?, to: String?, forward: Boolean): ExitTransition =
-    if (isTabSwitch(from, to)) {
-        val dir = if (tabIndex(to) > tabIndex(from)) 1 else -1
-        slideOutHorizontally(navSpec()) { w -> -dir * w }
-    } else if (forward) {
-        slideOutHorizontally(navSpec()) { w -> -w / 3 } + fadeOut(navSpec())
-    } else {
-        slideOutHorizontally(navSpec()) { w -> w }
-    }
+private fun slideOut(from: String?, to: String?, forward: Boolean): ExitTransition = when {
+    isTabSwitch(from, to) -> slideOutHorizontally(navSpec()) { w -> -tabDirection(from, to) * w }
+    forward -> slideOutHorizontally(navSpec()) { w -> -w / 3 } + fadeOut(navSpec())
+    else -> slideOutHorizontally(navSpec()) { w -> w }
+}
 
 private const val WAVE = "wave"
 private const val SETTINGS = "settings"
@@ -304,7 +296,7 @@ private fun MainNav(state: ExhaleState, logged: LoggedEvent?, vm: ExhaleViewMode
                 ) { k ->
                     TabLeading(k, state, todayOpen, onToday = {
                         todayOpen = !todayOpen
-                        if (todayOpen && state.borrowedToday > 0) vm.markBorrowNoticeSeen()
+                        if (todayOpen && state.borrowNoticeDue) vm.markBorrowNoticeSeen()
                     })
                 }
                 FloatingTabBar(

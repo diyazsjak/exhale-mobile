@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -32,6 +33,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import app.exhale.ui.theme.Ex
@@ -72,8 +74,9 @@ fun ExScreen(
         Column(Modifier.fillMaxSize().statusBarsPadding()) {
             if (header != null) {
                 val under by remember(scroll) { derivedStateOf { scroll && st.value > 0 } }
+                val border = scrolledBorderColor(under)
                 Row(
-                    Modifier.scrolledBorder(under).barRow(),
+                    Modifier.bottomHairline { border.value }.barRow(),
                     verticalAlignment = Alignment.CenterVertically,
                     content = header,
                 )
@@ -150,6 +153,15 @@ fun Stat(value: String, label: String, modifier: Modifier = Modifier, color: Col
     }
 }
 
+/** A caption under a card, inset to line up with the card's rows: `caption` in `ink-faint` unless [color] says otherwise. */
+@Composable
+fun Footnote(text: AnnotatedString, modifier: Modifier = Modifier, color: Color? = null) {
+    Text(text, style = ExType.caption, color = color ?: Ex.colors.inkFaint, modifier = modifier.padding(horizontal = ExSpace.xxs))
+}
+
+@Composable
+fun Footnote(text: String, modifier: Modifier = Modifier, color: Color? = null) = Footnote(AnnotatedString(text), modifier, color)
+
 /** Pushes following header items to the end. */
 @Composable
 fun RowScope.Fill() = Spacer(Modifier.weight(1f))
@@ -158,4 +170,15 @@ fun RowScope.Fill() = Spacer(Modifier.weight(1f))
 @Composable
 fun RowScope.HeaderLabel(text: String) {
     Text(text, style = ExType.labelSmall, color = Ex.colors.inkSoft, modifier = Modifier.weight(1f).padding(horizontal = ExSpace.xs), textAlign = TextAlign.Center)
+}
+
+/**
+ * The header row of a full-screen route: a back button, the [title] centred, and room on the right
+ * so it stays centred. [backLabel] says what going back does when it does more than leave.
+ */
+@Composable
+fun RowScope.BackHeader(title: String, onBack: () -> Unit, backLabel: String = "Back") {
+    ExIconButton(ExIcons.Back, backLabel, onBack)
+    HeaderLabel(title)
+    Spacer(Modifier.size(ExSize.iconButton))
 }

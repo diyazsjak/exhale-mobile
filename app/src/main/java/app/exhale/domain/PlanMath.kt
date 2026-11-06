@@ -31,6 +31,17 @@ object PlanMath {
         }
     }
 
+    /** The plan around [today], before any borrowing: today, tomorrow, and the next plan week. */
+    fun outlook(s: UserSettings, today: LocalDate): PlanOutlook {
+        val nextWeek = s.planStart.plusWeeks(weeksIntoPlan(s.planStart, today) + 1L)
+        return PlanOutlook(
+            baseToday = baseAllowance(s, today),
+            baseTomorrow = baseAllowance(s, today.plusDays(1)),
+            nextWeekStart = nextWeek,
+            baseNextWeek = baseAllowance(s, nextWeek),
+        )
+    }
+
     /** The allowance in each of the first [weeks] weeks of a plan from [start], e.g. 14 → 13 → 12 → 11. */
     fun firstWeeks(start: Int, taper: TaperType, weeks: Int = 4): List<Int> {
         val day0 = LocalDate.of(2026, 1, 5) // any date: only the weeks since it matter
@@ -52,3 +63,6 @@ object PlanMath {
     fun intervalMinutes(allowance: Int, wakingMinutes: Int): Int =
         if (allowance <= 0) wakingMinutes else wakingMinutes / allowance
 }
+
+/** The plan's base allowances around a day; see [PlanMath.outlook]. */
+data class PlanOutlook(val baseToday: Int, val baseTomorrow: Int, val nextWeekStart: LocalDate, val baseNextWeek: Int)

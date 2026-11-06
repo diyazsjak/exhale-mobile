@@ -3,31 +3,25 @@ package app.exhale.ui.screens
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import app.exhale.domain.History
 import app.exhale.ui.ExhaleState
 import app.exhale.ui.Fmt
+import app.exhale.ui.components.BackHeader
 import app.exhale.ui.components.DayDot
 import app.exhale.ui.components.ExCard
-import app.exhale.ui.components.ExIconButton
-import app.exhale.ui.components.ExIcons
 import app.exhale.ui.components.ExScreen
-import app.exhale.ui.components.HeaderLabel
 import app.exhale.ui.components.LegendItem
 import app.exhale.ui.components.MonthCalendar
 import app.exhale.ui.components.ScreenTitle
 import app.exhale.ui.components.Stat
 import app.exhale.ui.theme.Ex
-import app.exhale.ui.theme.ExSize
 import app.exhale.ui.theme.ExSpace
 import app.exhale.ui.theme.ExType
 import java.time.LocalDate
@@ -51,16 +45,12 @@ fun HistoryScreen(state: ExhaleState, onPickDay: (LocalDate) -> Unit, onClose: (
     val start = state.dataStart
     ExScreen(
         bottomClearance = ExSpace.xl,
-        header = {
-            ExIconButton(ExIcons.Back, "Back", onClose)
-            HeaderLabel("History")
-            Spacer(Modifier.size(ExSize.iconButton))
-        },
+        header = { BackHeader("History", onClose) },
     ) {
         ScreenTitle(
             "Every day so far",
             subtitle = if (start == null) "Nothing logged yet. Your days will show up here."
-            else "Since ${start.format(DateTimeFormatter.ofPattern("d MMMM", Locale.getDefault()))}. Tap a day to see it on Rhythm.",
+            else "Since ${Fmt.dayMonth(start)}. Tap a day to see it on Rhythm.",
         )
         if (months.isNotEmpty()) {
             Row(horizontalArrangement = Arrangement.spacedBy(ExSpace.md)) {

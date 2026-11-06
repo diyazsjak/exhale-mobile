@@ -26,7 +26,7 @@ Neutrals carry the UI; accents carry meaning.
 ## Type
 
 - **Newsreader** (serif, optical size 48) for what you feel: big states (`display`), screen titles and step questions (`title`), soft italic asides (`title-italic`), card titles (`headline`), and lines in the user's own voice such as an if-then plan (`headline-italic`).
-- **Figtree** (sans) for what you read and tap: `body`, `label` on buttons, `label-small` on chips, `caption`, uppercase `overline` labels.
+- **Figtree** (sans) for what you read and tap: `body` (`body-small` 14/20 in compact surfaces such as the Today popover), `label` on buttons, `label-small` on chips, `caption`, uppercase `overline` labels.
 - **Numbers that change** (timers, counts) use the `number-*` styles with tabular digits (`font-feature-settings: "tnum"`) so they don't jitter.
 - Serif headlines are sentence case and short; break a two-line title with a deliberate line break, as in "The air / is clearing."
 
@@ -69,7 +69,7 @@ Plain, short, second person. A cigarette is information: "Logged. 8 of 12 today.
 
 ## Components
 
-Button, IconButton, Link, Chip, Badge, Card, OptionCard, TextField, FieldNote, Stepper, CounterRow, SegmentedControl, ActiveFilter, StepProgress, GradientRing, WeekStrip, MonthCalendar, LegendItem, ListRow, Dialog, ChoiceDialog, Toast, FloatingTabBar and AppBar. Each card below has guidelines and a live web rendition styled by `components/bundle.css`. In the app they are Compose functions in `ui/components/` (`ExButton`, `ExIconButton`, `ExLink`, `ExChip`, `ExBadge`, `ExCard`, `OptionCard`, `ExTextField`, `FieldNote`, `Stepper`, `CounterRow`, `SegmentedControl`, `ActiveFilter`, `StepProgress`, `GradientRing`, `WeekStrip`, `MonthCalendar`, `LegendItem`, `ListRow`, `ExDialog`, `ExChoiceDialog`, `ExToast`, `FloatingTabBar`, `ExAppBar`). Every screen sits in `ExScreen`, which applies `bg`, the status-bar inset, the gutter and the tab-bar clearance. The app also has a live catalogue in debug builds: Settings → Prototype tools → Design system.
+Button, IconButton, Link, Chip, Badge, Card, OptionCard, TextField, FieldNote, Footnote, Stepper, CounterRow, SegmentedControl, ActiveFilter, StepProgress, GradientRing, WeekStrip, MonthCalendar, LegendItem, ListRow, Dialog, ChoiceDialog, Toast, FloatingTabBar and AppBar. Each card below has guidelines and a live web rendition styled by `components/bundle.css`. In the app they are Compose functions in `ui/components/` (`ExButton`, `ExIconButton`, `ExLink`, `ExChip`, `ExBadge`, `ExCard`, `OptionCard`, `ExTextField`, `FieldNote`, `Footnote`, `Stepper`, `CounterRow`, `SegmentedControl`, `ActiveFilter`, `StepProgress`, `GradientRing`, `WeekStrip`, `MonthCalendar`, `LegendItem`, `ListRow`, `ExDialog`, `ExChoiceDialog`, `ExToast`, `FloatingTabBar`, `ExAppBar`). Every screen sits in `ExScreen`, which applies `bg`, the status-bar inset, the gutter and the tab-bar clearance. The app also has a live catalogue in debug builds: Settings → Prototype tools → Design system.
 
 ## Colour tokens
 
@@ -177,6 +177,14 @@ A note under a field or group about a value that can't be saved as typed, and wh
 `caption` in `ink` after a 6px `sky` dot: noticeable, never red. Say what to enter and what going back keeps: "Enter the pack price, like 10.00. Going back keeps 10.00 $." Shows nothing when the text is empty.
 
 - Compose: `FieldNote(if (SettingsInput.minor(price) == null) "Enter the pack price…" else "")`.
+
+### Footnote
+
+A caption under a card that explains or qualifies it ("Changes save when you go back.", "Shown in debug builds only.").
+
+`caption` in `ink-faint` (or `ink-soft` when it carries numbers), inset 4px so it lines up with the card's rows.
+
+- Compose: `Footnote("Exhale keeps everything on this phone.")`; `Footnote(annotated, color = c.inkSoft)`.
 
 ### Stepper
 
@@ -299,4 +307,4 @@ Drawn over the screens (not inside them), so it stays put while pages slide. Lea
 
 - The web previews are static HTML/CSS renditions written by hand from the Compose components; they are not generated from the Kotlin code.
 - Animated and chart components (the Ember orb, the Urge Wave, the particle field, the Smoke Clock, Air's recovery sky, gap chart and timeline) are screen-specific and are not in this kit.
-- Link, ActiveFilter, MonthCalendar, LegendItem, Dialog, ChoiceDialog, Toast, CounterRow, FieldNote, AppBar, the Tonal button, the outlined card, the two-line ListRow and the capped and suffixed text fields are in the in-app catalogue but have no web preview yet.
+- Link, ActiveFilter, MonthCalendar, LegendItem, Dialog, ChoiceDialog, Toast, CounterRow, FieldNote, Footnote, AppBar, the Tonal button, the outlined card, the two-line ListRow and the capped and suffixed text fields are in the in-app catalogue but have no web preview yet.

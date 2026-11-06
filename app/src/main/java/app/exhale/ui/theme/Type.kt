@@ -52,6 +52,8 @@ object ExType {
 
     val body = sans.copy(fontSize = 16.sp, lineHeight = 1.5.em)
     val bodyStrong = body.copy(fontWeight = FontWeight(600))
+    /** Body a size down, for sentences in a compact surface such as Ember's Today popover. */
+    val bodySmall = body.copy(fontSize = 14.sp, lineHeight = 20.sp)
     val label = sans.copy(fontSize = 16.sp, lineHeight = 1.25.em, fontWeight = FontWeight(600))
     val labelSmall = sans.copy(fontSize = 14.sp, lineHeight = 1.25.em, fontWeight = FontWeight(500))
     val caption = sans.copy(fontSize = 13.sp, lineHeight = 1.4.em)

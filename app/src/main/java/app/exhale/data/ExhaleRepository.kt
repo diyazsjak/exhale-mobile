@@ -7,6 +7,7 @@ import app.exhale.domain.Urge
 import app.exhale.domain.UrgeOutcome
 import app.exhale.domain.UserSettings
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import java.time.Instant
 import java.time.LocalDate
@@ -47,12 +48,11 @@ class ExhaleRepository(
     }
 
     /** Replaces everything with [DemoData]: a matching onboarded profile and 60 days of history. */
-    /** Replaces everything with 60 days of demo history. Appearance ([keep]'s theme and home) stays as it is. */
-    suspend fun seedDemo(keep: UserSettings) {
+    suspend fun seedDemo() {
         clearHistory()
         val zone = ZoneId.systemDefault()
-        val demo = DemoData.generate(LocalDate.now(zone), Instant.now(), zone)
-        saveSettings(demo.settings.copy(theme = keep.theme, home = keep.home))
+        val demo = DemoData.generate(LocalDate.now(zone), Instant.now(), zone, current = settings.first())
+        saveSettings(demo.settings)
         db.logs().insertAll(demo.logs.map { it.toEntity() })
         db.urges().insertAll(demo.urges.map { it.toEntity() })
     }
