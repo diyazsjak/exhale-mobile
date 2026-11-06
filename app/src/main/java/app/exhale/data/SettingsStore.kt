@@ -8,6 +8,7 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import app.exhale.domain.HomeStyle
 import app.exhale.domain.TaperType
 import app.exhale.domain.ThemeMode
 import app.exhale.domain.UserSettings
@@ -32,6 +33,7 @@ class SettingsStore(private val context: Context) {
         val goalName = stringPreferencesKey("goal_name")
         val goalMinor = longPreferencesKey("goal_minor")
         val theme = stringPreferencesKey("theme")
+        val home = stringPreferencesKey("home")
         val borrowSeen = longPreferencesKey("borrow_notice_seen_day")
     }
 
@@ -51,6 +53,7 @@ class SettingsStore(private val context: Context) {
             p[K.goalName] = s.goalName
             p[K.goalMinor] = s.goalMinor
             p[K.theme] = s.theme.name
+            p[K.home] = s.home.name
             p[K.borrowSeen] = s.borrowNoticeSeenDay
         }
     }
@@ -74,6 +77,7 @@ class SettingsStore(private val context: Context) {
             goalName = this[K.goalName] ?: d.goalName,
             goalMinor = this[K.goalMinor] ?: d.goalMinor,
             theme = enumOrNull<ThemeMode>(this[K.theme]) ?: d.theme,
+            home = enumOrNull<HomeStyle>(this[K.home]) ?: d.home,
             borrowNoticeSeenDay = this[K.borrowSeen] ?: d.borrowNoticeSeenDay,
         )
     }

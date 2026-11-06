@@ -39,6 +39,8 @@ import app.exhale.ui.screens.EmberOrbCanvas
 import androidx.compose.foundation.layout.size
 import androidx.compose.ui.unit.dp
 import app.exhale.domain.ThemeMode
+import app.exhale.domain.HomeStyle
+import app.exhale.ui.screens.GlowEdge
 import androidx.compose.ui.Alignment
 import app.exhale.ui.theme.ExhaleTheme
 import com.github.takahirom.roborazzi.captureRoboImage
@@ -157,6 +159,7 @@ class ScreenshotTest {
         todayOpen: Boolean = false,
         barScrolled: Boolean = false,
         barHidden: Boolean = false,
+        glow: Boolean = false,
         content: @Composable () -> Unit,
     ) {
         val barState = bar ?: sampleState()
@@ -165,10 +168,12 @@ class ScreenshotTest {
             ExhaleTheme(dark = dark) {
                 val c = Ex.colors
                 Box(Modifier.fillMaxSize().background(c.bg)) {
+                    // The Glow home's edge light sits under the screen, as in the app.
+                    if (glow) GlowEdge(barState.heat, alpha = { 1f }, hold = { 0f }, flash = { 0f })
                     content()
                     if (tab != null) {
                         val behavior = AppBarScrollBehavior().apply { if (barHidden) hiddenPx = 10_000f }
-                        ExAppBar(LeadingKey(Tab.entries[tab], picked), {}, Modifier.align(Alignment.TopCenter), barScrolled, behavior) { k ->
+                        ExAppBar(LeadingKey(Tab.entries[tab], picked), {}, Modifier.align(Alignment.TopCenter), barScrolled, behavior, seeThrough = { if (glow) 1f else 0f }) { k ->
                             TabLeading(k, barState, todayOpen, {})
                         }
                         FloatingTabBar(
@@ -212,6 +217,13 @@ class ScreenshotTest {
     @Test fun emberTodayWithinLight() = shot("1f_ember_today_within", false, 0, bar = sampleState(38), todayOpen = true) { EmberScreen(sampleState(38), null, {}, {}, { _, _ -> }, {}, {}, todayOpen = true) }
     @Test fun emberHotDark() = shot("1b_ember_logged", true, 0, bar = sampleState(4)) { EmberScreen(sampleState(4), LoggedEvent(1, 5, 12), {}, {}, { _, _ -> }, {}, {}) }
     @Test fun emberHotLight() = shot("1b_ember_logged", false, 0, bar = sampleState(4)) { EmberScreen(sampleState(4), LoggedEvent(1, 5, 12), {}, {}, { _, _ -> }, {}, {}) }
+    // The Glow home: the gap as edge light and a line above the button.
+    private fun glowState(minutesSinceLast: Long = 161) = sampleState(minutesSinceLast).let { it.copy(settings = it.settings.copy(home = HomeStyle.GLOW)) }
+    @Test fun glowDark() = shot("1h_glow", true, 0, bar = glowState(), glow = true) { EmberScreen(glowState(), null, {}, {}, { _, _ -> }, {}, {}) }
+    @Test fun glowLight() = shot("1h_glow", false, 0, bar = glowState(), glow = true) { EmberScreen(glowState(), null, {}, {}, { _, _ -> }, {}, {}) }
+    @Test fun glowWaitingDark() = shot("1i_glow_waiting", true, 0, bar = glowState(38), glow = true) { EmberScreen(glowState(38), null, {}, {}, { _, _ -> }, {}, {}) }
+    @Test fun glowWaitingLight() = shot("1i_glow_waiting", false, 0, bar = glowState(38), glow = true) { EmberScreen(glowState(38), null, {}, {}, { _, _ -> }, {}, {}) }
+    @Test fun glowLoggedDark() = shot("1j_glow_logged", true, 0, bar = glowState(4), glow = true) { EmberScreen(glowState(4), LoggedEvent(1, 5, 12), {}, {}, { _, _ -> }, {}, {}) }
     @Test fun waveDark() = shot("3_wave", true) { UrgeWaveScreen({ _, _, _ -> }, {}, startAt = 1.5f) }
     @Test fun waveLight() = shot("3_wave", false) { UrgeWaveScreen({ _, _, _ -> }, {}, startAt = 1.5f) }
     @Test fun waveReadyDark() = shot("3b_wave_get_ready", true) { UrgeWaveScreen({ _, _, _ -> }, {}, startAt = 63.4f) }

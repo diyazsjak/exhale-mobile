@@ -27,6 +27,9 @@ enum class UrgeOutcome { SURVIVED, SMOKED }
 /** App appearance. SYSTEM follows the phone's dark/light setting. */
 enum class ThemeMode(val label: String) { SYSTEM("System"), LIGHT("Light"), DARK("Dark") }
 
+/** What the home tab shows: the Ember orb, or the gap as light around the screen (Glow). */
+enum class HomeStyle(val label: String) { EMBER("Ember"), GLOW("Glow") }
+
 data class SmokeLog(
     val id: Long,
     val at: Instant,
@@ -59,6 +62,7 @@ data class UserSettings(
     val goalName: String = SettingsInput.GOAL_NAME_BLANK,
     val goalMinor: Long = 30000,
     val theme: ThemeMode = ThemeMode.SYSTEM,
+    val home: HomeStyle = HomeStyle.EMBER,
     /** Epoch day on which the user opened the "borrowed from yesterday" note; hides the badge dot. */
     val borrowNoticeSeenDay: Long = -1,
 ) {

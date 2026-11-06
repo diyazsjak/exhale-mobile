@@ -38,6 +38,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import app.exhale.domain.HomeStyle
 import app.exhale.BuildConfig
 import app.exhale.domain.UrgeOutcome
 import app.exhale.ui.components.ExAppBar
@@ -48,6 +49,7 @@ import app.exhale.ui.components.TabItem
 import app.exhale.ui.components.rememberAppBarScrollBehavior
 import app.exhale.ui.screens.AirScreen
 import app.exhale.ui.screens.EmberScreen
+import app.exhale.ui.screens.GlowEdge
 import app.exhale.ui.screens.HistoryScreen
 import app.exhale.ui.screens.MoneyScreen
 import app.exhale.ui.screens.OnboardingScreen
@@ -180,7 +182,25 @@ private fun MainNav(state: ExhaleState, logged: LoggedEvent?, vm: ExhaleViewMode
     val barTab = tab ?: lastTab
     val away by animateFloatAsState(if (tab == null) 1f else 0f, navSpec(), label = "bars-away")
 
+    // The Glow home's edge light: drawn once under all the tabs so it stays fixed while pages slide.
+    // It fades with the tab change (quickly on the way out, over the slide on the way in) and with
+    // the bars when a full-screen route pushes in. The app bar turns see-through as it shows.
+    val glowHome = state.settings.home == HomeStyle.GLOW
+    val onEmber by animateFloatAsState(
+        if (barTab == Tab.EMBER) 1f else 0f,
+        if (barTab == Tab.EMBER) navSpec() else tween(NAV_MS * 2 / 5),
+        label = "glow-on-ember",
+    )
+    val glowAlpha = if (glowHome) onEmber * (1f - away) else 0f
+    val glowHeat by animateFloatAsState(state.heat, tween(1200), label = "glow-heat")
+    val glowHold = remember { mutableFloatStateOf(0f) }
+    val glowFlash = remember { mutableFloatStateOf(0f) }
+    val currentGlowAlpha by rememberUpdatedState(glowAlpha)
+
     Box(Modifier.fillMaxSize()) {
+        if (glowAlpha > 0f) {
+            GlowEdge(glowHeat, alpha = { currentGlowAlpha }, hold = { glowHold.floatValue }, flash = { glowFlash.floatValue })
+        }
         NavHost(
             nav,
             startDestination = Tab.EMBER.route,
@@ -200,6 +220,7 @@ private fun MainNav(state: ExhaleState, logged: LoggedEvent?, vm: ExhaleViewMode
                     onUrge = { nav.navigate(WAVE) },
                     todayOpen = todayOpen,
                     onTodayOpen = { todayOpen = it },
+                    onGlowLight = { hold, flash -> glowHold.floatValue = hold; glowFlash.floatValue = flash },
                 )
             }
             composable(Tab.RHYTHM.route) {
@@ -234,6 +255,7 @@ private fun MainNav(state: ExhaleState, logged: LoggedEvent?, vm: ExhaleViewMode
                     today = state.today,
                     onSave = vm::saveSettings,
                     onTheme = vm::setTheme,
+                    onHome = vm::setHome,
                     onErase = vm::eraseAll,
                     onClose = { nav.popBackStack() },
                     prototypeTools = if (BuildConfig.DEBUG) {
@@ -270,6 +292,7 @@ private fun MainNav(state: ExhaleState, logged: LoggedEvent?, vm: ExhaleViewMode
                     modifier = Modifier.align(Alignment.TopCenter),
                     scrolled = scrolledUnder,
                     scrollBehavior = barScroll,
+                    seeThrough = { currentGlowAlpha },
                 ) { k ->
                     TabLeading(k, state, todayOpen, onToday = {
                         todayOpen = !todayOpen

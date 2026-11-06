@@ -51,6 +51,8 @@ import app.exhale.ui.theme.ExType
  * Pass [scrollState] to react to scrolling (Air's sky collapses as the screen scrolls).
  * Tabs sit under the shared [ExAppBar] instead of having a [header]: [underAppBar] leaves the same
  * room the header row would take, so content starts in the same place.
+ * [opaque] = false leaves out the shared bg so something drawn behind the whole screen shows
+ * through: the Glow home's edge light, which stays fixed while the page slides.
  */
 @Composable
 fun ExScreen(
@@ -61,12 +63,13 @@ fun ExScreen(
     background: (@Composable BoxScope.() -> Unit)? = null,
     scrollState: ScrollState? = null,
     underAppBar: Boolean = false,
+    opaque: Boolean = true,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val c = Ex.colors
     val ownScroll = rememberScrollState()
     val st = scrollState ?: ownScroll
-    Box(modifier.fillMaxSize().background(c.bg)) {
+    Box(modifier.fillMaxSize().then(if (opaque) Modifier.background(c.bg) else Modifier)) {
         background?.invoke(this)
         Column(Modifier.fillMaxSize().statusBarsPadding()) {
             if (header != null) {

@@ -63,6 +63,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import app.exhale.domain.HomeStyle
 import app.exhale.domain.Trigger
 import app.exhale.ui.ExhaleState
 import app.exhale.ui.Fmt
@@ -94,6 +95,8 @@ fun EmberScreen(
     onUrge: () -> Unit,
     todayOpen: Boolean = false,
     onTodayOpen: (Boolean) -> Unit = {},
+    /** Glow home only: the hold (0..1) and the log's flash (1 → 0), for the edge light drawn behind the tabs. */
+    onGlowLight: (hold: Float, flash: Float) -> Unit = { _, _ -> },
 ) {
     val c = Ex.colors
     val heat by animateFloatAsState(state.heat, tween(1200), label = "heat")
@@ -122,44 +125,59 @@ fun EmberScreen(
         if (logged != null) hint = EmberHint.Idle
     }
 
+    // One number: time until the next one, then time since the last once it's earned.
+    val big = when {
+        state.lastLog == null -> "—"
+        earned -> Fmt.gap(state.sinceLast)
+        else -> Fmt.gap(state.remainingToNext)
+    }
+    val sub = when {
+        state.lastLog == null -> AnnotatedString("nothing logged yet")
+        earned -> buildAnnotatedString {
+            append("since your last one · ")
+            withStyle(SpanStyle(color = c.oxyInk)) { append("next one earned") }
+        }
+        else -> AnnotatedString("until your next one")
+    }
+    val glow = state.settings.home == HomeStyle.GLOW
+    val nextLogIsOver = state.overAllowance
+    val onHoldStart = { hint = EmberHint.Holding; onTodayOpen(false) }
+    val onHoldEnd = { held: Float -> hint = if (held < TAP_THRESHOLD) EmberHint.Tapped else EmberHint.TooShort }
+
     Box(Modifier.fillMaxSize()) {
         ExScreen(
             scroll = false,
             underAppBar = true,
+            // The Glow home's edge light is drawn behind the tabs and shows through.
+            opaque = !glow,
         ) {
-            // One number: time until the next one, then time since the last once it's earned.
-            Column(
-                Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(ExSpace.xxs),
-            ) {
-                val big = when {
-                    state.lastLog == null -> "—"
-                    earned -> Fmt.gap(state.sinceLast)
-                    else -> Fmt.gap(state.remainingToNext)
-                }
-                Text(big, style = ExType.display.copy(fontSize = 64.sp), color = c.ink, textAlign = TextAlign.Center)
-                val sub = when {
-                    state.lastLog == null -> AnnotatedString("nothing logged yet")
-                    earned -> buildAnnotatedString {
-                        append("since your last one · ")
-                        withStyle(SpanStyle(color = c.oxyInk)) { append("next one earned") }
-                    }
-                    else -> AnnotatedString("until your next one")
-                }
-                Text(sub, style = ExType.titleItalic.copy(fontSize = 21.sp), color = c.inkSoft, textAlign = TextAlign.Center)
-            }
-            Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                EmberOrb(
-                    heat = heat,
-                    onLog = onLog,
-                    ring = ring,
-                    nextLogIsOver = state.overAllowance,
-                    onHoldStart = { hint = EmberHint.Holding; onTodayOpen(false) },
-                    onHoldEnd = { held -> hint = if (held < 0.08f) EmberHint.Tapped else EmberHint.TooShort },
+            if (glow) {
+                GlowHero(
+                    big, sub, heat = heat, progress = ring, onLog = onLog,
+                    modifier = Modifier.weight(1f),
+                    nextLogIsOver = nextLogIsOver, onHoldStart = onHoldStart, onHoldEnd = onHoldEnd, onLight = onGlowLight,
                 )
+            } else {
+                Column(
+                    Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(ExSpace.xxs),
+                ) {
+                    Text(big, style = ExType.display.copy(fontSize = 64.sp), color = c.ink, textAlign = TextAlign.Center)
+                    Text(sub, style = ExType.titleItalic.copy(fontSize = 21.sp), color = c.inkSoft, textAlign = TextAlign.Center)
+                }
+                Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    EmberOrb(
+                        heat = heat,
+                        onLog = onLog,
+                        ring = ring,
+                        nextLogIsOver = nextLogIsOver,
+                        onHoldStart = onHoldStart,
+                        onHoldEnd = onHoldEnd,
+                    )
+                }
             }
-            EmberHintLine(hint, state)
+            EmberHintLine(hint, if (glow) "Hold anywhere to log" else "Hold the ember to log")
             ExButton("I want one. Help me wait.", onUrge, Modifier.fillMaxWidth(), style = ButtonStyle.Secondary, icon = ExIcons.Wave)
         }
 
@@ -208,9 +226,9 @@ fun EmberScreen(
 /** What the hint under the ember is saying. */
 private enum class EmberHint { Idle, Holding, TooShort, Tapped }
 
-/** One line under the ember that reacts to the gesture; each change slides in from below. */
+/** One line under the ember (or the Glow line) that reacts to the gesture; each change slides in from below. [idle] is the line at rest. */
 @Composable
-private fun EmberHintLine(hint: EmberHint, state: ExhaleState) {
+private fun EmberHintLine(hint: EmberHint, idle: String) {
     val c = Ex.colors
     AnimatedContent(
         targetState = hint,
@@ -222,10 +240,10 @@ private fun EmberHintLine(hint: EmberHint, state: ExhaleState) {
         label = "ember-hint",
     ) { h ->
         val (text, color) = when (h) {
-            EmberHint.Idle -> "Hold the ember to log" to c.inkFaint
+            EmberHint.Idle -> idle to c.inkFaint
             EmberHint.Holding -> "Keep holding…" to c.inkSoft
             EmberHint.TooShort -> "Hold a little longer" to c.inkSoft
-            EmberHint.Tapped -> "Hold the ember to log" to c.inkSoft
+            EmberHint.Tapped -> idle to c.inkSoft
         }
         Text(
             text,
