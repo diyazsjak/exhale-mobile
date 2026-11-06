@@ -125,7 +125,7 @@ private fun QuietChip(text: String, icon: ImageVector?, description: String, onC
             .clip(ExRadius.pill)
             .border(ExSize.hairline, c.inkFaint, ExRadius.pill)
             .clickable(source, ripple(), role = Role.Button, onClickLabel = description, onClick = onClick)
-            .padding(start = if (icon != null) 12.dp else 16.dp, end = 16.dp),
+            .padding(start = if (icon != null) ExSpace.sm else ExSpace.md, end = ExSpace.md),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
@@ -151,7 +151,7 @@ private fun ChipField(value: String, onChange: (String) -> Unit, onDone: () -> U
             .clip(ExRadius.pill)
             .background(c.surface)
             .border(ExSize.ring, c.sky, ExRadius.pill)
-            .padding(start = 16.dp, end = 4.dp),
+            .padding(start = ExSpace.md, end = ExSpace.xxs),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {

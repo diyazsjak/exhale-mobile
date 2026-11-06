@@ -10,6 +10,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -93,7 +94,7 @@ internal fun TriggersPage(
             ExCard { Text("None shown. Tagging is optional, so that's fine.", style = ExType.caption, color = c.inkSoft) }
         } else {
             ExCard(padding = ExSpace.sm) {
-                ReorderColumn(shown, key = { it.key }, onMove = actions.move) { e, handle, dragging -> Row(e, handle, dragging) }
+                ReorderColumn(shown, keyOf = { it.key }, onMove = actions.move) { e, handle, dragging -> Row(e, handle, dragging) }
             }
         }
         if (hidden.isNotEmpty()) {
@@ -121,9 +122,14 @@ internal fun TriggerPage(
     toast: ExToastState,
     onBack: () -> Unit,
 ) {
-    val entry = triggers.firstOrNull { it.key == key }
-    if (entry == null) NewTriggerPage(triggers, actions, toast, onBack)
-    else EditTriggerPage(triggers, entry, uses, actions, toast, onBack)
+    // Once leaving, the page keeps the list it had: while it slides out, a deleted trigger would turn it
+    // into "Add a trigger", and a just-added name would read as taken.
+    var leaving by remember { mutableStateOf<List<TriggerEntry>?>(null) }
+    val list = leaving ?: triggers
+    val back = { leaving = triggers; onBack() }
+    val entry = list.firstOrNull { it.key == key }
+    if (entry == null) NewTriggerPage(list, actions, toast, back)
+    else EditTriggerPage(list, entry, uses, actions, toast, back)
 }
 
 @OptIn(ExperimentalLayoutApi::class)

@@ -15,6 +15,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
@@ -50,7 +51,7 @@ import app.exhale.ui.theme.ExType
 @Composable
 fun <T> ReorderColumn(
     items: List<T>,
-    key: (T) -> Any,
+    keyOf: (T) -> Any,
     onMove: (from: Int, to: Int) -> Unit,
     modifier: Modifier = Modifier,
     row: @Composable (item: T, handle: Modifier, dragging: Boolean) -> Unit,
@@ -66,11 +67,11 @@ fun <T> ReorderColumn(
         val k = dragKey ?: return
         offset += dy
         // Past the middle of the neighbour it's moving toward, the two swap places.
-        val i = order.indexOfFirst { key(it) == k }
+        val i = order.indexOfFirst { keyOf(it) == k }
         val dir = if (offset > 0) 1 else -1
         val j = i + dir
         if (i < 0 || j !in order.indices) return
-        val h = heights[key(order[j])] ?: return
+        val h = heights[keyOf(order[j])] ?: return
         if (abs(offset) > h / 2f) {
             order = order.toMutableList().apply { add(j, removeAt(i)) }
             offset -= dir * h
@@ -79,8 +80,8 @@ fun <T> ReorderColumn(
 
     fun drop() {
         val k = dragKey ?: return
-        val from = currentItems.indexOfFirst { key(it) == k }
-        val to = order.indexOfFirst { key(it) == k }
+        val from = currentItems.indexOfFirst { keyOf(it) == k }
+        val to = order.indexOfFirst { keyOf(it) == k }
         dragKey = null
         offset = 0f
         if (from >= 0 && to >= 0 && from != to) currentMove(from, to)
@@ -88,27 +89,30 @@ fun <T> ReorderColumn(
 
     Column(modifier) {
         order.forEachIndexed { i, item ->
-            val k = key(item)
-            val dragging = dragKey == k
-            val handle = Modifier.pointerInput(k, items) {
-                detectVerticalDragGestures(
-                    onDragStart = { dragKey = k; offset = 0f },
-                    onDragEnd = { drop() },
-                    onDragCancel = { drop() },
-                ) { change, dy -> change.consume(); dragBy(dy) }
-            }
-            val actions = listOfNotNull(
-                CustomAccessibilityAction("Move up") { currentMove(i, i - 1); true }.takeIf { i > 0 },
-                CustomAccessibilityAction("Move down") { currentMove(i, i + 1); true }.takeIf { i < order.lastIndex },
-            )
-            Box(
-                Modifier
-                    .onSizeChanged { heights[k] = it.height }
-                    .zIndex(if (dragging) 1f else 0f)
-                    .graphicsLayer { translationY = if (dragging) offset else 0f }
-                    .semantics { customActions = actions }
-            ) {
-                row(item, handle, dragging)
+            val k = keyOf(item)
+            // Keyed by item, so a swap moves the row (and the drag it is running) rather than re-keying the slot.
+            key(k) {
+                val dragging = dragKey == k
+                val handle = Modifier.pointerInput(k, items) {
+                    detectVerticalDragGestures(
+                        onDragStart = { dragKey = k; offset = 0f },
+                        onDragEnd = { drop() },
+                        onDragCancel = { drop() },
+                    ) { change, dy -> change.consume(); dragBy(dy) }
+                }
+                val actions = listOfNotNull(
+                    CustomAccessibilityAction("Move up") { currentMove(i, i - 1); true }.takeIf { i > 0 },
+                    CustomAccessibilityAction("Move down") { currentMove(i, i + 1); true }.takeIf { i < order.lastIndex },
+                )
+                Box(
+                    Modifier
+                        .onSizeChanged { heights[k] = it.height }
+                        .zIndex(if (dragging) 1f else 0f)
+                        .graphicsLayer { translationY = if (dragging) offset else 0f }
+                        .semantics { customActions = actions }
+                ) {
+                    row(item, handle, dragging)
+                }
             }
         }
     }
@@ -141,7 +145,7 @@ fun HandleRow(
             .background(if (dragging) c.surfaceHigh else c.surface)
             .clickable(role = Role.Button, onClickLabel = "Edit", onClick = onClick)
             .heightIn(min = ExSize.row)
-            .padding(start = if (handle != null) 0.dp else 4.dp, top = if (sub != null) 6.dp else 0.dp, bottom = if (sub != null) 6.dp else 0.dp),
+            .padding(start = if (handle != null) 0.dp else ExSpace.xxs, top = if (sub != null) 6.dp else 0.dp, bottom = if (sub != null) 6.dp else 0.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (handle != null) {

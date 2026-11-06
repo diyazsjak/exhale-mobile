@@ -47,6 +47,9 @@ class ExhaleRepository(
 
     suspend fun undoLog(id: Long) = db.logs().delete(id)
 
+    /** How many logs and cravings are tagged with [key]. */
+    suspend fun uses(key: String): Int = db.logs().countTagged(key)
+
     suspend fun tagLog(id: Long, trigger: Trigger?) = db.logs().setTrigger(id, trigger?.key)
 
     suspend fun recordUrge(started: Instant, ended: Instant, outcome: UrgeOutcome, trigger: Trigger?) {

@@ -315,7 +315,7 @@ class ScreenshotTest {
     private fun manyTriggersState(minutesSinceLast: Long = 4): ExhaleState {
         var list = ownTriggers
         listOf("Waiting", "Work break", "Gaming").forEachIndexed { i, n -> list = Triggers.add(list, n, "custom:$i")!!.list }
-        return sampleState(minutesSinceLast).copy(triggers = list, shownTriggers = Triggers.shown(list))
+        return sampleState(minutesSinceLast).copy(triggers = list)
     }
 
     @Test fun settingsTriggersDark() = shot("7h_settings_triggers", true) { Settings(page = SettingsPage.TRIGGERS) }
@@ -323,6 +323,7 @@ class ScreenshotTest {
     @Test fun settingsTriggerOwnDark() = shot("7i_settings_trigger", true) { Settings(page = SettingsPage.TRIGGER, triggerKey = "custom:bus") }
     @Test fun settingsTriggerOwnLight() = shot("7i_settings_trigger", false) { Settings(page = SettingsPage.TRIGGER, triggerKey = "custom:bus") }
     @Test fun settingsTriggerBuiltInDark() = shot("7j_settings_trigger_builtin", true) { Settings(page = SettingsPage.TRIGGER, triggerKey = "COFFEE") }
+    @Test fun settingsTriggerBuiltInLight() = shot("7j_settings_trigger_builtin", false) { Settings(page = SettingsPage.TRIGGER, triggerKey = "COFFEE") }
     @Test fun settingsTriggerNewDark() = shot("7k_settings_trigger_new", true) { Settings(page = SettingsPage.TRIGGER) }
     @Test fun settingsTriggerNewLight() = shot("7k_settings_trigger_new", false) { Settings(page = SettingsPage.TRIGGER) }
     @Test fun emberLoggedMoreDark() = shot("1l_ember_logged_more", true, 0, bar = manyTriggersState()) {
@@ -338,6 +339,9 @@ class ScreenshotTest {
         EmberScreen(sampleState(4), LoggedEvent(1, 5, 12), {}, {}, { _, _ -> }, {}, {}, initialDraft = "Phone calls")
     }
     @Test fun waveOwnDark() = shot("3d_wave_own", true) {
+        UrgeWaveScreen({ _, _, _ -> }, {}, startAt = 30f, triggers = Triggers.shown(ownTriggers))
+    }
+    @Test fun waveOwnLight() = shot("3d_wave_own", false) {
         UrgeWaveScreen({ _, _, _ -> }, {}, startAt = 30f, triggers = Triggers.shown(ownTriggers))
     }
     @Test fun settingsDark() = shot("7_settings", true) { Settings() }

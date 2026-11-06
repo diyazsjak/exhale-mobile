@@ -40,6 +40,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -216,7 +217,8 @@ fun EmberScreen(
             var editing by remember(ev.logId) { mutableStateOf(initialDraft != null) }
             var touched by remember(ev.logId) { mutableIntStateOf(0) }
             LaunchedEffect(ev.logId, editing, touched) { if (!editing) { delay(8000); onDismissLogged() } }
-            LoggedCard(
+            // Keyed by the log, so a name half typed on the last card doesn't carry over to this one.
+            key(ev.logId) { LoggedCard(
                 ev, state,
                 onUndo = { onUndo(ev.logId) },
                 onTag = { onTag(ev.logId, it) },
@@ -229,7 +231,7 @@ fun EmberScreen(
                         touched++
                     }
                 },
-            )
+            ) }
         }
 
         // Tap anywhere outside the popover to close it.

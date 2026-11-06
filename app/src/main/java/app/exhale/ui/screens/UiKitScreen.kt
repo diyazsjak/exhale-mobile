@@ -179,7 +179,7 @@ fun UiKitScreen(theme: ThemeMode, onTheme: (ThemeMode) -> Unit, onClose: () -> U
             var rows by remember { mutableStateOf(listOf("Coffee", "Phone calls", "Stress")) }
             var off by remember { mutableStateOf(setOf<String>()) }
             ExCard(padding = ExSpace.sm) {
-                ReorderColumn(rows, key = { it }, onMove = { from, to -> rows = rows.toMutableList().apply { add(to, removeAt(from)) } }) { r, handle, dragging ->
+                ReorderColumn(rows, keyOf = { it }, onMove = { from, to -> rows = rows.toMutableList().apply { add(to, removeAt(from)) } }) { r, handle, dragging ->
                     HandleRow(
                         r, {}, if (r in off) ExIcons.EyeOff else ExIcons.Eye, "Hide or show $r", { off = if (r in off) off - r else off + r },
                         handle = handle, dragging = dragging, badge = "Yours".takeIf { r == "Phone calls" }, dimmed = r in off,

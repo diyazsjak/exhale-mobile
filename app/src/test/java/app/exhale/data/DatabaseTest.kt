@@ -43,6 +43,17 @@ class DatabaseTest {
         db.close()
     }
 
+    @Test fun countTagged_countsLogsAndCravings_evenUnknownKeys() = runBlocking {
+        val db = ExhaleDatabase.create(context)
+        db.logs().insert(SmokeLogEntity(atMillis = 1, trigger = "custom:gone", fromUrge = false))
+        db.logs().insert(SmokeLogEntity(atMillis = 2, trigger = "COFFEE", fromUrge = false))
+        db.urges().insert(UrgeEntity(startedMillis = 1, endedMillis = 2, outcome = "SURVIVED", trigger = "custom:gone"))
+        assertEquals(2, db.logs().countTagged("custom:gone"))
+        assertEquals(1, db.logs().countTagged("COFFEE"))
+        assertEquals(0, db.logs().countTagged("STRESS"))
+        db.close()
+    }
+
     /** Creates exhale.db exactly as version 1 left it, from the exported schema. */
     private fun writeVersion1(fill: (SQLiteDatabase) -> Unit) {
         val schema = JSONObject(File("schemas/app.exhale.data.ExhaleDatabase/1.json").readText()).getJSONObject("database")

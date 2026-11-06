@@ -65,9 +65,10 @@ data class ExhaleState(
     val triggers: List<TriggerEntry> = Triggers.defaults,
     /** How many logs and cravings each trigger key tagged; only unused ones can be deleted. */
     val triggerUses: Map<String, Int> = emptyMap(),
-    /** The triggers offered as chips, in order ([Triggers.shown]). */
-    val shownTriggers: List<Trigger> = Triggers.shown(triggers),
 ) {
+    /** The triggers offered as chips, in order ([Triggers.shown]). */
+    val shownTriggers: List<Trigger> get() = Triggers.shown(triggers)
+
     // Today's numbers live in [plan] (domain/TodayPlan, unit-tested); these read through to it.
     val today: LocalDate get() = plan.date
     val todayCount: Int get() = plan.count
@@ -112,7 +113,6 @@ class ExhaleViewModel(private val repo: ExhaleRepository) : ViewModel() {
         val triggers: List<TriggerEntry>,
     ) {
         val triggerUses = Triggers.uses(logs, urges)
-        val shownTriggers = Triggers.shown(triggers)
     }
 
     private val stored = combine(repo.settings, repo.logs, repo.urges, repo.triggers, ::Stored)
@@ -142,7 +142,6 @@ class ExhaleViewModel(private val repo: ExhaleRepository) : ViewModel() {
             week = weekDays(s, logs, plan.date, zone, dataStart),
             triggers = d.triggers,
             triggerUses = d.triggerUses,
-            shownTriggers = d.shownTriggers,
         )
     }
 
@@ -160,7 +159,7 @@ class ExhaleViewModel(private val repo: ExhaleRepository) : ViewModel() {
     }
 
     fun tag(id: Long, trigger: Trigger) {
-        viewModelScope.launch { repo.tagLog(id, trigger) }
+        viewModelScope.launch { triggerLock.withLock { repo.tagLog(id, trigger) } }
         _lastLogged.value = null
     }
 
@@ -170,12 +169,15 @@ class ExhaleViewModel(private val repo: ExhaleRepository) : ViewModel() {
     // (a drag, say) never build on a list the flow hasn't caught up with yet.
     private val triggerLock = Mutex()
 
-    private fun editTriggers(change: (List<TriggerEntry>) -> List<TriggerEntry>?) {
+    // Tags, cravings, erasing and demo data take the same lock, so none of them can slip between an
+    // edit's read and its save (a tag landing on a trigger being deleted, say).
+    private fun editTriggers(after: () -> Unit = {}, change: suspend (List<TriggerEntry>) -> List<TriggerEntry>?) {
         viewModelScope.launch {
             triggerLock.withLock {
                 val current = repo.triggers.first()
                 change(current)?.takeIf { it != current }?.let { repo.saveTriggers(it) }
             }
+            after()
         }
     }
 
@@ -184,12 +186,9 @@ class ExhaleViewModel(private val repo: ExhaleRepository) : ViewModel() {
      * the saved trigger to [then]. Nothing happens for a blank name.
      */
     fun addTrigger(name: String, then: (Trigger) -> Unit = {}) {
-        viewModelScope.launch {
-            val added = triggerLock.withLock {
-                val current = repo.triggers.first()
-                Triggers.add(current, name, Triggers.newKey())?.also { if (it.list != current) repo.saveTriggers(it.list) }
-            }
-            added?.let { then(it.trigger) }
+        var added: Trigger? = null
+        editTriggers(after = { added?.let(then) }) { list ->
+            Triggers.add(list, name, Triggers.newKey())?.also { added = it.trigger }?.list
         }
     }
 
@@ -199,21 +198,13 @@ class ExhaleViewModel(private val repo: ExhaleRepository) : ViewModel() {
     fun renameTrigger(key: String, name: String) = editTriggers { Triggers.rename(it, key, name) }
     fun setTriggerHidden(key: String, hidden: Boolean) = editTriggers { Triggers.setHidden(it, key, hidden) }
     fun moveTrigger(from: Int, to: Int) = editTriggers { Triggers.move(it, from, to) }
-    fun deleteTrigger(key: String) {
-        viewModelScope.launch {
-            triggerLock.withLock {
-                // Counted from what's saved now, so a tag made a moment ago still protects it.
-                val uses = Triggers.uses(repo.logs.first(), repo.urges.first())
-                val current = repo.triggers.first()
-                Triggers.delete(current, key, uses).takeIf { it != current }?.let { repo.saveTriggers(it) }
-            }
-        }
-    }
+    /** Counted from the stored tags, so even a tag made a moment ago keeps it. */
+    fun deleteTrigger(key: String) = editTriggers { Triggers.delete(it, key, mapOf(key to repo.uses(key))) }
 
     fun finishUrge(started: Instant, outcome: UrgeOutcome, trigger: Trigger?) {
         viewModelScope.launch {
             // The urge is recorded either way. A cigarette is only ever logged by holding the ember.
-            repo.recordUrge(started, Instant.now(), outcome, trigger)
+            triggerLock.withLock { repo.recordUrge(started, Instant.now(), outcome, trigger) }
         }
     }
 
@@ -228,9 +219,9 @@ class ExhaleViewModel(private val repo: ExhaleRepository) : ViewModel() {
         if (!st.settings.borrowNoticeSeenOn(st.today)) saveSettings(st.settings.withBorrowNoticeSeen(st.today))
     }
 
-    fun loadDemo() { viewModelScope.launch { repo.seedDemo() } }
+    fun loadDemo() { viewModelScope.launch { triggerLock.withLock { repo.seedDemo() } } }
 
-    fun eraseAll() { viewModelScope.launch { repo.eraseAll() } }
+    fun eraseAll() { viewModelScope.launch { triggerLock.withLock { repo.eraseAll() } } }
 
     companion object {
         val Factory: ViewModelProvider.Factory = viewModelFactory {
