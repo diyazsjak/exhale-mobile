@@ -25,6 +25,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
@@ -42,7 +43,8 @@ import app.exhale.ui.theme.ExType
 /*
  * "Glow" (Floor, edge glow, from the First Screen Lab): the home without an object. A big number in
  * the middle, a straight countdown line above the craving button, and soft light along the screen's
- * edges coloured by heat. Hold anywhere in the middle to log; a warm trail runs along the line.
+ * edges coloured by heat. Hold anywhere in the middle to log: a warm glow gathers under your finger and a warm
+ * trail runs along the line.
  *
  * The edge light ([GlowEdge]) is drawn once, under all the tabs, so it stays fixed while pages
  * slide; it fades out as the Ember tab is left. The line and the number belong to the page.
@@ -78,7 +80,22 @@ internal fun GlowHero(
         snapshotFlow { h.hold.value to h.burst.value }.collect { (hold, burst) -> currentOnLight(hold, if (burst > 0f) 1f - burst else 0f) }
     }
     val breath = rememberBreath()
-    Column(modifier.fillMaxWidth().holdToLog(h, "Press and hold anywhere to log a cigarette.")) {
+    val colors = c
+    val fingerAlpha = if (c.isDark) 0.32f else 0.38f
+    Column(
+        modifier
+            .fillMaxWidth()
+            // A warm glow gathers where you hold, growing and warming with the charge.
+            .drawBehind {
+                val hd = h.hold.value
+                if (hd <= 0f) return@drawBehind
+                val at = h.pressAt ?: center
+                val r = (60f + 120f * hd).dp.toPx()
+                val col = colors.heat(heat + (1f - heat) * hd)
+                drawCircle(Brush.radialGradient(listOf(col.copy(alpha = fingerAlpha * hd), col.copy(alpha = 0f)), at, r), r, at)
+            }
+            .holdToLog(h, "Press and hold anywhere to log a cigarette."),
+    ) {
         Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
             Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(ExSpace.xxs)) {
                 Text(big, style = ExType.display.copy(fontSize = 88.sp), color = c.ink, textAlign = TextAlign.Center, maxLines = 1)

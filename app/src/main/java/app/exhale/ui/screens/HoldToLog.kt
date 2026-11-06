@@ -14,6 +14,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onLongClick
@@ -56,6 +57,10 @@ class HoldToLog internal constructor(private val scope: CoroutineScope, private 
     var burstOver by mutableStateOf(false)
         private set
 
+    /** Where the last press landed, in the held element's coordinates. Null before any press (or from TalkBack or a keyboard). */
+    var pressAt by mutableStateOf<Offset?>(null)
+        private set
+
     internal var onLog: () -> Unit = {}
     internal var nextLogIsOver = false
     internal var onHoldStart: () -> Unit = {}
@@ -71,7 +76,8 @@ class HoldToLog internal constructor(private val scope: CoroutineScope, private 
         onLog()
     }
 
-    internal suspend fun press(gesture: PressGestureScope) {
+    internal suspend fun press(gesture: PressGestureScope, at: Offset) {
+        pressAt = at
         onHoldStart()
         var committed = false
         val job = scope.launch {
@@ -136,4 +142,4 @@ fun Modifier.holdToLog(h: HoldToLog, description: String): Modifier = this
         contentDescription = description
         onLongClick("Log cigarette") { h.logNow(); true }
     }
-    .pointerInput(h) { detectTapGestures(onPress = { h.press(this) }) }
+    .pointerInput(h) { detectTapGestures(onPress = { at -> h.press(this, at) }) }

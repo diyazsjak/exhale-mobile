@@ -153,7 +153,8 @@ above stays: the Today badge and popover, the earned haptic, the Logged card, th
   fades with the bars when a full-screen route pushes in. While it shows, the app bar is see-through.
 - **Hold to log**: the same 1.5 s hold and haptics as the ember (`HoldToLog.kt`, shared by both).
   The line's cool fill fades and a warm trail runs along it on the heat scale, brightest at its head;
-  the edge light brightens and deepens. A log flashes the edge light. The hint at rest says "Hold
+  the edge light brightens and deepens, and a warm glow gathers where you hold, growing and warming
+  with the charge (at the middle for TalkBack's long press). A log flashes the edge light. The hint at rest says "Hold
   anywhere to log".
 
 ### 3.3 Urge Wave — `UrgeWaveScreen.kt`
