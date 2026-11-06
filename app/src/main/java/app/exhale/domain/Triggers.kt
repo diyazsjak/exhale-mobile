@@ -11,7 +11,19 @@ data class TriggerEntry(val trigger: Trigger, val hidden: Boolean = false) {
 data class ChipRow(val visible: List<Trigger>, val more: Int)
 
 /** What [Triggers.add] did: the list to save and the trigger the name now means. */
-data class TriggerAdded(val list: List<TriggerEntry>, val trigger: Trigger, val existed: Boolean)
+data class TriggerAdded(val list: List<TriggerEntry>, val trigger: Trigger)
+
+/** Whether a typed name can be saved ([Triggers.check]). */
+sealed interface NameCheck {
+    /** Nothing but spaces. */
+    data object Blank : NameCheck
+    /** Another shown trigger already has it. */
+    data class Taken(val entry: TriggerEntry) : NameCheck
+    /** A hidden trigger has it: adding shows that one again. */
+    data class Hidden(val entry: TriggerEntry) : NameCheck
+    /** Free; [name] is how it would be saved. */
+    data class Ok(val name: String) : NameCheck
+}
 
 /**
  * The user's own trigger list (Settings → Triggers, and "Your own" after logging). Pure functions on the
@@ -53,6 +65,18 @@ object Triggers {
     fun clean(name: String): String? =
         name.trim().replace(Regex("\\s+"), " ").take(NAME_MAX).trim().ifEmpty { null }
 
+    /** Names offered when adding one; only those the list doesn't have yet are shown. */
+    val IDEAS = listOf("Phone calls", "Waiting", "Work break", "Waking up", "Gaming", "Alone", "Arguments")
+
+    fun ideas(list: List<TriggerEntry>): List<String> = IDEAS.filter { named(list, it) == null }
+
+    /** Whether [name] can be saved, leaving out the trigger with key [except] (the one being renamed). */
+    fun check(list: List<TriggerEntry>, name: String, except: String? = null): NameCheck {
+        val label = clean(name) ?: return NameCheck.Blank
+        val found = named(list, label, except) ?: return NameCheck.Ok(label)
+        return if (found.hidden) NameCheck.Hidden(found) else NameCheck.Taken(found)
+    }
+
     /** The entry already called [name], ignoring case and spaces, other than the one with key [except]. */
     fun named(list: List<TriggerEntry>, name: String, except: String? = null): TriggerEntry? {
         val n = norm(name)
@@ -69,18 +93,17 @@ object Triggers {
         val label = clean(name) ?: return null
         named(list, label)?.let { found ->
             val next = if (found.hidden) setHidden(list, found.key, false) else list
-            return TriggerAdded(next, found.trigger, existed = true)
+            return TriggerAdded(next, found.trigger)
         }
-        val trigger = BuiltInTrigger.entries.firstOrNull { norm(it.label) == norm(label) }?.let(Trigger::of)
-            ?: Trigger(key, label)
-        return TriggerAdded(insertShown(list, TriggerEntry(trigger)), trigger, existed = false)
+        val trigger = Trigger.BUILT_IN.firstOrNull { norm(it.label) == norm(label) } ?: Trigger(key, label)
+        return TriggerAdded(insertShown(list, TriggerEntry(trigger)), trigger)
     }
 
     /** Renames the user's own trigger [key]. Null when it's a built-in, missing, or [name] is blank or taken. */
     fun rename(list: List<TriggerEntry>, key: String, name: String): List<TriggerEntry>? {
         val label = clean(name) ?: return null
         val entry = list.firstOrNull { it.key == key } ?: return null
-        if (entry.trigger.builtIn != null || named(list, label, except = key) != null) return null
+        if (entry.trigger.builtIn != null || check(list, label, except = key) !is NameCheck.Ok) return null
         return list.map { if (it.key == key) it.copy(trigger = it.trigger.copy(label = label)) else it }
     }
 
@@ -94,10 +117,9 @@ object Triggers {
 
     /** Moves the shown trigger at [from] to [to], both positions among the shown ones. */
     fun move(list: List<TriggerEntry>, from: Int, to: Int): List<TriggerEntry> {
-        val shown = list.filterNot { it.hidden }.toMutableList()
+        val (hidden, shown) = list.partition { it.hidden }
         if (from !in shown.indices) return list
-        shown.add(to.coerceIn(0, shown.lastIndex), shown.removeAt(from))
-        return shown + list.filter { it.hidden }
+        return shown.toMutableList().apply { add(to.coerceIn(0, lastIndex), removeAt(from)) } + hidden
     }
 
     /** How many logs and cravings each trigger key tagged. */
@@ -117,7 +139,7 @@ object Triggers {
      */
     fun resolve(key: String?, byKey: Map<String, Trigger>): Trigger? {
         if (key == null) return null
-        return byKey[key] ?: BuiltInTrigger.entries.firstOrNull { it.name == key }?.let(Trigger::of)
+        return byKey[key] ?: Trigger.builtInOf(key)
     }
 
     private fun insertShown(list: List<TriggerEntry>, entry: TriggerEntry): List<TriggerEntry> {

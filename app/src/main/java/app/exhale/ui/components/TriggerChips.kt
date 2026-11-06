@@ -56,8 +56,7 @@ import app.exhale.ui.theme.ExType
  * Wrapping set of trigger chips in the user's order ([Triggers.chipRow]): the first nine, then a
  * "N more" chip that opens the rest in place. With [onAdd], a "Your own" chip at the end turns into a
  * field to name a new trigger; Add (or the keyboard's Done) passes the tidied name, Back cancels.
- * [onBusy] is true while that field is open, or for a moment after "more", so a card that closes on
- * its own can wait.
+ * [onEditing] says when that field opens and closes, so a card that closes on its own can wait.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -67,17 +66,16 @@ fun TriggerChips(
     onPick: (Trigger) -> Unit,
     modifier: Modifier = Modifier,
     onAdd: ((String) -> Unit)? = null,
-    onBusy: (Boolean) -> Unit = {},
-    initialExpanded: Boolean = false,
-    /** Screenshots and the catalogue: open the field with this text. */
+    onEditing: (Boolean) -> Unit = {},
+    /** Screenshots: open the field with this text. */
     initialDraft: String? = null,
 ) {
     val c = Ex.colors
-    var expanded by rememberSaveable { mutableStateOf(initialExpanded) }
+    var expanded by rememberSaveable { mutableStateOf(false) }
     // null while not naming a new trigger.
     var draft by rememberSaveable { mutableStateOf(initialDraft) }
-    val busy by rememberUpdatedState(onBusy)
-    LaunchedEffect(draft != null) { busy(draft != null) }
+    val editing by rememberUpdatedState(onEditing)
+    LaunchedEffect(draft != null) { editing(draft != null) }
     BackHandler(enabled = draft != null) { draft = null }
 
     val row = Triggers.chipRow(triggers, selected, expanded)
@@ -89,7 +87,7 @@ fun TriggerChips(
         ) {
             row.visible.forEach { t -> ExChip(t.label, selected == t, { onPick(t) }, accent = c.flare) }
             if (row.more > 0) {
-                QuietChip("${row.more} more", null, "Show ${row.more} more triggers") { expanded = true; busy(false) }
+                QuietChip("${row.more} more", null, "Show ${row.more} more triggers") { expanded = true }
             }
             if (onAdd != null) {
                 val d = draft

@@ -141,7 +141,7 @@ The user's trigger chips in their order, with the two action chips that can foll
 
 Trigger chips are Chips with the `flare` accent. Up to nine show; with eleven or more, a **more** chip ("3 more") opens the rest in place. With `onAdd`, a **Your own** chip ends the row. Both action chips are quiet: no fill, a 1px `ink-faint` outline, a `label-small` label in `ink-soft`, and for Your own a 16px plus. Tapped, Your own becomes a full-width pill field with a 1.5px `sky` ring and a 32px button inside it, Primary "Add" once a name is typed, `surface-high` "Cancel" while it is empty; a `caption` in `ink-faint` under the row counts letters ("11 / 20 · It joins your list for next time."). Back cancels.
 
-- Compose: `TriggerChips(state.shownTriggers, selected, onPick, onAdd = { name -> … }, onBusy = { typing -> … })`.
+- Compose: `TriggerChips(state.shownTriggers, selected, onPick, onAdd = { name -> … }, onEditing = { typing -> … })`.
 
 ### Badge
 
@@ -299,7 +299,7 @@ Tappable row inside a card: label, optional value, chevron.
 
 A list row that can be dragged into a new order by its handle, with one trailing icon action, as in Settings → Triggers.
 
-Like ListRow (52px minimum, `body` label, inside a `surface` card with `space-sm` padding) with a 44px handle area on the left (20px drag icon in `ink-faint`, `ink` while dragging) and a plain IconButton on the right (an eye that hides, an eye-off that shows). An optional badge after the label is an `overline` in `sky-ink` on a `sky` tint pill ("YOURS"); `dimmed` puts the label in `ink-soft` (a hidden trigger), and a `caption` line can sit under it. Without a handle (hidden rows) the label lines up with ListRow's. The dragged row lifts onto `surface-high` and follows the finger; the others swap in as it passes their middle, and the new order is reported once it is let go. Screen readers get "Move up" and "Move down" actions instead.
+Like ListRow (52px minimum, `body` label, inside a `surface` card with `space-sm` padding) with a 44px handle area on the left (20px drag icon in `ink-faint`, `ink` while dragging) and a plain IconButton on the right (an eye that hides, an eye-off that shows). An optional badge after the label is a Badge with the `sky` accent ("Yours"); `dimmed` puts the label in `ink-soft` (a hidden trigger), and a `caption` line can sit under it. Without a handle (hidden rows) the label lines up with ListRow's. The dragged row lifts onto `surface-high` and follows the finger; the others swap in as it passes their middle, and the new order is reported once it is let go. Screen readers get "Move up" and "Move down" actions instead.
 
 - Compose: `ReorderColumn(items, key = { it.key }, onMove = { from, to -> … }) { item, handle, dragging -> HandleRow(label, onOpen, ExIcons.Eye, "Hide $label", onHide, handle = handle, dragging = dragging, badge = "Yours") }`.
 

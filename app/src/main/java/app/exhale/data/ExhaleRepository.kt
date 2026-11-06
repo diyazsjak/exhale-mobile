@@ -10,6 +10,7 @@ import app.exhale.domain.UrgeOutcome
 import app.exhale.domain.UserSettings
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import java.time.Instant
@@ -26,7 +27,9 @@ class ExhaleRepository(
     /** The user's trigger list: shown ones in chip order, then hidden ones. */
     val triggers: Flow<List<TriggerEntry>> = db.triggers().observeAll().map { list -> list.map { it.toDomain() } }
 
-    private val triggersByKey: Flow<Map<String, Trigger>> = triggers.map { list -> list.associate { it.key to it.trigger } }
+    /** Labels by key. Reordering or hiding changes none, so history isn't mapped again for them. */
+    private val triggersByKey: Flow<Map<String, Trigger>> =
+        triggers.map { list -> list.associate { it.key to it.trigger } }.distinctUntilChanged()
 
     val logs: Flow<List<SmokeLog>> =
         combine(db.logs().observeAll(), triggersByKey) { list, byKey -> list.map { it.toDomain(byKey) } }
@@ -60,9 +63,6 @@ class ExhaleRepository(
         settingsStore.clear()
     }
 
-    /** Erasing or loading demo data starts the trigger list over from the built-ins. */
-    private suspend fun resetTriggers() = saveTriggers(Triggers.defaults)
-
     /** Replaces everything with [DemoData]: a matching onboarded profile and 60 days of history. */
     suspend fun seedDemo() {
         clearHistory()
@@ -76,6 +76,7 @@ class ExhaleRepository(
     private suspend fun clearHistory() {
         db.logs().clear()
         db.urges().clear()
-        resetTriggers()
+        // Erasing or loading demo data starts the trigger list over from the built-ins.
+        saveTriggers(Triggers.defaults)
     }
 }

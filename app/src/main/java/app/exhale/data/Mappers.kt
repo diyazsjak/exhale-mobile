@@ -44,7 +44,7 @@ internal fun Urge.toEntity() = UrgeEntity(
 
 /** Built-ins keep their own label (they can't be renamed); the stored one is for the user's own. */
 internal fun TriggerEntity.toDomain() = TriggerEntry(
-    Trigger.BUILT_IN.firstOrNull { it.key == id } ?: Trigger(id, label),
+    Trigger.builtInOf(id) ?: Trigger(id, label),
     hidden,
 )
 

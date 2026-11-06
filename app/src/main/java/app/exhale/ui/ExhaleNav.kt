@@ -146,7 +146,7 @@ private fun MainNav(state: ExhaleState, logged: LoggedEvent?, vm: ExhaleViewMode
     val c = Ex.colors
     val nav = rememberNavController()
     val triggerActions = remember(vm) {
-        TriggerActions(vm::addTrigger, vm::renameTrigger, vm::setTriggerHidden, vm::moveTrigger, vm::deleteTrigger)
+        TriggerActions({ vm.addTrigger(it) }, vm::renameTrigger, vm::setTriggerHidden, vm::moveTrigger, vm::deleteTrigger)
     }
     val entry by nav.currentBackStackEntryAsState()
     val tab = Tab.entries.firstOrNull { it.route == entry?.destination?.route }

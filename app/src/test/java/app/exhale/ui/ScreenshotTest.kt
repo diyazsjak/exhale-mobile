@@ -315,7 +315,7 @@ class ScreenshotTest {
     private fun manyTriggersState(minutesSinceLast: Long = 4): ExhaleState {
         var list = ownTriggers
         listOf("Waiting", "Work break", "Gaming").forEachIndexed { i, n -> list = Triggers.add(list, n, "custom:$i")!!.list }
-        return sampleState(minutesSinceLast).copy(triggers = list)
+        return sampleState(minutesSinceLast).copy(triggers = list, shownTriggers = Triggers.shown(list))
     }
 
     @Test fun settingsTriggersDark() = shot("7h_settings_triggers", true) { Settings(page = SettingsPage.TRIGGERS) }

@@ -62,8 +62,8 @@ fun UrgeWaveScreen(
     startAt: Float = 0f,
     /** The user's chips, in order (Settings → Triggers). */
     triggers: List<Trigger> = Trigger.BUILT_IN,
-    /** "Your own": adds a trigger by name and returns it so it can be picked; null if it couldn't be. */
-    onAddTrigger: (String) -> Trigger? = { null },
+    /** "Your own": adds a trigger by name, then hands back the saved one so it can be picked. */
+    onAddTrigger: (name: String, then: (Trigger) -> Unit) -> Unit = { _, _ -> },
 ) {
     val c = Ex.colors
     val started = remember { Instant.now() }
@@ -134,7 +134,7 @@ fun UrgeWaveScreen(
         Overline("What's behind it? Optional", Modifier.padding(top = ExSpace.xs))
         TriggerChips(
             triggers, trigger, { trigger = if (trigger == it) null else it },
-            onAdd = { name -> onAddTrigger(name)?.let { trigger = it } },
+            onAdd = { name -> onAddTrigger(name) { trigger = it } },
         )
         Spacer(Modifier.weight(1f))
         if (done) {

@@ -1,6 +1,5 @@
 package app.exhale.ui.screens
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -14,10 +13,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import app.exhale.domain.Trigger
+import app.exhale.domain.NameCheck
 import app.exhale.domain.TriggerEntry
 import app.exhale.domain.Triggers
-import app.exhale.ui.components.BackHeader
 import app.exhale.ui.components.ButtonStyle
 import app.exhale.ui.components.DialogAction
 import app.exhale.ui.components.ExButton
@@ -25,7 +23,6 @@ import app.exhale.ui.components.ExCard
 import app.exhale.ui.components.ExChip
 import app.exhale.ui.components.ExChoiceDialog
 import app.exhale.ui.components.ExIcons
-import app.exhale.ui.components.ExScreen
 import app.exhale.ui.components.ExTextField
 import app.exhale.ui.components.ExToastState
 import app.exhale.ui.components.FieldNote
@@ -40,17 +37,18 @@ import app.exhale.ui.theme.ExType
 
 /** What Settings → Triggers can change. Each applies at once (see [app.exhale.ui.ExhaleViewModel]). */
 class TriggerActions(
-    val add: (String) -> Trigger? = { null },
+    val add: (name: String) -> Unit = {},
     val rename: (key: String, name: String) -> Unit = { _, _ -> },
     val setHidden: (key: String, hidden: Boolean) -> Unit = { _, _ -> },
     val move: (from: Int, to: Int) -> Unit = { _, _ -> },
     val delete: (key: String) -> Unit = {},
 )
 
-/** Names offered when adding one, left out once the list has them. */
-private val ideas = listOf("Phone calls", "Waiting", "Work break", "Waking up", "Gaming", "Alone", "Arguments")
-
-private fun usesText(n: Int) = if (n == 1) "Tagged once" else "Tagged $n times"
+private fun usesText(n: Int) = when (n) {
+    0 -> "Not used yet"
+    1 -> "Tagged once"
+    else -> "Tagged $n times"
+}
 
 /**
  * Settings → Triggers: the shown triggers in chip order (drag the handle to reorder, the eye hides
@@ -65,10 +63,26 @@ internal fun TriggersPage(
     onBack: () -> Unit,
 ) {
     val c = Ex.colors
-    val shown = triggers.filterNot { it.hidden }
-    val hidden = triggers.filter { it.hidden }
-    BackHandler(onBack = onBack)
-    ExScreen(bottomClearance = ExSpace.xl, header = { BackHeader("Triggers", onBack) }) {
+    val (hidden, shown) = triggers.partition { it.hidden }
+
+    // One row for both lists: shown ones have a handle and hide; hidden ones show again and say what they keep.
+    @Composable
+    fun Row(e: TriggerEntry, handle: Modifier? = null, dragging: Boolean = false) {
+        val label = e.trigger.label
+        val n = uses[e.key] ?: 0
+        HandleRow(
+            label, { onOpen(e.key) },
+            if (e.hidden) ExIcons.EyeOff else ExIcons.Eye,
+            if (e.hidden) "Show $label" else "Hide $label",
+            { actions.setHidden(e.key, !e.hidden) },
+            handle = handle, dragging = dragging,
+            badge = "Yours".takeIf { e.trigger.builtIn == null },
+            sub = if (e.hidden && n > 0) "${usesText(n)}, still on Rhythm" else null,
+            dimmed = e.hidden,
+        )
+    }
+
+    EditPage("Triggers", onBack, savesOnBack = false) {
         ScreenTitle(
             "Your triggers",
             subtitle = "The chips you can tag a cigarette or a craving with, in this order. " +
@@ -79,27 +93,12 @@ internal fun TriggersPage(
             ExCard { Text("None shown. Tagging is optional, so that's fine.", style = ExType.caption, color = c.inkSoft) }
         } else {
             ExCard(padding = ExSpace.sm) {
-                ReorderColumn(shown, key = { it.key }, onMove = actions.move) { e, handle, dragging ->
-                    HandleRow(
-                        e.trigger.label, { onOpen(e.key) }, ExIcons.Eye, "Hide ${e.trigger.label}", { actions.setHidden(e.key, true) },
-                        handle = handle, dragging = dragging, badge = "Yours".takeIf { e.trigger.builtIn == null },
-                    )
-                }
+                ReorderColumn(shown, key = { it.key }, onMove = actions.move) { e, handle, dragging -> Row(e, handle, dragging) }
             }
         }
         if (hidden.isNotEmpty()) {
             Overline("Hidden · ${hidden.size}", Modifier.padding(top = ExSpace.xs))
-            ExCard(padding = ExSpace.sm) {
-                hidden.forEach { e ->
-                    val n = uses[e.key] ?: 0
-                    HandleRow(
-                        e.trigger.label, { onOpen(e.key) }, ExIcons.EyeOff, "Show ${e.trigger.label}", { actions.setHidden(e.key, false) },
-                        badge = "Yours".takeIf { e.trigger.builtIn == null },
-                        sub = if (n > 0) "${usesText(n)}, still on Rhythm" else null,
-                        dimmed = true,
-                    )
-                }
-            }
+            ExCard(padding = ExSpace.sm) { hidden.forEach { Row(it) } }
         }
         ExButton(
             "Add a trigger", { onOpen(null) }, Modifier.fillMaxWidth().padding(top = ExSpace.xs),
@@ -131,37 +130,39 @@ internal fun TriggerPage(
 @Composable
 private fun NewTriggerPage(triggers: List<TriggerEntry>, actions: TriggerActions, toast: ExToastState, onBack: () -> Unit) {
     var name by rememberSaveable { mutableStateOf("") }
-    val clean = Triggers.clean(name)
-    val same = clean?.let { Triggers.named(triggers, it) }
-    BackHandler(onBack = onBack)
-    ExScreen(bottomClearance = ExSpace.xl, header = { BackHeader("Add a trigger", onBack) }) {
+    val check = Triggers.check(triggers, name)
+    EditPage("Add a trigger", onBack, savesOnBack = false) {
         ScreenTitle("What sets it off?", subtitle = "A word or two, like “Phone calls”. It joins the chips you see after logging.")
         Column(verticalArrangement = Arrangement.spacedBy(ExSpace.sm)) {
             ExTextField("Name", name, { name = it }, placeholder = "Phone calls", maxLength = Triggers.NAME_MAX)
             FieldNote(
-                when {
-                    same == null -> ""
-                    same.hidden -> "“${same.trigger.label}” is hidden. Adding it shows it again."
-                    else -> "You already have “${same.trigger.label}”."
+                when (check) {
+                    is NameCheck.Hidden -> "“${check.entry.trigger.label}” is hidden. Adding it shows it again."
+                    is NameCheck.Taken -> "You already have “${check.entry.trigger.label}”."
+                    else -> ""
                 }
             )
         }
-        val open = ideas.filter { Triggers.named(triggers, it) == null }
-        if (open.isNotEmpty()) {
+        val ideas = Triggers.ideas(triggers)
+        if (ideas.isNotEmpty()) {
             Overline("Ideas", Modifier.padding(top = ExSpace.xs))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(ExSpace.xs), verticalArrangement = Arrangement.spacedBy(ExSpace.xs)) {
-                open.forEach { idea -> ExChip(idea, Triggers.clean(name) == idea, { name = idea }) }
+                ideas.forEach { idea -> ExChip(idea, (check as? NameCheck.Ok)?.name == idea, { name = idea }) }
             }
         }
         ExButton(
             "Add",
             {
-                val t = actions.add(name)
-                if (t != null) toast.show(if (same?.hidden == true) "“${t.label}” is shown again" else "Added “${t.label}”")
+                when (check) {
+                    is NameCheck.Ok -> toast.show("Added “${check.name}”")
+                    is NameCheck.Hidden -> toast.show("“${check.entry.trigger.label}” is shown again")
+                    else -> return@ExButton
+                }
+                actions.add(name)
                 onBack()
             },
             Modifier.fillMaxWidth().padding(top = ExSpace.sm),
-            enabled = clean != null && (same == null || same.hidden),
+            enabled = check is NameCheck.Ok || check is NameCheck.Hidden,
         )
     }
 }
@@ -175,45 +176,40 @@ private fun EditTriggerPage(
     toast: ExToastState,
     onBack: () -> Unit,
 ) {
-    val c = Ex.colors
     val t = entry.trigger
     val own = t.builtIn == null
     var name by rememberSaveable(t.key) { mutableStateOf(t.label) }
     var askDelete by rememberSaveable { mutableStateOf(false) }
-    val clean = Triggers.clean(name)
-    val taken = clean?.let { Triggers.named(triggers, it, except = t.key) }
-    val n = uses[t.key] ?: 0
+    val check = Triggers.check(triggers, name, except = t.key)
+    val used = usesText(uses[t.key] ?: 0)
 
     // Going back saves a new name when it can, and says so; otherwise it keeps the old one.
     fun leave(then: String? = null) {
-        val renamed = own && clean != null && clean != t.label
-        when {
-            !own || clean == t.label -> if (then != null) toast.show(then)
-            renamed && taken == null -> { actions.rename(t.key, clean!!); toast.show(listOfNotNull("Saved", then).joinToString(". ")) }
-            else -> toast.show(listOfNotNull(then, "The name stays “${t.label}”.").joinToString(". "))
+        val note = when {
+            !own || (check as? NameCheck.Ok)?.name == t.label -> then
+            check is NameCheck.Ok -> { actions.rename(t.key, check.name); listOfNotNull("Saved", then).joinToString(". ") }
+            else -> listOfNotNull(then, "The name stays “${t.label}”.").joinToString(". ")
         }
+        note?.let(toast::show)
         onBack()
     }
 
-    BackHandler { leave() }
-    ExScreen(
-        bottomClearance = ExSpace.xl,
-        header = { BackHeader(if (own) "Your trigger" else "Built-in trigger", { leave() }, backLabel = if (own) "Back, saving changes" else "Back") },
-    ) {
+    EditPage(if (own) "Your trigger" else "Built-in trigger", { leave() }, savesOnBack = own) {
         if (own) {
-            ScreenTitle("Rename it", subtitle = "${if (n > 0) usesText(n) else "Not used yet"}. Tags keep up with the new name.")
+            ScreenTitle("Rename it", subtitle = "$used. Tags keep up with the new name.")
             Column(verticalArrangement = Arrangement.spacedBy(ExSpace.sm)) {
                 ExTextField("Name", name, { name = it }, placeholder = t.label, maxLength = Triggers.NAME_MAX)
                 FieldNote(
-                    when {
-                        clean == null -> "Enter a name. Going back keeps “${t.label}”."
-                        taken != null -> "You already have “${taken.trigger.label}”. Going back keeps “${t.label}”."
-                        else -> ""
+                    when (check) {
+                        NameCheck.Blank -> "Enter a name. Going back keeps “${t.label}”."
+                        is NameCheck.Taken -> "You already have “${check.entry.trigger.label}”. Going back keeps “${t.label}”."
+                        is NameCheck.Hidden -> "A hidden trigger is called “${check.entry.trigger.label}”. Going back keeps “${t.label}”."
+                        is NameCheck.Ok -> ""
                     }
                 )
             }
         } else {
-            ScreenTitle(t.label, subtitle = "${if (n > 0) usesText(n) else "Not used yet"}. Built-in triggers keep their name.")
+            ScreenTitle(t.label, subtitle = "$used. Built-in triggers keep their name.")
         }
         ExButton(
             if (entry.hidden) "Show it again" else "Hide from the chips",
@@ -230,7 +226,6 @@ private fun EditTriggerPage(
         } else {
             Footnote("It has tagged something, so it can be hidden but not deleted. Its history stays on Rhythm.")
         }
-        if (own) Footnote("Changes save when you go back.")
     }
 
     if (askDelete) {

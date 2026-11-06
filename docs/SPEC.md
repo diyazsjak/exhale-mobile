@@ -136,7 +136,7 @@ First launch shows **Onboarding** (§3.7). Regulate is no longer a tab: its coun
   "Hold the ember to log".
 - **Logged card** after logging: count ("12 of 8 today · 2 borrowed from tomorrow", the borrowed part only
   when something is, §4 Debt), **Undo**, optional trigger chips (§3.11). Auto-dismisses after 8 s; not
-  while a new trigger is being named, and "N more" restarts the 8 s. Tapping a chip, or adding one with
+  while a new trigger is being named, and any touch on the card starts the 8 s again. Tapping a chip, or adding one with
   "Your own", tags the log and closes the card. While the keyboard is up the card sits just above it.
 - "I want one. Help me wait." → Urge Wave.
 
@@ -371,8 +371,8 @@ People can name their own triggers and shape the list. Rules are in §4 Triggers
   tagged something, so it can be hidden but not deleted. Its history stays on Rhythm."
 - **Add a trigger**: "What sets it off?", a Name field, a FieldNote for a name already used ("You already
   have “Coffee”." disables Add; "“Driving” is hidden. Adding it shows it again."), idea chips (Phone calls,
-  Waiting, Work break, Waking up, Gaming, Alone, Arguments; the ones not already in the list) that fill
-  the name, and a Primary **Add** ("Added “Phone calls”").
+  Waiting, Work break, Waking up, Gaming, Alone, Arguments; `Triggers.ideas`, the ones not already in the
+  list) that fill the name, and a Primary **Add** ("Added “Phone calls”").
 - Erase all data and Load demo data put the list back to the eight built-ins.
 
 ---
@@ -444,7 +444,8 @@ the picked day's tally. `topTrigger(hour)` is the busiest trigger at an hour (no
 - The list (`TriggerEntry`: trigger + hidden) is every shown trigger in chip order, then the hidden ones.
   `defaults` is the built-ins, all shown.
 - Names: `clean` trims, makes runs of spaces one and cuts at 20; blank is no name. Two names are the
-  same ignoring case and spaces (`named`).
+  same ignoring case and spaces (`named`). `check` says whether a typed name is Blank, Taken (by a shown
+  trigger), Hidden (by a hidden one, which adding shows again) or Ok; the Add and rename screens use it.
 - `add`: a name the list has means that trigger (shown again if hidden); the name of a deleted
   built-in brings the built-in back; otherwise a new one goes after the shown ones.
 - `rename`: only the user's own, to a name that isn't blank or taken. Built-ins are never renamed.

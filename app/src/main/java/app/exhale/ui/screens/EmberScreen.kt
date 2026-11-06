@@ -46,6 +46,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
@@ -208,17 +212,23 @@ fun EmberScreen(
             exit = slideOutVertically(tween(450, easing = FastOutSlowInEasing)) { it } + fadeOut(tween(350)),
         ) {
             val ev = shown ?: return@AnimatedVisibility
-            // Closes on its own after 8 s, but not while a trigger is being named; any other touch restarts it.
-            var busy by remember(ev.logId) { mutableStateOf(initialDraft != null) }
+            // Closes on its own after 8 s, but not while a trigger is being named; a touch starts the 8 s again.
+            var editing by remember(ev.logId) { mutableStateOf(initialDraft != null) }
             var touched by remember(ev.logId) { mutableIntStateOf(0) }
-            LaunchedEffect(ev.logId, busy, touched) { if (!busy) { delay(8000); onDismissLogged() } }
+            LaunchedEffect(ev.logId, editing, touched) { if (!editing) { delay(8000); onDismissLogged() } }
             LoggedCard(
                 ev, state,
                 onUndo = { onUndo(ev.logId) },
                 onTag = { onTag(ev.logId, it) },
                 onAdd = { onAddTag(ev.logId, it) },
-                onBusy = { b -> busy = b; touched++ },
+                onEditing = { editing = it },
                 initialDraft = initialDraft,
+                modifier = Modifier.pointerInput(ev.logId) {
+                    awaitEachGesture {
+                        awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                        touched++
+                    }
+                },
             )
         }
 
@@ -283,11 +293,12 @@ private fun LoggedCard(
     onUndo: () -> Unit,
     onTag: (Trigger) -> Unit,
     onAdd: (String) -> Unit,
-    onBusy: (Boolean) -> Unit,
+    onEditing: (Boolean) -> Unit,
     initialDraft: String?,
+    modifier: Modifier = Modifier,
 ) {
     val c = Ex.colors
-    ExCard(color = c.surfaceHigh) {
+    ExCard(modifier, color = c.surfaceHigh) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text("Logged", style = ExType.headline, color = c.ink)
@@ -300,7 +311,7 @@ private fun LoggedCard(
             ExButton("Undo", onUndo, style = ButtonStyle.Ghost, size = ButtonSize.Medium, icon = ExIcons.Undo)
         }
         Text("What set it off? Optional.", style = ExType.caption, color = c.inkSoft, modifier = Modifier.padding(top = ExSpace.xxs))
-        TriggerChips(state.shownTriggers, selected = null, onPick = onTag, onAdd = onAdd, onBusy = onBusy, initialDraft = initialDraft)
+        TriggerChips(state.shownTriggers, selected = null, onPick = onTag, onAdd = onAdd, onEditing = onEditing, initialDraft = initialDraft)
     }
 }
 

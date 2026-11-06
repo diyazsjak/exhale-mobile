@@ -35,6 +35,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
+import kotlin.math.abs
 import app.exhale.ui.theme.Ex
 import app.exhale.ui.theme.ExRadius
 import app.exhale.ui.theme.ExSize
@@ -64,15 +65,15 @@ fun <T> ReorderColumn(
     fun dragBy(dy: Float) {
         val k = dragKey ?: return
         offset += dy
+        // Past the middle of the neighbour it's moving toward, the two swap places.
         val i = order.indexOfFirst { key(it) == k }
-        if (i < 0) return
-        val list = order.toMutableList()
-        if (offset > 0 && i < list.lastIndex) {
-            val h = heights[key(list[i + 1])] ?: return
-            if (offset > h / 2f) { list.add(i + 1, list.removeAt(i)); order = list; offset -= h }
-        } else if (offset < 0 && i > 0) {
-            val h = heights[key(list[i - 1])] ?: return
-            if (-offset > h / 2f) { list.add(i - 1, list.removeAt(i)); order = list; offset += h }
+        val dir = if (offset > 0) 1 else -1
+        val j = i + dir
+        if (i < 0 || j !in order.indices) return
+        val h = heights[key(order[j])] ?: return
+        if (abs(offset) > h / 2f) {
+            order = order.toMutableList().apply { add(j, removeAt(i)) }
+            offset -= dir * h
         }
     }
 
@@ -116,7 +117,7 @@ fun <T> ReorderColumn(
 /**
  * A row in a list card that can be dragged by its handle and has one trailing icon action, such as a
  * trigger in Settings → Triggers. Tapping the row opens it. [handle] null leaves the handle out
- * (a hidden trigger). [badge] is a small sky pill after the label ("Yours"); [dimmed] softens the label.
+ * (a hidden trigger). [badge] is an [ExBadge] in `sky` after the label ("Yours"); [dimmed] softens the label.
  */
 @Composable
 fun HandleRow(
@@ -154,12 +155,7 @@ fun HandleRow(
                     label, style = ExType.body, color = if (dimmed) c.inkSoft else c.ink,
                     maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false),
                 )
-                if (badge != null) {
-                    Text(
-                        badge.uppercase(), style = ExType.overline, color = c.skyInk,
-                        modifier = Modifier.clip(ExRadius.pill).background(c.tint(c.sky)).padding(horizontal = 8.dp, vertical = 3.dp),
-                    )
-                }
+                if (badge != null) ExBadge(badge, accent = c.sky)
             }
             if (sub != null) Text(sub, style = ExType.caption, color = c.inkSoft, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }

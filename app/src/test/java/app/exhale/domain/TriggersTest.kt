@@ -30,7 +30,6 @@ class TriggersTest {
     @Test fun add_newGoesAfterShownBeforeHidden() {
         val list = Triggers.setHidden(base, "DRIVING", true)
         val r = Triggers.add(list, " Phone  calls", "custom:1")!!
-        assertFalse(r.existed)
         assertEquals(Trigger("custom:1", "Phone calls"), r.trigger)
         assertEquals(listOf("Coffee", "Stress", "After food", "Drinks", "Bored", "Social", "Other", "Phone calls", "-Driving"), labels(r.list))
     }
@@ -41,7 +40,6 @@ class TriggersTest {
 
     @Test fun add_existingNameMeansThatTrigger_ignoringCaseAndSpaces() {
         val r = Triggers.add(base, "afterFOOD", "custom:1")!!
-        assertTrue(r.existed)
         assertEquals(Trigger.AFTER_FOOD, r.trigger)
         assertSame(base, r.list)
     }
@@ -49,7 +47,6 @@ class TriggersTest {
     @Test fun add_hiddenNameShowsItAgain() {
         val list = Triggers.setHidden(base, "DRIVING", true)
         val r = Triggers.add(list, "driving", "custom:1")!!
-        assertTrue(r.existed)
         assertEquals(Trigger.DRIVING, r.trigger)
         assertEquals(base.size, r.list.size)
         assertFalse(r.list.first { it.key == "DRIVING" }.hidden)
@@ -58,9 +55,24 @@ class TriggersTest {
     @Test fun add_deletedBuiltInComesBackAsBuiltIn() {
         val list = Triggers.delete(base, "COFFEE", emptyMap())
         val r = Triggers.add(list, "coffee", "custom:1")!!
-        assertFalse(r.existed)
         assertEquals(Trigger.COFFEE, r.trigger)
         assertEquals("Coffee", labels(r.list).last())
+    }
+
+    @Test fun check_blankTakenHiddenOk() {
+        val list = Triggers.setHidden(base, "DRIVING", true)
+        assertEquals(NameCheck.Blank, Triggers.check(list, "   "))
+        assertEquals(NameCheck.Taken(list.first { it.key == "COFFEE" }), Triggers.check(list, " coffee"))
+        assertEquals(NameCheck.Hidden(list.last()), Triggers.check(list, "DRIVING"))
+        assertEquals(NameCheck.Ok("Bus stop"), Triggers.check(list, "Bus   stop "))
+        // Its own name doesn't count as taken when renaming it.
+        assertEquals(NameCheck.Ok("coffee"), Triggers.check(list, "coffee", except = "COFFEE"))
+    }
+
+    @Test fun ideas_leaveOutNamesTheListHas() {
+        assertEquals(Triggers.IDEAS, Triggers.ideas(base))
+        val list = Triggers.add(base, "phone calls", "custom:1")!!.list
+        assertEquals(Triggers.IDEAS - "Phone calls", Triggers.ideas(list))
     }
 
     @Test fun rename_onlyOwnAndUntaken() {

@@ -28,6 +28,9 @@ data class Trigger(val key: String, val label: String) {
     companion object {
         fun of(b: BuiltInTrigger) = Trigger(b.name, b.label)
 
+        /** The built-in whose key is [key], with its own label; null for the user's own keys. */
+        fun builtInOf(key: String): Trigger? = BuiltInTrigger.entries.firstOrNull { it.name == key }?.let(::of)
+
         val COFFEE = of(BuiltInTrigger.COFFEE)
         val STRESS = of(BuiltInTrigger.STRESS)
         val AFTER_FOOD = of(BuiltInTrigger.AFTER_FOOD)

@@ -342,16 +342,19 @@ private fun PlanLine(plan: UserSettings, today: LocalDate, baseline: Int) {
     Footnote(line, color = c.inkSoft)
 }
 
-/** An edit screen: back saves (see [SettingsInput]); a faint line says so under the content. */
+/**
+ * A Settings page with a back header. When it [savesOnBack] (see [SettingsInput]), the back button
+ * says so and a faint line under the content does too.
+ */
 @Composable
-private fun EditPage(title: String, onBack: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
+internal fun EditPage(title: String, onBack: () -> Unit, savesOnBack: Boolean = true, content: @Composable ColumnScope.() -> Unit) {
     BackHandler(onBack = onBack)
     ExScreen(
         bottomClearance = ExSpace.xl,
-        header = { BackHeader(title, onBack, backLabel = "Back, saving changes") },
+        header = { BackHeader(title, onBack, backLabel = if (savesOnBack) "Back, saving changes" else "Back") },
     ) {
         content()
-        Footnote("Changes save when you go back.")
+        if (savesOnBack) Footnote("Changes save when you go back.")
     }
 }
 

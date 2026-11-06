@@ -65,10 +65,9 @@ data class ExhaleState(
     val triggers: List<TriggerEntry> = Triggers.defaults,
     /** How many logs and cravings each trigger key tagged; only unused ones can be deleted. */
     val triggerUses: Map<String, Int> = emptyMap(),
+    /** The triggers offered as chips, in order ([Triggers.shown]). */
+    val shownTriggers: List<Trigger> = Triggers.shown(triggers),
 ) {
-    /** The triggers offered as chips, in order. */
-    val shownTriggers: List<Trigger> get() = Triggers.shown(triggers)
-
     // Today's numbers live in [plan] (domain/TodayPlan, unit-tested); these read through to it.
     val today: LocalDate get() = plan.date
     val todayCount: Int get() = plan.count
@@ -105,15 +104,28 @@ class ExhaleViewModel(private val repo: ExhaleRepository) : ViewModel() {
         }
     }
 
+    /** What's stored, with what follows from it alone; only changes when the data does, not every tick. */
+    private class Stored(
+        val settings: UserSettings,
+        val logs: List<SmokeLog>,
+        val urges: List<Urge>,
+        val triggers: List<TriggerEntry>,
+    ) {
+        val triggerUses = Triggers.uses(logs, urges)
+        val shownTriggers = Triggers.shown(triggers)
+    }
+
+    private val stored = combine(repo.settings, repo.logs, repo.urges, repo.triggers, ::Stored)
+
     val state: StateFlow<ExhaleState> =
-        combine(repo.settings, repo.logs, repo.urges, repo.triggers, ticker) { s, logs, urges, triggers, now ->
-            derive(s, logs, urges, triggers, now)
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ExhaleState())
+        combine(stored, ticker) { d, now -> derive(d, now) }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ExhaleState())
 
     private val _lastLogged = MutableStateFlow<LoggedEvent?>(null)
     val lastLogged: StateFlow<LoggedEvent?> = _lastLogged.asStateFlow()
 
-    private fun derive(s: UserSettings, logs: List<SmokeLog>, urges: List<Urge>, triggers: List<TriggerEntry>, now: Instant): ExhaleState {
+    private fun derive(d: Stored, now: Instant): ExhaleState {
+        val s = d.settings
+        val logs = d.logs
         val plan = TodayPlan.of(s, logs, now, zone)
         val dataStart = Stats.dataStart(s.planStart, logs, zone)
         return ExhaleState(
@@ -121,15 +133,16 @@ class ExhaleViewModel(private val repo: ExhaleRepository) : ViewModel() {
             now = now,
             settings = s,
             logs = logs,
-            urges = urges,
+            urges = d.urges,
             plan = plan,
             money = Money.summary(s, logs, now, zone),
             clearFraction = Milestones.clearFraction(plan.sinceLast),
             recovery = Recovery.summary(s, logs, now, zone),
             dataStart = dataStart,
             week = weekDays(s, logs, plan.date, zone, dataStart),
-            triggers = triggers,
-            triggerUses = Triggers.uses(logs, urges),
+            triggers = d.triggers,
+            triggerUses = d.triggerUses,
+            shownTriggers = d.shownTriggers,
         )
     }
 
@@ -167,26 +180,35 @@ class ExhaleViewModel(private val repo: ExhaleRepository) : ViewModel() {
     }
 
     /**
-     * Adds a trigger called [name] (or finds the one already called that, see [Triggers.add]) and returns
-     * it at once, so a chip can be picked before the list comes back. Null when [name] is blank.
+     * Adds a trigger called [name], or finds the one already called that ([Triggers.add]), then hands
+     * the saved trigger to [then]. Nothing happens for a blank name.
      */
-    fun addTrigger(name: String): Trigger? {
-        val key = Triggers.newKey()
-        val added = Triggers.add(state.value.triggers, name, key) ?: return null
-        editTriggers { Triggers.add(it, name, key)?.list }
-        return added.trigger
+    fun addTrigger(name: String, then: (Trigger) -> Unit = {}) {
+        viewModelScope.launch {
+            val added = triggerLock.withLock {
+                val current = repo.triggers.first()
+                Triggers.add(current, name, Triggers.newKey())?.also { if (it.list != current) repo.saveTriggers(it.list) }
+            }
+            added?.let { then(it.trigger) }
+        }
     }
 
     /** "Your own" on the Logged card: add the trigger and tag the log with it. */
-    fun addAndTag(logId: Long, name: String) {
-        val t = addTrigger(name) ?: return
-        tag(logId, t)
-    }
+    fun addAndTag(logId: Long, name: String) = addTrigger(name) { tag(logId, it) }
 
     fun renameTrigger(key: String, name: String) = editTriggers { Triggers.rename(it, key, name) }
     fun setTriggerHidden(key: String, hidden: Boolean) = editTriggers { Triggers.setHidden(it, key, hidden) }
     fun moveTrigger(from: Int, to: Int) = editTriggers { Triggers.move(it, from, to) }
-    fun deleteTrigger(key: String) = editTriggers { Triggers.delete(it, key, state.value.triggerUses) }
+    fun deleteTrigger(key: String) {
+        viewModelScope.launch {
+            triggerLock.withLock {
+                // Counted from what's saved now, so a tag made a moment ago still protects it.
+                val uses = Triggers.uses(repo.logs.first(), repo.urges.first())
+                val current = repo.triggers.first()
+                Triggers.delete(current, key, uses).takeIf { it != current }?.let { repo.saveTriggers(it) }
+            }
+        }
+    }
 
     fun finishUrge(started: Instant, outcome: UrgeOutcome, trigger: Trigger?) {
         viewModelScope.launch {
