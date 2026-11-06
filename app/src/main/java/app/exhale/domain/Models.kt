@@ -3,8 +3,8 @@ package app.exhale.domain
 import java.time.Instant
 import java.time.LocalDate
 
-/** Why the user lit up. Optional, asked after the log. */
-enum class Trigger(val label: String) {
+/** The triggers Exhale starts with. They can be hidden, reordered or (while unused) deleted, never renamed. */
+enum class BuiltInTrigger(val label: String) {
     COFFEE("Coffee"),
     STRESS("Stress"),
     AFTER_FOOD("After food"),
@@ -13,6 +13,33 @@ enum class Trigger(val label: String) {
     BORED("Bored"),
     SOCIAL("Social"),
     OTHER("Other"),
+}
+
+/**
+ * Why the user lit up. Optional, asked after the log. Built in, or named by the user ([Triggers]).
+ * [key] is what logs store: a built-in's name ("COFFEE"), or [Triggers.CUSTOM_PREFIX] + a random id.
+ */
+data class Trigger(val key: String, val label: String) {
+    val builtIn: BuiltInTrigger? get() = BuiltInTrigger.entries.firstOrNull { it.name == key }
+
+    /** The label inside a sentence: built-ins in lower case ("Mostly coffee"), the user's own as typed. */
+    val inSentence: String get() = if (builtIn != null) label.lowercase() else label
+
+    companion object {
+        fun of(b: BuiltInTrigger) = Trigger(b.name, b.label)
+
+        val COFFEE = of(BuiltInTrigger.COFFEE)
+        val STRESS = of(BuiltInTrigger.STRESS)
+        val AFTER_FOOD = of(BuiltInTrigger.AFTER_FOOD)
+        val DRINKS = of(BuiltInTrigger.DRINKS)
+        val DRIVING = of(BuiltInTrigger.DRIVING)
+        val BORED = of(BuiltInTrigger.BORED)
+        val SOCIAL = of(BuiltInTrigger.SOCIAL)
+        val OTHER = of(BuiltInTrigger.OTHER)
+
+        /** All built-ins in their starting order. */
+        val BUILT_IN: List<Trigger> = BuiltInTrigger.entries.map(::of)
+    }
 }
 
 /** How the daily allowance shrinks over time. */

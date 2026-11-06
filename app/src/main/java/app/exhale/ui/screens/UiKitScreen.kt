@@ -66,6 +66,8 @@ import app.exhale.ui.components.StepProgress
 import app.exhale.ui.components.Stepper
 import app.exhale.ui.components.TabItem
 import app.exhale.ui.components.TriggerChips
+import app.exhale.ui.components.HandleRow
+import app.exhale.ui.components.ReorderColumn
 import app.exhale.ui.components.WeekStrip
 import app.exhale.ui.components.rememberToastState
 import app.exhale.ui.theme.Ex
@@ -136,7 +138,11 @@ fun UiKitScreen(theme: ThemeMode, onTheme: (ThemeMode) -> Unit, onClose: () -> U
 
             Section("Chips & badges")
             var chip by remember { mutableStateOf<Trigger?>(Trigger.COFFEE) }
-            TriggerChips(chip, { chip = if (chip == it) null else it })
+            var kitTriggers by remember { mutableStateOf(Trigger.BUILT_IN + listOf("Phone calls", "Bus stop", "Gaming").map { Trigger("kit:$it", it) }) }
+            TriggerChips(
+                kitTriggers, chip, { chip = if (chip == it) null else it },
+                onAdd = { name -> Trigger("kit:$name", name).also { kitTriggers = kitTriggers + it; chip = it } },
+            )
             Row(horizontalArrangement = Arrangement.spacedBy(ExSpace.xs)) {
                 ExChip("Sky", true, {}, accent = c.sky); ExChip("Oxy", true, {}, accent = c.oxy); ExChip("Off", false, {})
             }
@@ -170,6 +176,17 @@ fun UiKitScreen(theme: ThemeMode, onTheme: (ThemeMode) -> Unit, onClose: () -> U
                 ListRow("Two lines", {}, value = "1,250,000 ₸", sub = "A long name is cut short so the number stays whole")
             }
             Footnote("Footnote: a caption under a card, lined up with its rows.")
+            var rows by remember { mutableStateOf(listOf("Coffee", "Phone calls", "Stress")) }
+            var off by remember { mutableStateOf(setOf<String>()) }
+            ExCard(padding = ExSpace.sm) {
+                ReorderColumn(rows, key = { it }, onMove = { from, to -> rows = rows.toMutableList().apply { add(to, removeAt(from)) } }) { r, handle, dragging ->
+                    HandleRow(
+                        r, {}, if (r in off) ExIcons.EyeOff else ExIcons.Eye, "Hide or show $r", { off = if (r in off) off - r else off + r },
+                        handle = handle, dragging = dragging, badge = "Yours".takeIf { r == "Phone calls" }, dimmed = r in off,
+                    )
+                }
+            }
+            Footnote("Handle rows in a reorder column: drag the handle, the icon is the row's one action.")
 
             Section("Cards & stats")
             ExCard {

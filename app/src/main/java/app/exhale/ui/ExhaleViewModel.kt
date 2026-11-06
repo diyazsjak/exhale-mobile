@@ -20,6 +20,8 @@ import app.exhale.domain.HomeStyle
 import app.exhale.domain.ThemeMode
 import app.exhale.domain.TodayPlan
 import app.exhale.domain.Trigger
+import app.exhale.domain.TriggerEntry
+import app.exhale.domain.Triggers
 import app.exhale.domain.Urge
 import app.exhale.domain.UrgeOutcome
 import app.exhale.domain.UserSettings
@@ -31,8 +33,11 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
@@ -56,7 +61,14 @@ data class ExhaleState(
     val dataStart: LocalDate? = null,
     /** The last 7 days, today last, for the week strip on Rhythm. */
     val week: List<DayDot> = emptyList(),
+    /** The user's trigger list: shown ones in chip order, then hidden ones (Settings → Triggers). */
+    val triggers: List<TriggerEntry> = Triggers.defaults,
+    /** How many logs and cravings each trigger key tagged; only unused ones can be deleted. */
+    val triggerUses: Map<String, Int> = emptyMap(),
 ) {
+    /** The triggers offered as chips, in order. */
+    val shownTriggers: List<Trigger> get() = Triggers.shown(triggers)
+
     // Today's numbers live in [plan] (domain/TodayPlan, unit-tested); these read through to it.
     val today: LocalDate get() = plan.date
     val todayCount: Int get() = plan.count
@@ -94,14 +106,14 @@ class ExhaleViewModel(private val repo: ExhaleRepository) : ViewModel() {
     }
 
     val state: StateFlow<ExhaleState> =
-        combine(repo.settings, repo.logs, repo.urges, ticker) { s, logs, urges, now ->
-            derive(s, logs, urges, now)
+        combine(repo.settings, repo.logs, repo.urges, repo.triggers, ticker) { s, logs, urges, triggers, now ->
+            derive(s, logs, urges, triggers, now)
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ExhaleState())
 
     private val _lastLogged = MutableStateFlow<LoggedEvent?>(null)
     val lastLogged: StateFlow<LoggedEvent?> = _lastLogged.asStateFlow()
 
-    private fun derive(s: UserSettings, logs: List<SmokeLog>, urges: List<Urge>, now: Instant): ExhaleState {
+    private fun derive(s: UserSettings, logs: List<SmokeLog>, urges: List<Urge>, triggers: List<TriggerEntry>, now: Instant): ExhaleState {
         val plan = TodayPlan.of(s, logs, now, zone)
         val dataStart = Stats.dataStart(s.planStart, logs, zone)
         return ExhaleState(
@@ -116,6 +128,8 @@ class ExhaleViewModel(private val repo: ExhaleRepository) : ViewModel() {
             recovery = Recovery.summary(s, logs, now, zone),
             dataStart = dataStart,
             week = weekDays(s, logs, plan.date, zone, dataStart),
+            triggers = triggers,
+            triggerUses = Triggers.uses(logs, urges),
         )
     }
 
@@ -138,6 +152,41 @@ class ExhaleViewModel(private val repo: ExhaleRepository) : ViewModel() {
     }
 
     fun dismissLogged() { _lastLogged.value = null }
+
+    // --- Triggers. Each change is worked out on the saved list under a lock, so quick edits
+    // (a drag, say) never build on a list the flow hasn't caught up with yet.
+    private val triggerLock = Mutex()
+
+    private fun editTriggers(change: (List<TriggerEntry>) -> List<TriggerEntry>?) {
+        viewModelScope.launch {
+            triggerLock.withLock {
+                val current = repo.triggers.first()
+                change(current)?.takeIf { it != current }?.let { repo.saveTriggers(it) }
+            }
+        }
+    }
+
+    /**
+     * Adds a trigger called [name] (or finds the one already called that, see [Triggers.add]) and returns
+     * it at once, so a chip can be picked before the list comes back. Null when [name] is blank.
+     */
+    fun addTrigger(name: String): Trigger? {
+        val key = Triggers.newKey()
+        val added = Triggers.add(state.value.triggers, name, key) ?: return null
+        editTriggers { Triggers.add(it, name, key)?.list }
+        return added.trigger
+    }
+
+    /** "Your own" on the Logged card: add the trigger and tag the log with it. */
+    fun addAndTag(logId: Long, name: String) {
+        val t = addTrigger(name) ?: return
+        tag(logId, t)
+    }
+
+    fun renameTrigger(key: String, name: String) = editTriggers { Triggers.rename(it, key, name) }
+    fun setTriggerHidden(key: String, hidden: Boolean) = editTriggers { Triggers.setHidden(it, key, hidden) }
+    fun moveTrigger(from: Int, to: Int) = editTriggers { Triggers.move(it, from, to) }
+    fun deleteTrigger(key: String) = editTriggers { Triggers.delete(it, key, state.value.triggerUses) }
 
     fun finishUrge(started: Instant, outcome: UrgeOutcome, trigger: Trigger?) {
         viewModelScope.launch {

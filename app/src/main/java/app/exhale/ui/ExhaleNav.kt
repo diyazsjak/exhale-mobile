@@ -56,6 +56,7 @@ import app.exhale.ui.screens.OnboardingScreen
 import app.exhale.ui.screens.PrototypeTools
 import app.exhale.ui.screens.RhythmScreen
 import app.exhale.ui.screens.SettingsScreen
+import app.exhale.ui.screens.TriggerActions
 import app.exhale.ui.screens.TodayBadge
 import app.exhale.ui.screens.UiKitScreen
 import app.exhale.ui.screens.UrgeWaveScreen
@@ -144,6 +145,9 @@ fun ExhaleRoot(vm: ExhaleViewModel) {
 private fun MainNav(state: ExhaleState, logged: LoggedEvent?, vm: ExhaleViewModel) {
     val c = Ex.colors
     val nav = rememberNavController()
+    val triggerActions = remember(vm) {
+        TriggerActions(vm::addTrigger, vm::renameTrigger, vm::setTriggerHidden, vm::moveTrigger, vm::deleteTrigger)
+    }
     val entry by nav.currentBackStackEntryAsState()
     val tab = Tab.entries.firstOrNull { it.route == entry?.destination?.route }
     // The day Rhythm is showing. Hoisted so History can open a day there.
@@ -221,6 +225,7 @@ private fun MainNav(state: ExhaleState, logged: LoggedEvent?, vm: ExhaleViewMode
                     todayOpen = todayOpen,
                     onTodayOpen = { todayOpen = it },
                     onGlowLight = { hold, flash -> glowHold.floatValue = hold; glowFlash.floatValue = flash },
+                    onAddTag = vm::addAndTag,
                 )
             }
             composable(Tab.RHYTHM.route) {
@@ -247,6 +252,8 @@ private fun MainNav(state: ExhaleState, logged: LoggedEvent?, vm: ExhaleViewMode
                         }
                     },
                     onClose = { nav.popBackStack() },
+                    triggers = state.shownTriggers,
+                    onAddTrigger = vm::addTrigger,
                 )
             }
             composable(SETTINGS) {
@@ -258,6 +265,9 @@ private fun MainNav(state: ExhaleState, logged: LoggedEvent?, vm: ExhaleViewMode
                     onHome = vm::setHome,
                     onErase = vm::eraseAll,
                     onClose = { nav.popBackStack() },
+                    triggers = state.triggers,
+                    triggerUses = state.triggerUses,
+                    triggerActions = triggerActions,
                     prototypeTools = if (BuildConfig.DEBUG) {
                         PrototypeTools(onDesignSystem = { nav.navigate(UIKIT) }, onDemo = { vm.loadDemo(); nav.popBackStack() })
                     } else {

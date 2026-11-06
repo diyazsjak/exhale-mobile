@@ -25,6 +25,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -37,11 +40,13 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.CornerRadius
@@ -97,6 +102,10 @@ fun EmberScreen(
     onTodayOpen: (Boolean) -> Unit = {},
     /** Glow home only: the hold (0..1) and the log's flash (1 → 0), for the edge light drawn behind the tabs. */
     onGlowLight: (hold: Float, flash: Float) -> Unit = { _, _ -> },
+    /** "Your own" on the Logged card: a new trigger's name, to add and tag the log with. */
+    onAddTag: (Long, String) -> Unit = { _, _ -> },
+    /** Screenshots: open the Logged card's "Your own" field with this text. */
+    initialDraft: String? = null,
 ) {
     val c = Ex.colors
     val heat by animateFloatAsState(state.heat, tween(1200), label = "heat")
@@ -184,20 +193,33 @@ fun EmberScreen(
         // Keep the last event while the card animates out.
         var shown by remember { mutableStateOf(logged) }
         if (logged != null) shown = logged
+        // While the keyboard is up (naming a trigger) the card sits just above it instead of the tab bar.
+        val keyboard = WindowInsets.ime.getBottom(LocalDensity.current) > 0
         AnimatedVisibility(
             visible = logged != null,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .navigationBarsPadding()
+                .imePadding()
                 .padding(horizontal = ExSpace.sm)
-                .padding(bottom = ExSize.tabBar + ExSpace.lg),
+                .padding(bottom = if (keyboard) ExSpace.sm else ExSize.tabBar + ExSpace.lg),
             // Unhurried: it arrives after the log's burst has played out.
             enter = slideInVertically(tween(650, delayMillis = 250, easing = FastOutSlowInEasing)) { it } + fadeIn(tween(500, delayMillis = 250)),
             exit = slideOutVertically(tween(450, easing = FastOutSlowInEasing)) { it } + fadeOut(tween(350)),
         ) {
             val ev = shown ?: return@AnimatedVisibility
-            LaunchedEffect(ev.logId) { delay(8000); onDismissLogged() }
-            LoggedCard(ev, state, onUndo = { onUndo(ev.logId) }, onTag = { onTag(ev.logId, it) })
+            // Closes on its own after 8 s, but not while a trigger is being named; any other touch restarts it.
+            var busy by remember(ev.logId) { mutableStateOf(initialDraft != null) }
+            var touched by remember(ev.logId) { mutableIntStateOf(0) }
+            LaunchedEffect(ev.logId, busy, touched) { if (!busy) { delay(8000); onDismissLogged() } }
+            LoggedCard(
+                ev, state,
+                onUndo = { onUndo(ev.logId) },
+                onTag = { onTag(ev.logId, it) },
+                onAdd = { onAddTag(ev.logId, it) },
+                onBusy = { b -> busy = b; touched++ },
+                initialDraft = initialDraft,
+            )
         }
 
         // Tap anywhere outside the popover to close it.
@@ -255,7 +277,15 @@ private fun EmberHintLine(hint: EmberHint, idle: String) {
 }
 
 @Composable
-private fun LoggedCard(ev: LoggedEvent, state: ExhaleState, onUndo: () -> Unit, onTag: (Trigger) -> Unit) {
+private fun LoggedCard(
+    ev: LoggedEvent,
+    state: ExhaleState,
+    onUndo: () -> Unit,
+    onTag: (Trigger) -> Unit,
+    onAdd: (String) -> Unit,
+    onBusy: (Boolean) -> Unit,
+    initialDraft: String?,
+) {
     val c = Ex.colors
     ExCard(color = c.surfaceHigh) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -270,7 +300,7 @@ private fun LoggedCard(ev: LoggedEvent, state: ExhaleState, onUndo: () -> Unit, 
             ExButton("Undo", onUndo, style = ButtonStyle.Ghost, size = ButtonSize.Medium, icon = ExIcons.Undo)
         }
         Text("What set it off? Optional.", style = ExType.caption, color = c.inkSoft, modifier = Modifier.padding(top = ExSpace.xxs))
-        TriggerChips(selected = null, onPick = onTag)
+        TriggerChips(state.shownTriggers, selected = null, onPick = onTag, onAdd = onAdd, onBusy = onBusy, initialDraft = initialDraft)
     }
 }
 

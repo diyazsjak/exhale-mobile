@@ -60,6 +60,10 @@ fun UrgeWaveScreen(
     onFinish: (started: Instant, outcome: UrgeOutcome, trigger: Trigger?) -> Unit,
     onClose: () -> Unit,
     startAt: Float = 0f,
+    /** The user's chips, in order (Settings → Triggers). */
+    triggers: List<Trigger> = Trigger.BUILT_IN,
+    /** "Your own": adds a trigger by name and returns it so it can be picked; null if it couldn't be. */
+    onAddTrigger: (String) -> Trigger? = { null },
 ) {
     val c = Ex.colors
     val started = remember { Instant.now() }
@@ -128,7 +132,10 @@ fun UrgeWaveScreen(
         }
         BreathGuide(elapsed, done, Modifier.fillMaxWidth())
         Overline("What's behind it? Optional", Modifier.padding(top = ExSpace.xs))
-        TriggerChips(trigger, { trigger = if (trigger == it) null else it })
+        TriggerChips(
+            triggers, trigger, { trigger = if (trigger == it) null else it },
+            onAdd = { name -> onAddTrigger(name)?.let { trigger = it } },
+        )
         Spacer(Modifier.weight(1f))
         if (done) {
             ExButton("No. I rode it out.", { onFinish(started, UrgeOutcome.SURVIVED, trigger) }, Modifier.fillMaxWidth(), style = ButtonStyle.Accent)

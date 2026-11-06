@@ -30,7 +30,7 @@ Many have tried and slipped before. They are sensitive to judgement.
 | Cravings peak and fade within ~3–5 min (NHS, CDC guidance) | Urge Wave: a timed 4-minute wave with paced breathing |
 | Reduce-to-quit ≈ abrupt quitting in quit rates (Lindson et al., Cochrane 2019) | Cutting down is first-class: allowance, countdown ring and taper plan |
 | Self-monitoring reduces automatic smoking | One-gesture logging on every surface |
-| Triggers are predictable; if-then plans help | Optional trigger tags + hour heatmap + if-then suggestion |
+| Triggers are predictable; if-then plans help | Optional trigger tags (the user can name their own) + hour heatmap + if-then suggestion |
 | Abstinence-violation effect: one slip → giving up | **No streak resets, no shame copy, no red error states for smoking** |
 | Recovery timeline is well documented (WHO) | Recovery milestones with sources shown in-app |
 
@@ -135,7 +135,9 @@ First launch shows **Onboarding** (§3.7). Regulate is no longer a tab: its coun
   "Hold a little longer" (released early), and on a quick tap the ember wobbles and the hint repeats
   "Hold the ember to log".
 - **Logged card** after logging: count ("12 of 8 today · 2 borrowed from tomorrow", the borrowed part only
-  when something is, §4 Debt), **Undo**, optional trigger chips. Auto-dismisses after 8 s.
+  when something is, §4 Debt), **Undo**, optional trigger chips (§3.11). Auto-dismisses after 8 s; not
+  while a new trigger is being named, and "N more" restarts the 8 s. Tapping a chip, or adding one with
+  "Your own", tags the log and closes the card. While the keyboard is up the card sits just above it.
 - "I want one. Help me wait." → Urge Wave.
 
 #### Glow home (Settings → Home screen → Glow) — `Glow.kt`
@@ -164,7 +166,7 @@ above stays: the Today badge and popover, the earned haptic, the Logged card, th
 - Breathing guide (`BreathGuide.kt`), text only: the current instruction fills letter by letter over
   its duration; the next ("then hold · 2s") waits below and brightens in the final second; on a
   change it glides up and grows into place. The wave dot's halo swells and shrinks with the breath.
-- Optional trigger selection.
+- Optional trigger selection: the user's chips (§3.11), with "Your own". A trigger added here is picked.
 - Before end: "I'm okay now" (SURVIVED) / "Smoke anyway". After end: "No. I rode it out." /
   "Yes, smoke anyway". Smoking records the urge as SMOKED but never logs a cigarette: it returns to
   the Ember screen, where the user logs it by holding the ember. "Close" records nothing.
@@ -200,7 +202,8 @@ Shows the last 30 days (today and the 29 before), or one picked day. Order:
   before."
 - **Plan card** (a week of history, not on a picked day): "A plan for your busiest hour" and an
   if-then in the user's voice that names the hour and its top trigger once: "If it's a drink at
-  6 pm, / then I ride one wave first." "Help me wait" opens the Urge Wave; "Another idea" cycles the then-line.
+  6 pm, / then I ride one wave first." Built-ins have hand-written if-lines; the user's own read
+  "If it's Bus stop at 8 am," with the name as typed; Other gives the plain "If it comes at 6 pm,". "Help me wait" opens the Urge Wave; "Another idea" cycles the then-line.
 - **Triggers**: bars for the period with coverage ("181 of 275 tagged.").
 - **Craving waves**: "8 craving waves ridden out in the last 30 days." on an oxygen tint, or an
   invitation to use "Help me wait" when there are none.
@@ -297,6 +300,9 @@ Edits everything set during onboarding; keeps the original plan start. Sections,
   holding −/+ repeats), then **How it drops** (current taper) opening its own screen. Under the card a
   caption shows the plan as counted on screen: "This week 10 a day, next week 9." ("Holding at 14 a
   day." for Hold steady), plus "That start is above your usual 16." when the start is above Before Exhale.
+- **Triggers**, one card: **Your triggers** with how many are shown ("9 shown") and their names on a
+  second line cut short with "…", opening the Triggers screen (§3.11). Caption: "The chips you can tag a
+  cigarette or a craving with."
 - **Money**, one card: **A pack** ("20 for 10.00 $") and **Saving for** (the amount on the right, the
   goal name on a second line that is cut short when long, so the amount always shows whole). Each opens
   its own screen.
@@ -343,6 +349,33 @@ Full-screen route from Rhythm's "All history ›" (back button, no tab bar).
   plan start are neutral; future days show only their date and weeks still to come are left out.
 - Under each month: average a day, "N of M days within your allowance", and the longest gap.
 - Tapping a day opens Rhythm filtered to that day.
+
+### 3.11 Triggers — `TriggerChips.kt`, `TriggerSettings.kt`
+People can name their own triggers and shape the list. Rules are in §4 Triggers.
+- **Chips** (Logged card, Urge Wave): the shown triggers in the user's order, `flare` when picked. Up
+  to 9 show; with 11 or more, the rest wait behind a "3 more" chip that opens them in place (10 show
+  whole, since "1 more" would save nothing). A picked chip is never tucked away.
+- **Your own**: an outlined chip with a plus at the end. Tapping it turns it into a full-width field
+  with a `sky` ring, "Name it, like “Phone calls”", and a small button that says Add (Cancel while the
+  field is empty); the keyboard's Done also adds. Under it: "11 / 20 · It joins your list for next
+  time." Back cancels. Adding a name the list already has picks that trigger (and shows it again if it
+  was hidden).
+- **Settings → Triggers** (applies at once, no Save): "Your triggers", "Shown · 9" in a card where
+  each row has a drag handle (drag to reorder; screen readers get Move up / Move down), the name, a
+  "Yours" sky badge on the user's own, and an eye that hides it. "Drag the handle to change the order.
+  Tap a trigger to rename or delete it." Then "Hidden · 1" with dimmed rows ("Tagged 12 times, still on
+  Rhythm") and an eye-off that shows one again, and a Secondary **Add a trigger** button.
+- **One trigger**: the user's own ("Your trigger"): a Name field (20 at most), "Tagged 14 times. Tags keep
+  up with the new name.", saved on the way back like Settings' other pages ("Saved", or "The name stays
+  “Bus stop”." with a FieldNote when it's empty or taken). Built-ins ("Built-in trigger") show their name
+  and "Built-in triggers keep their name." Both have **Hide from the chips** / **Show it again**, and
+  **Delete trigger** only while it has tagged nothing (asks "Delete “Bus stop”?" first); otherwise "It has
+  tagged something, so it can be hidden but not deleted. Its history stays on Rhythm."
+- **Add a trigger**: "What sets it off?", a Name field, a FieldNote for a name already used ("You already
+  have “Coffee”." disables Add; "“Driving” is hidden. Adding it shows it again."), idea chips (Phone calls,
+  Waiting, Work break, Waking up, Gaming, Alone, Arguments; the ones not already in the list) that fill
+  the name, and a Primary **Add** ("Added “Phone calls”").
+- Erase all data and Load demo data put the list back to the eight built-ins.
 
 ---
 
@@ -406,6 +439,27 @@ logs, triggers and peaks, craving waves ridden out, days tracked and days until 
 the picked day's tally. `topTrigger(hour)` is the busiest trigger at an hour (not on a picked day);
 `showPlan` needs 7 covered days and something logged.
 
+### Triggers — `Triggers`
+- A `Trigger` is a key and a label. Built-ins (`BuiltInTrigger`: Coffee, Stress, After food, Drinks,
+  Driving, Bored, Social, Other) use their name as the key; the user's own use `custom:` + a random id.
+  Logs and urges store the key, so renaming one renames its history.
+- The list (`TriggerEntry`: trigger + hidden) is every shown trigger in chip order, then the hidden ones.
+  `defaults` is the built-ins, all shown.
+- Names: `clean` trims, makes runs of spaces one and cuts at 20; blank is no name. Two names are the
+  same ignoring case and spaces (`named`).
+- `add`: a name the list has means that trigger (shown again if hidden); the name of a deleted
+  built-in brings the built-in back; otherwise a new one goes after the shown ones.
+- `rename`: only the user's own, to a name that isn't blank or taken. Built-ins are never renamed.
+- `setHidden`: hiding moves it after the shown ones; showing it again puts it at the end of the shown.
+- `move(from, to)`: positions among the shown ones.
+- `uses`: tags per key across logs and urges. `delete` only removes a trigger with no uses
+  (`canDelete`), built-in or not; anything used can only be hidden, so its history stays.
+- `chipRow`: the first 9 (`CHIPS_COLLAPSED`) and a count of the rest; whole when expanded, when there
+  are at most 10, or when the picked one is past the ninth.
+- `resolve`: a stored key reads from the list, else as the built-in of that name, else nothing.
+- Storage: Room table `user_trigger` (id, label, position, hidden), added in schema v2; the migration
+  and a fresh install seed the built-ins. Tag columns keep their stored names.
+
 ### Breathing — `Breath.kt`
 `breathAt(t)`: the 4-2-6 cycle (in, hold, out) `t` seconds into a craving wave of `WAVE_SECONDS`
 (240): phase, progress through it, whole seconds left, and how full the lungs are (eased).
@@ -451,7 +505,7 @@ WHO timeline; lower bound of each range unlocks it. `clearFraction` = progress t
 app/src/main/java/app/exhale/
   ExhaleApp.kt            Application; manual DI (one ExhaleRepository)
   MainActivity.kt         Edge-to-edge, sets ExhaleTheme { ExhaleRoot() }
-  data/                   Room (smoke_log, urge) + DataStore settings + repository; no rules, only storage and mapping
+  data/                   Room (smoke_log, urge, user_trigger) + DataStore settings + repository; no rules, only storage and mapping
   domain/                 Pure models and math. No Android imports.
   ui/
     ExhaleViewModel.kt    Combines settings, logs, urges and a 1 s ticker into ExhaleState

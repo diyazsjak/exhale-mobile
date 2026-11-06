@@ -16,6 +16,8 @@ import app.exhale.domain.SmokeLog
 import app.exhale.domain.Stats
 import app.exhale.domain.TaperType
 import app.exhale.domain.Trigger
+import app.exhale.domain.TriggerEntry
+import app.exhale.domain.Triggers
 import app.exhale.domain.Urge
 import app.exhale.domain.UrgeOutcome
 import app.exhale.domain.UserSettings
@@ -278,13 +280,14 @@ class ScreenshotTest {
         val s = st.settings.copy(goalName = "A weekend trip to the mountains with family", goalMinor = 105_000)
         MoneyScreen(st.copy(settings = s, money = Money.summary(s, st.logs, now, zone)))
     }
-    // Settings as in a release build (no prototype tools).
+    // Settings as in a release build (no prototype tools), with the user's own triggers.
     @Composable private fun Settings(
         page: SettingsPage? = null,
         allowance: Int? = null,
         scroll: Int = 0,
         tools: Boolean = false,
         toast: String? = null,
+        triggerKey: String? = null,
     ) {
         val st = sampleState()
         SettingsScreen(
@@ -294,7 +297,48 @@ class ScreenshotTest {
             initialPage = page,
             initialAllowance = allowance ?: st.settings.startAllowance,
             toast = remember { ExToastState(toast) },
+            triggers = ownTriggers,
+            triggerUses = mapOf("COFFEE" to 52, "DRIVING" to 12, PHONE.key to 37),
+            initialTriggerKey = triggerKey,
         )
+    }
+
+    // A list someone has shaped: two of their own, Phone calls moved up, Driving hidden.
+    private val PHONE = Trigger("custom:phone", "Phone calls")
+    private val ownTriggers: List<TriggerEntry> = Triggers.defaults
+        .let { Triggers.add(it, PHONE.label, PHONE.key)!!.list }
+        .let { Triggers.add(it, "Bus stop", "custom:bus")!!.list }
+        .let { Triggers.move(it, 8, 1) }
+        .let { Triggers.setHidden(it, "DRIVING", true) }
+
+    // Twelve shown, so the Logged card tucks three behind "3 more".
+    private fun manyTriggersState(minutesSinceLast: Long = 4): ExhaleState {
+        var list = ownTriggers
+        listOf("Waiting", "Work break", "Gaming").forEachIndexed { i, n -> list = Triggers.add(list, n, "custom:$i")!!.list }
+        return sampleState(minutesSinceLast).copy(triggers = list)
+    }
+
+    @Test fun settingsTriggersDark() = shot("7h_settings_triggers", true) { Settings(page = SettingsPage.TRIGGERS) }
+    @Test fun settingsTriggersLight() = shot("7h_settings_triggers", false) { Settings(page = SettingsPage.TRIGGERS) }
+    @Test fun settingsTriggerOwnDark() = shot("7i_settings_trigger", true) { Settings(page = SettingsPage.TRIGGER, triggerKey = "custom:bus") }
+    @Test fun settingsTriggerOwnLight() = shot("7i_settings_trigger", false) { Settings(page = SettingsPage.TRIGGER, triggerKey = "custom:bus") }
+    @Test fun settingsTriggerBuiltInDark() = shot("7j_settings_trigger_builtin", true) { Settings(page = SettingsPage.TRIGGER, triggerKey = "COFFEE") }
+    @Test fun settingsTriggerNewDark() = shot("7k_settings_trigger_new", true) { Settings(page = SettingsPage.TRIGGER) }
+    @Test fun settingsTriggerNewLight() = shot("7k_settings_trigger_new", false) { Settings(page = SettingsPage.TRIGGER) }
+    @Test fun emberLoggedMoreDark() = shot("1l_ember_logged_more", true, 0, bar = manyTriggersState()) {
+        EmberScreen(manyTriggersState(), LoggedEvent(1, 5, 12), {}, {}, { _, _ -> }, {}, {})
+    }
+    @Test fun emberLoggedMoreLight() = shot("1l_ember_logged_more", false, 0, bar = manyTriggersState()) {
+        EmberScreen(manyTriggersState(), LoggedEvent(1, 5, 12), {}, {}, { _, _ -> }, {}, {})
+    }
+    @Test fun emberYourOwnDark() = shot("1m_ember_your_own", true, 0, bar = sampleState(4)) {
+        EmberScreen(sampleState(4), LoggedEvent(1, 5, 12), {}, {}, { _, _ -> }, {}, {}, initialDraft = "Phone calls")
+    }
+    @Test fun emberYourOwnLight() = shot("1m_ember_your_own", false, 0, bar = sampleState(4)) {
+        EmberScreen(sampleState(4), LoggedEvent(1, 5, 12), {}, {}, { _, _ -> }, {}, {}, initialDraft = "Phone calls")
+    }
+    @Test fun waveOwnDark() = shot("3d_wave_own", true) {
+        UrgeWaveScreen({ _, _, _ -> }, {}, startAt = 30f, triggers = Triggers.shown(ownTriggers))
     }
     @Test fun settingsDark() = shot("7_settings", true) { Settings() }
     @Test fun settingsLight() = shot("7_settings", false) { Settings() }

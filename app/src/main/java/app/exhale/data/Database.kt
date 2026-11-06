@@ -9,6 +9,10 @@ import androidx.room.PrimaryKey
 import androidx.room.Query
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.Transaction
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
+import app.exhale.domain.Triggers
 import kotlinx.coroutines.flow.Flow
 
 @Entity(tableName = "smoke_log")
@@ -26,6 +30,16 @@ data class UrgeEntity(
     val endedMillis: Long,
     val outcome: String,
     val trigger: String?,
+)
+
+/** The user's trigger list in chip order ([position]); hidden ones come after the shown ones. */
+@Entity(tableName = "user_trigger")
+data class TriggerEntity(
+    /** A built-in's name ("COFFEE") or a custom key; logs and urges store it in their `trigger` column. */
+    @PrimaryKey val id: String,
+    val label: String,
+    val position: Int,
+    val hidden: Boolean,
 )
 
 @Dao
@@ -67,13 +81,62 @@ interface UrgeDao {
     suspend fun clear()
 }
 
-@Database(entities = [SmokeLogEntity::class, UrgeEntity::class], version = 1, exportSchema = true)
+@Dao
+interface TriggerDao {
+    @Query("SELECT * FROM user_trigger ORDER BY position ASC")
+    fun observeAll(): Flow<List<TriggerEntity>>
+
+    @Insert
+    suspend fun insertAll(triggers: List<TriggerEntity>)
+
+    @Query("DELETE FROM user_trigger")
+    suspend fun clear()
+
+    /** Saves the whole list at once; it is short and its order is the point. */
+    @Transaction
+    suspend fun replaceAll(triggers: List<TriggerEntity>) {
+        clear()
+        insertAll(triggers)
+    }
+}
+
+@Database(
+    entities = [SmokeLogEntity::class, UrgeEntity::class, TriggerEntity::class],
+    version = 2,
+    exportSchema = true,
+)
 abstract class ExhaleDatabase : RoomDatabase() {
     abstract fun logs(): LogDao
     abstract fun urges(): UrgeDao
+    abstract fun triggers(): TriggerDao
 
     companion object {
         fun create(context: Context): ExhaleDatabase =
-            Room.databaseBuilder(context, ExhaleDatabase::class.java, "exhale.db").build()
+            Room.databaseBuilder(context, ExhaleDatabase::class.java, "exhale.db")
+                .addMigrations(MIGRATION_1_2)
+                .addCallback(object : Callback() {
+                    override fun onCreate(db: SupportSQLiteDatabase) = seedTriggers(db)
+                })
+                .build()
+
+        /** v2: the user's own trigger list, starting with the built-ins. Logs keep their stored names. */
+        val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `user_trigger` (`id` TEXT NOT NULL, `label` TEXT NOT NULL, " +
+                        "`position` INTEGER NOT NULL, `hidden` INTEGER NOT NULL, PRIMARY KEY(`id`))"
+                )
+                seedTriggers(db)
+            }
+        }
+
+        private fun seedTriggers(db: SupportSQLiteDatabase) {
+            Triggers.defaults.forEachIndexed { i, e ->
+                db.execSQL(
+                    "INSERT OR IGNORE INTO `user_trigger` (`id`, `label`, `position`, `hidden`) VALUES (?, ?, ?, 0)",
+                    arrayOf<Any>(e.key, e.trigger.label, i),
+                )
+            }
+        }
     }
 }

@@ -47,6 +47,9 @@ import app.exhale.domain.PlanMath
 import app.exhale.domain.SettingsInput
 import app.exhale.domain.SettingsInput.Field
 import app.exhale.domain.TaperType
+import app.exhale.domain.Trigger
+import app.exhale.domain.TriggerEntry
+import app.exhale.domain.Triggers
 import app.exhale.domain.HomeStyle
 import app.exhale.domain.ThemeMode
 import app.exhale.domain.UserSettings
@@ -77,7 +80,11 @@ import app.exhale.ui.theme.ExType
 import java.time.LocalDate
 
 /** The edit screens Settings opens. Each one saves when you go back. */
-enum class SettingsPage { TAPER, PACK, GOAL }
+enum class SettingsPage { TAPER, PACK, GOAL, TRIGGERS, TRIGGER;
+
+    /** How deep the page sits: Settings is 0, Triggers 1, one trigger 2. Going deeper slides in from the right. */
+    val depth: Int get() = if (this == TRIGGER) 2 else 1
+}
 
 /** Rows that exist only in debug builds: the live component catalogue and demo data. */
 class PrototypeTools(val onDesignSystem: () -> Unit, val onDemo: () -> Unit)
@@ -91,7 +98,8 @@ private val SaveBarHeight = 108.dp
  * Appearance and Home screen apply at once. Before Exhale and Starting allowance are counted here and wait for
  * "Save changes", which rises from the bottom while either differs from what's saved; Back with
  * unsaved counts asks first. How it drops, A pack and Saving for open their own screens, which
- * save when you go back and say so in a toast. Keeps the original plan start.
+ * save when you go back and say so in a toast. Triggers opens a list that applies changes at once.
+ * Keeps the original plan start.
  * [prototypeTools] is null in release builds.
  */
 @Composable
@@ -108,10 +116,16 @@ fun SettingsScreen(
     initialPage: SettingsPage? = null,
     initialAllowance: Int = current.startAllowance,
     toast: ExToastState = rememberToastState(),
+    triggers: List<TriggerEntry> = Triggers.defaults,
+    triggerUses: Map<String, Int> = emptyMap(),
+    triggerActions: TriggerActions = TriggerActions(),
+    /** With [initialPage] TRIGGER: the trigger to open, null to add one. */
+    initialTriggerKey: String? = null,
 ) {
     var baseline by rememberSaveable { mutableIntStateOf(current.baselinePerDay) }
     var allowance by rememberSaveable { mutableIntStateOf(initialAllowance) }
     var page by rememberSaveable { mutableStateOf(initialPage) }
+    var triggerKey by rememberSaveable { mutableStateOf(initialTriggerKey) }
     var ask by rememberSaveable { mutableStateOf<Ask?>(null) }
     val mainScroll = rememberScrollState(initialScroll)
     val baselineChanged = baseline != current.baselinePerDay
@@ -136,7 +150,7 @@ fun SettingsScreen(
             transitionSpec = {
                 val spec = tween<IntOffset>(260, easing = FastOutSlowInEasing)
                 val fade = tween<Float>(260, easing = FastOutSlowInEasing)
-                if (targetState != null) {
+                if ((targetState?.depth ?: 0) > (initialState?.depth ?: 0)) {
                     (slideInHorizontally(spec) { it } togetherWith slideOutHorizontally(spec) { -it / 3 } + fadeOut(fade))
                         .apply { targetContentZIndex = 1f }
                 } else {
@@ -149,13 +163,19 @@ fun SettingsScreen(
             when (p) {
                 null -> SettingsMain(
                     current, today, baseline, { baseline = it }, baselineChanged, allowance, { allowance = it }, allowanceChanged,
-                    dirty, mainScroll, onTheme, onHome, { page = it }, { ask = Ask.ERASE }, prototypeTools?.let { t -> PrototypeTools(t.onDesignSystem) { ask = Ask.DEMO } },
+                    dirty, mainScroll, onTheme, onHome, { page = it }, Triggers.shown(triggers), { ask = Ask.ERASE }, prototypeTools?.let { t -> PrototypeTools(t.onDesignSystem) { ask = Ask.DEMO } },
                     onBack = { if (dirty) ask = Ask.UNSAVED else onClose() },
                     onSaveCounts = { saveCounts(); toast.show("Saved") },
                 )
                 SettingsPage.TAPER -> TaperPage(current, allowance, allowanceChanged, pageDone)
                 SettingsPage.PACK -> PackPage(current, pageDone)
                 SettingsPage.GOAL -> GoalPage(current, pageDone)
+                SettingsPage.TRIGGERS -> TriggersPage(
+                    triggers, triggerUses, triggerActions,
+                    onOpen = { k -> triggerKey = k; page = SettingsPage.TRIGGER },
+                    onBack = { page = null },
+                )
+                SettingsPage.TRIGGER -> TriggerPage(triggers, triggerKey, triggerUses, triggerActions, toast, onBack = { page = SettingsPage.TRIGGERS })
             }
         }
         ExToast(toast, Modifier.align(Alignment.BottomCenter), bottom = if (dirty && page == null) SaveBarHeight else ExSpace.xl)
@@ -212,6 +232,7 @@ private fun SettingsMain(
     onTheme: (ThemeMode) -> Unit,
     onHome: (HomeStyle) -> Unit,
     onOpen: (SettingsPage) -> Unit,
+    shownTriggers: List<Trigger>,
     onErase: () -> Unit,
     tools: PrototypeTools?,
     onBack: () -> Unit,
@@ -242,6 +263,16 @@ private fun SettingsMain(
                 ListRow("How it drops", { onOpen(SettingsPage.TAPER) }, value = current.taper.label)
             }
             PlanLine(current.copy(startAllowance = allowance), today, baseline)
+
+            Overline("Triggers", Modifier.paddingTop())
+            ExCard(padding = ExSpace.sm) {
+                ListRow(
+                    "Your triggers", { onOpen(SettingsPage.TRIGGERS) },
+                    value = "${shownTriggers.size} shown",
+                    sub = shownTriggers.joinToString(", ") { it.label }.ifEmpty { "None shown" },
+                )
+            }
+            Footnote("The chips you can tag a cigarette or a craving with.")
 
             Overline("Money", Modifier.paddingTop())
             ExCard(padding = ExSpace.sm) {

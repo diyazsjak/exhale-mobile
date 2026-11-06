@@ -69,7 +69,7 @@ Plain, short, second person. A cigarette is information: "Logged. 8 of 12 today.
 
 ## Components
 
-Button, IconButton, Link, Chip, Badge, Card, OptionCard, TextField, FieldNote, Footnote, Stepper, CounterRow, SegmentedControl, ActiveFilter, StepProgress, GradientRing, WeekStrip, MonthCalendar, LegendItem, ListRow, Dialog, ChoiceDialog, Toast, FloatingTabBar and AppBar. Each card below has guidelines and a live web rendition styled by `components/bundle.css`. In the app they are Compose functions in `ui/components/` (`ExButton`, `ExIconButton`, `ExLink`, `ExChip`, `ExBadge`, `ExCard`, `OptionCard`, `ExTextField`, `FieldNote`, `Footnote`, `Stepper`, `CounterRow`, `SegmentedControl`, `ActiveFilter`, `StepProgress`, `GradientRing`, `WeekStrip`, `MonthCalendar`, `LegendItem`, `ListRow`, `ExDialog`, `ExChoiceDialog`, `ExToast`, `FloatingTabBar`, `ExAppBar`). Every screen sits in `ExScreen`, which applies `bg`, the status-bar inset, the gutter and the tab-bar clearance. The app also has a live catalogue in debug builds: Settings → Prototype tools → Design system.
+Button, IconButton, Link, Chip, Badge, Card, OptionCard, TextField, FieldNote, Footnote, Stepper, CounterRow, SegmentedControl, ActiveFilter, StepProgress, GradientRing, WeekStrip, MonthCalendar, LegendItem, ListRow, HandleRow, ReorderColumn, TriggerChips, Dialog, ChoiceDialog, Toast, FloatingTabBar and AppBar. Each card below has guidelines and a live web rendition styled by `components/bundle.css`. In the app they are Compose functions in `ui/components/` (`ExButton`, `ExIconButton`, `ExLink`, `ExChip`, `ExBadge`, `ExCard`, `OptionCard`, `ExTextField`, `FieldNote`, `Footnote`, `Stepper`, `CounterRow`, `SegmentedControl`, `ActiveFilter`, `StepProgress`, `GradientRing`, `WeekStrip`, `MonthCalendar`, `LegendItem`, `ListRow`, `HandleRow`, `ReorderColumn`, `TriggerChips`, `ExDialog`, `ExChoiceDialog`, `ExToast`, `FloatingTabBar`, `ExAppBar`). Every screen sits in `ExScreen`, which applies `bg`, the status-bar inset, the gutter and the tab-bar clearance. The app also has a live catalogue in debug builds: Settings → Prototype tools → Design system.
 
 ## Colour tokens
 
@@ -133,7 +133,15 @@ Selectable pill for tags such as triggers; selected chips take a soft accent tin
 
 Unselected: `surface` fill, `ink` label. Selected: the accent at 14–18% over `surface`, label in the accent's `*-ink`. Triggers use `flare`; other choices default to `sky`. Chips wrap in rows (FlowRow), never scroll sideways. Min height `chip` (40).
 
-- Compose: `ExChip(text, selected, onClick, accent = c.flare)`; `TriggerChips(selected, onPick)` for the trigger set.
+- Compose: `ExChip(text, selected, onClick, accent = c.flare)`; `TriggerChips` for the trigger set (below).
+
+### TriggerChips
+
+The user's trigger chips in their order, with the two action chips that can follow them.
+
+Trigger chips are Chips with the `flare` accent. Up to nine show; with eleven or more, a **more** chip ("3 more") opens the rest in place. With `onAdd`, a **Your own** chip ends the row. Both action chips are quiet: no fill, a 1px `ink-faint` outline, a `label-small` label in `ink-soft`, and for Your own a 16px plus. Tapped, Your own becomes a full-width pill field with a 1.5px `sky` ring and a 32px button inside it, Primary "Add" once a name is typed, `surface-high` "Cancel" while it is empty; a `caption` in `ink-faint` under the row counts letters ("11 / 20 · It joins your list for next time."). Back cancels.
+
+- Compose: `TriggerChips(state.shownTriggers, selected, onPick, onAdd = { name -> … }, onBusy = { typing -> … })`.
 
 ### Badge
 
@@ -286,6 +294,14 @@ Tappable row inside a card: label, optional value, chevron.
 52px minimum height, `body` label, `ink-soft` value, `ink-faint` chevron. Group rows in a `surface` card with `space-sm` padding; no dividers. Rows of different kinds (CounterRow, ListRow) can share one card. With `sub`, the label gets a second `caption` line, cut short with "…" when long, while the value (a number) always shows whole: Settings' "Saving for / New headphones … 599 $".
 
 - Compose: `ListRow("Design system", onClick, value = null)`; `ListRow("Saving for", onClick, value = "599 $", sub = goalName)`.
+
+### HandleRow and ReorderColumn
+
+A list row that can be dragged into a new order by its handle, with one trailing icon action, as in Settings → Triggers.
+
+Like ListRow (52px minimum, `body` label, inside a `surface` card with `space-sm` padding) with a 44px handle area on the left (20px drag icon in `ink-faint`, `ink` while dragging) and a plain IconButton on the right (an eye that hides, an eye-off that shows). An optional badge after the label is an `overline` in `sky-ink` on a `sky` tint pill ("YOURS"); `dimmed` puts the label in `ink-soft` (a hidden trigger), and a `caption` line can sit under it. Without a handle (hidden rows) the label lines up with ListRow's. The dragged row lifts onto `surface-high` and follows the finger; the others swap in as it passes their middle, and the new order is reported once it is let go. Screen readers get "Move up" and "Move down" actions instead.
+
+- Compose: `ReorderColumn(items, key = { it.key }, onMove = { from, to -> … }) { item, handle, dragging -> HandleRow(label, onOpen, ExIcons.Eye, "Hide $label", onHide, handle = handle, dragging = dragging, badge = "Yours") }`.
 
 ### FloatingTabBar
 

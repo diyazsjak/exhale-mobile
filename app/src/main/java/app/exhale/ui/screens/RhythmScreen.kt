@@ -72,6 +72,7 @@ import androidx.compose.ui.unit.dp
 import app.exhale.domain.DayFilter
 import app.exhale.domain.Rhythm
 import app.exhale.domain.TopTrigger
+import app.exhale.domain.BuiltInTrigger
 import app.exhale.domain.Trigger
 import app.exhale.domain.TriggerSummary
 import app.exhale.ui.ExhaleState
@@ -205,7 +206,7 @@ fun RhythmScreen(
                         day != null -> if (v.toInt() == 1) "cigarette" else "cigarettes"
                         else -> unit
                     },
-                    extra = top?.let { "${if (it.mostly) "Mostly" else "Most often"} ${it.trigger.label.lowercase()} · ${it.count} of ${it.tagged} tagged" } ?: "",
+                    extra = top?.let { "${if (it.mostly) "Mostly" else "Most often"} ${it.trigger.inSentence} · ${it.count} of ${it.tagged} tagged" } ?: "",
                     extraFaint = false,
                 )
             }
@@ -435,16 +436,20 @@ private fun PlanCard(hour: String, top: TopTrigger?, idea: Int, onUrge: () -> Un
     }
 }
 
-/** The if-line of a plan for [t] at an hour. Null for [Trigger.OTHER], which says nothing useful. */
-private fun ifAt(t: Trigger, hour: String): String? = when (t) {
-    Trigger.COFFEE -> "If it's coffee at $hour,"
-    Trigger.STRESS -> "If stress hits at $hour,"
-    Trigger.AFTER_FOOD -> "If it's after a meal at $hour,"
-    Trigger.DRINKS -> "If it's a drink at $hour,"
-    Trigger.DRIVING -> "If I'm driving at $hour,"
-    Trigger.BORED -> "If I'm bored at $hour,"
-    Trigger.SOCIAL -> "If I'm with people at $hour,"
-    Trigger.OTHER -> null
+/**
+ * The if-line of a plan for [t] at an hour: hand-written for built-ins, the user's own words for theirs.
+ * Null for "Other", which says nothing useful.
+ */
+private fun ifAt(t: Trigger, hour: String): String? = when (t.builtIn) {
+    BuiltInTrigger.COFFEE -> "If it's coffee at $hour,"
+    BuiltInTrigger.STRESS -> "If stress hits at $hour,"
+    BuiltInTrigger.AFTER_FOOD -> "If it's after a meal at $hour,"
+    BuiltInTrigger.DRINKS -> "If it's a drink at $hour,"
+    BuiltInTrigger.DRIVING -> "If I'm driving at $hour,"
+    BuiltInTrigger.BORED -> "If I'm bored at $hour,"
+    BuiltInTrigger.SOCIAL -> "If I'm with people at $hour,"
+    BuiltInTrigger.OTHER -> null
+    null -> "If it's ${t.inSentence} at $hour,"
 }
 
 /** "Today", a weekday name within the last week, else "Sun 12 Oct". */

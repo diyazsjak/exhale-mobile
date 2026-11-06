@@ -7,8 +7,6 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -28,7 +26,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import app.exhale.domain.Trigger
 import app.exhale.ui.theme.Ex
 import app.exhale.ui.theme.ExRadius
 import app.exhale.ui.theme.ExSize
@@ -72,19 +69,6 @@ fun ExBadge(text: String, modifier: Modifier = Modifier, accent: Color? = null) 
             .padding(horizontal = 12.dp, vertical = 6.dp),
     ) {
         Text(text, style = ExType.numberSmall.copy(fontSize = ExType.caption.fontSize), color = accent?.let { c.inkOf(it) } ?: c.inkSoft)
-    }
-}
-
-/** Wrapping set of trigger chips. */
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-fun TriggerChips(selected: Trigger?, onPick: (Trigger) -> Unit, modifier: Modifier = Modifier) {
-    FlowRow(
-        modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(ExSpace.xs),
-        verticalArrangement = Arrangement.spacedBy(ExSpace.xs),
-    ) {
-        Trigger.entries.forEach { t -> ExChip(t.label, selected == t, { onPick(t) }, accent = Ex.colors.flare) }
     }
 }
 

@@ -3,10 +3,13 @@ package app.exhale.data
 import app.exhale.domain.DemoData
 import app.exhale.domain.SmokeLog
 import app.exhale.domain.Trigger
+import app.exhale.domain.TriggerEntry
+import app.exhale.domain.Triggers
 import app.exhale.domain.Urge
 import app.exhale.domain.UrgeOutcome
 import app.exhale.domain.UserSettings
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import java.time.Instant
@@ -20,9 +23,19 @@ class ExhaleRepository(
 ) {
     val settings: Flow<UserSettings> = settingsStore.settings
 
-    val logs: Flow<List<SmokeLog>> = db.logs().observeAll().map { list -> list.map { it.toDomain() } }
+    /** The user's trigger list: shown ones in chip order, then hidden ones. */
+    val triggers: Flow<List<TriggerEntry>> = db.triggers().observeAll().map { list -> list.map { it.toDomain() } }
 
-    val urges: Flow<List<Urge>> = db.urges().observeAll().map { list -> list.map { it.toDomain() } }
+    private val triggersByKey: Flow<Map<String, Trigger>> = triggers.map { list -> list.associate { it.key to it.trigger } }
+
+    val logs: Flow<List<SmokeLog>> =
+        combine(db.logs().observeAll(), triggersByKey) { list, byKey -> list.map { it.toDomain(byKey) } }
+
+    val urges: Flow<List<Urge>> =
+        combine(db.urges().observeAll(), triggersByKey) { list, byKey -> list.map { it.toDomain(byKey) } }
+
+    suspend fun saveTriggers(list: List<TriggerEntry>) =
+        db.triggers().replaceAll(list.mapIndexed { i, e -> e.toEntity(i) })
 
     suspend fun saveSettings(s: UserSettings) = settingsStore.save(s)
 
@@ -31,7 +44,7 @@ class ExhaleRepository(
 
     suspend fun undoLog(id: Long) = db.logs().delete(id)
 
-    suspend fun tagLog(id: Long, trigger: Trigger?) = db.logs().setTrigger(id, trigger?.name)
+    suspend fun tagLog(id: Long, trigger: Trigger?) = db.logs().setTrigger(id, trigger?.key)
 
     suspend fun recordUrge(started: Instant, ended: Instant, outcome: UrgeOutcome, trigger: Trigger?) {
         db.urges().insert(Urge(0, started, ended, outcome, trigger).toEntity())
@@ -47,6 +60,9 @@ class ExhaleRepository(
         settingsStore.clear()
     }
 
+    /** Erasing or loading demo data starts the trigger list over from the built-ins. */
+    private suspend fun resetTriggers() = saveTriggers(Triggers.defaults)
+
     /** Replaces everything with [DemoData]: a matching onboarded profile and 60 days of history. */
     suspend fun seedDemo() {
         clearHistory()
@@ -60,5 +76,6 @@ class ExhaleRepository(
     private suspend fun clearHistory() {
         db.logs().clear()
         db.urges().clear()
+        resetTriggers()
     }
 }

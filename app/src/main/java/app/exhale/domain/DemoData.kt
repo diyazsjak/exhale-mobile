@@ -45,7 +45,7 @@ data class DemoData(val settings: UserSettings, val logs: List<SmokeLog>, val ur
                 in 12..14 -> Trigger.AFTER_FOOD
                 in 15..17 -> Trigger.STRESS
                 in 19..22 -> if (random.nextBoolean()) Trigger.DRINKS else Trigger.SOCIAL
-                else -> Trigger.entries[random.nextInt(Trigger.entries.size)]
+                else -> Trigger.BUILT_IN[random.nextInt(Trigger.BUILT_IN.size)]
             }
             val logs = mutableListOf<SmokeLog>()
             val urges = mutableListOf<Urge>()
