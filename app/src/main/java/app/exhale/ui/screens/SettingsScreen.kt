@@ -257,12 +257,14 @@ private fun SettingsMain(
             )
 
             Overline("Plan", Modifier.paddingTop())
-            ExCard(padding = ExSpace.sm) {
-                CounterRow("Before Exhale", baseline, onBaseline, 1..SettingsInput.COUNT_MAX, caption = "cigarettes a day", changed = baselineChanged)
-                CounterRow("Starting allowance", allowance, onAllowance, 0..SettingsInput.COUNT_MAX, caption = "a day, since ${Fmt.dayMonth(current.planStart)}", changed = allowanceChanged)
-                ListRow("How it drops", { onOpen(SettingsPage.TAPER) }, value = current.taper.label)
+            CardWithCaption {
+                ExCard(padding = ExSpace.sm) {
+                    CounterRow("Before Exhale", baseline, onBaseline, 1..SettingsInput.COUNT_MAX, caption = "cigarettes a day", changed = baselineChanged)
+                    CounterRow("Starting allowance", allowance, onAllowance, 0..SettingsInput.COUNT_MAX, caption = "a day, since ${Fmt.dayMonth(current.planStart)}", changed = allowanceChanged)
+                    ListRow("How it drops", { onOpen(SettingsPage.TAPER) }, value = current.taper.label)
+                }
+                PlanLine(current.copy(startAllowance = allowance), today, baseline)
             }
-            PlanLine(current.copy(startAllowance = allowance), today, baseline)
 
             Overline("Triggers", Modifier.paddingTop())
             ExCard(padding = ExSpace.sm) {
@@ -280,16 +282,20 @@ private fun SettingsMain(
             }
 
             Overline("Your data", Modifier.paddingTop())
-            ExCard(padding = ExSpace.sm) { ListRow("Erase all data", onErase) }
-            Footnote("Exhale keeps everything on this phone. No account, no cloud.")
+            CardWithCaption {
+                ExCard(padding = ExSpace.sm) { ListRow("Erase all data", onErase) }
+                Footnote("Exhale keeps everything on this phone. No account, no cloud.")
+            }
 
             if (tools != null) {
                 Overline("Prototype tools", Modifier.paddingTop())
-                ExCard(padding = ExSpace.sm) {
-                    ListRow("Design system", tools.onDesignSystem)
-                    ListRow("Load demo data", tools.onDemo, value = "60 days")
+                CardWithCaption {
+                    ExCard(padding = ExSpace.sm) {
+                        ListRow("Design system", tools.onDesignSystem)
+                        ListRow("Load demo data", tools.onDemo, value = "60 days")
+                    }
+                    Footnote("Shown in debug builds only.")
                 }
-                Footnote("Shown in debug builds only.")
             }
         }
         AnimatedVisibility(
@@ -310,6 +316,12 @@ private fun SettingsMain(
             }
         }
     }
+}
+
+/** A card and the caption under it, held close so the caption reads as part of the card. */
+@Composable
+private fun CardWithCaption(content: @Composable ColumnScope.() -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp), content = content)
 }
 
 /** "This week 11 a day, next week 10." for the plan as counted on screen, saved or not. */
