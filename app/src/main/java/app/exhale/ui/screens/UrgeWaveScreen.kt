@@ -64,6 +64,8 @@ fun UrgeWaveScreen(
     triggers: List<Trigger> = Trigger.BUILT_IN,
     /** "Your own": adds a trigger by name, then hands back the saved one so it can be picked. */
     onAddTrigger: (name: String, then: (Trigger) -> Unit) -> Unit = { _, _ -> },
+    /** Screenshots: open the "Your own" dialog. */
+    naming: Boolean = false,
 ) {
     val c = Ex.colors
     val started = remember { Instant.now() }
@@ -135,6 +137,9 @@ fun UrgeWaveScreen(
         TriggerChips(
             triggers, trigger, { trigger = if (trigger == it) null else it },
             onAdd = { name -> onAddTrigger(name) { trigger = it } },
+            // The keyboard would cover the chips at the bottom of this screen, so naming happens in a dialog.
+            addInDialog = true,
+            initialDraft = if (naming) "" else null,
         )
         Spacer(Modifier.weight(1f))
         if (done) {

@@ -192,9 +192,6 @@ class ExhaleViewModel(private val repo: ExhaleRepository) : ViewModel() {
         }
     }
 
-    /** "Your own" on the Logged card: add the trigger and tag the log with it. */
-    fun addAndTag(logId: Long, name: String) = addTrigger(name) { tag(logId, it) }
-
     fun renameTrigger(key: String, name: String) = editTriggers { Triggers.rename(it, key, name) }
     fun setTriggerHidden(key: String, hidden: Boolean) = editTriggers { Triggers.setHidden(it, key, hidden) }
     fun moveTrigger(from: Int, to: Int) = editTriggers { Triggers.move(it, from, to) }

@@ -26,7 +26,7 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -107,8 +107,8 @@ fun EmberScreen(
     onTodayOpen: (Boolean) -> Unit = {},
     /** Glow home only: the hold (0..1) and the log's flash (1 → 0), for the edge light drawn behind the tabs. */
     onGlowLight: (hold: Float, flash: Float) -> Unit = { _, _ -> },
-    /** "Your own" on the Logged card: a new trigger's name, to add and tag the log with. */
-    onAddTag: (Long, String) -> Unit = { _, _ -> },
+    /** "Your own" on the Logged card: adds a trigger by name, then hands back the saved one. */
+    onAddTrigger: (name: String, then: (Trigger) -> Unit) -> Unit = { _, _ -> },
     /** Screenshots: open the Logged card's "Your own" field with this text. */
     initialDraft: String? = null,
 ) {
@@ -198,16 +198,20 @@ fun EmberScreen(
         // Keep the last event while the card animates out.
         var shown by remember { mutableStateOf(logged) }
         if (logged != null) shown = logged
-        // While the keyboard is up (naming a trigger) the card sits just above it instead of the tab bar.
-        val keyboard = WindowInsets.ime.getBottom(LocalDensity.current) > 0
+        // The card sits above the tab bar, or just above the keyboard (naming a trigger), whichever is
+        // higher, every frame of the keyboard's slide, so it never dips behind the tab bar on the way down.
+        val density = LocalDensity.current
+        val keyboardOver = with(density) {
+            (WindowInsets.ime.getBottom(density) - WindowInsets.navigationBars.getBottom(density)).coerceAtLeast(0).toDp()
+        }
+        val cardBottom = maxOf(keyboardOver + ExSpace.sm, ExSize.tabBar + ExSpace.lg)
         AnimatedVisibility(
             visible = logged != null,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .navigationBarsPadding()
-                .imePadding()
                 .padding(horizontal = ExSpace.sm)
-                .padding(bottom = if (keyboard) ExSpace.sm else ExSize.tabBar + ExSpace.lg),
+                .padding(bottom = cardBottom),
             // Unhurried: it arrives after the log's burst has played out.
             enter = slideInVertically(tween(650, delayMillis = 250, easing = FastOutSlowInEasing)) { it } + fadeIn(tween(500, delayMillis = 250)),
             exit = slideOutVertically(tween(450, easing = FastOutSlowInEasing)) { it } + fadeOut(tween(350)),
@@ -222,7 +226,7 @@ fun EmberScreen(
                 ev, state,
                 onUndo = { onUndo(ev.logId) },
                 onTag = { onTag(ev.logId, it) },
-                onAdd = { onAddTag(ev.logId, it) },
+                onAdd = onAddTrigger,
                 onEditing = { editing = it },
                 initialDraft = initialDraft,
                 modifier = Modifier.pointerInput(ev.logId) {
@@ -294,7 +298,7 @@ private fun LoggedCard(
     state: ExhaleState,
     onUndo: () -> Unit,
     onTag: (Trigger) -> Unit,
-    onAdd: (String) -> Unit,
+    onAdd: (name: String, then: (Trigger) -> Unit) -> Unit,
     onEditing: (Boolean) -> Unit,
     initialDraft: String?,
     modifier: Modifier = Modifier,
@@ -313,7 +317,15 @@ private fun LoggedCard(
             ExButton("Undo", onUndo, style = ButtonStyle.Ghost, size = ButtonSize.Medium, icon = ExIcons.Undo)
         }
         Text("What set it off? Optional.", style = ExType.caption, color = c.inkSoft, modifier = Modifier.padding(top = ExSpace.xxs))
-        TriggerChips(state.shownTriggers, selected = null, onPick = onTag, onAdd = onAdd, onEditing = onEditing, initialDraft = initialDraft)
+        // A trigger named here lands in the chips already picked, shows for a moment, then tags the log
+        // (which closes the card).
+        var named by remember { mutableStateOf<Trigger?>(null) }
+        LaunchedEffect(named) { named?.let { delay(900); onTag(it) } }
+        TriggerChips(
+            state.shownTriggers, selected = named, onPick = onTag,
+            onAdd = { name -> onAdd(name) { named = it } },
+            onEditing = onEditing, initialDraft = initialDraft,
+        )
     }
 }
 

@@ -225,7 +225,7 @@ private fun MainNav(state: ExhaleState, logged: LoggedEvent?, vm: ExhaleViewMode
                     todayOpen = todayOpen,
                     onTodayOpen = { todayOpen = it },
                     onGlowLight = { hold, flash -> glowHold.floatValue = hold; glowFlash.floatValue = flash },
-                    onAddTag = vm::addAndTag,
+                    onAddTrigger = vm::addTrigger,
                 )
             }
             composable(Tab.RHYTHM.route) {

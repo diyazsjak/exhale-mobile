@@ -13,14 +13,17 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -44,9 +47,81 @@ import app.exhale.ui.theme.ExSpace
 import app.exhale.ui.theme.ExType
 
 /**
+ * The drag in a [ReorderColumn]. One object for the column's life, so the handles' gesture handlers
+ * capture only it and are never restarted while a finger is down.
+ *
+ * While dragging, the rows keep their place in the layout and only slide (the dragged one with the
+ * finger, the ones it passes by one row height). Moving the rows in the layout mid-drag moved the very
+ * node following the finger, and the drag froze. The new order is laid out when the finger lifts.
+ */
+private class ReorderState<T>(var keyOf: (T) -> Any) {
+    var items: List<T> = emptyList()
+    var onMove: (Int, Int) -> Unit = { _, _ -> }
+
+    /** The order just dropped, shown until [items] catches up with the move. */
+    private var dropped by mutableStateOf<List<T>?>(null)
+    private var droppedFor: List<T>? = null
+    var dragKey by mutableStateOf<Any?>(null)
+        private set
+    var offset by mutableFloatStateOf(0f)
+        private set
+    val heights = mutableStateMapOf<Any, Int>()
+
+    fun order(): List<T> = dropped?.takeIf { droppedFor == items } ?: items
+
+    private fun from(): Int = order().indexOfFirst { keyOf(it) == dragKey }
+
+    /** Where the dragged row would land: past a neighbour's middle, it takes that neighbour's place. */
+    val target by derivedStateOf {
+        val list = order()
+        val i = from()
+        if (i < 0) return@derivedStateOf -1
+        var t = i
+        var left = offset
+        val dir = if (left > 0) 1 else -1
+        while (t + dir in list.indices) {
+            val h = heights[keyOf(list[t + dir])] ?: break
+            if (abs(left) <= h / 2f) break
+            left -= dir * h
+            t += dir
+        }
+        t
+    }
+
+    /** How far the row at [index] slides to make room: one dragged-row height, or none. */
+    fun shiftOf(index: Int): Float {
+        val i = from()
+        val t = target
+        if (i < 0 || index == i) return 0f
+        val h = (heights[dragKey] ?: 0).toFloat()
+        return when {
+            index in (i + 1)..t -> -h
+            index in t until i -> h
+            else -> 0f
+        }
+    }
+
+    fun start(k: Any) { dragKey = k; offset = 0f }
+
+    fun dragBy(dy: Float) { if (dragKey != null) offset += dy }
+
+    fun drop() {
+        val list = order()
+        val i = from()
+        val t = target
+        dragKey = null
+        offset = 0f
+        if (i < 0 || t < 0 || i == t) return
+        dropped = list.toMutableList().apply { add(t, removeAt(i)) }
+        droppedFor = items
+        onMove(i, t)
+    }
+}
+
+/**
  * A column whose rows can be dragged into a new order by a handle. Each row gets a [Modifier] to put
- * on its handle and whether it is being dragged. The new order shows while dragging; [onMove] gets the
- * old and new position once the row is let go. Screen readers get "Move up" and "Move down" actions.
+ * on its handle and whether it is being dragged. While dragging, the other rows slide aside; [onMove]
+ * gets the old and new position once the row is let go. Screen readers get "Move up" and "Move down".
  */
 @Composable
 fun <T> ReorderColumn(
@@ -56,59 +131,39 @@ fun <T> ReorderColumn(
     modifier: Modifier = Modifier,
     row: @Composable (item: T, handle: Modifier, dragging: Boolean) -> Unit,
 ) {
-    var order by remember(items) { mutableStateOf(items) }
-    var dragKey by remember { mutableStateOf<Any?>(null) }
-    var offset by remember { mutableFloatStateOf(0f) }
-    val heights = remember { mutableStateMapOf<Any, Int>() }
-    val currentItems by rememberUpdatedState(items)
-    val currentMove by rememberUpdatedState(onMove)
-
-    fun dragBy(dy: Float) {
-        val k = dragKey ?: return
-        offset += dy
-        // Past the middle of the neighbour it's moving toward, the two swap places.
-        val i = order.indexOfFirst { keyOf(it) == k }
-        val dir = if (offset > 0) 1 else -1
-        val j = i + dir
-        if (i < 0 || j !in order.indices) return
-        val h = heights[keyOf(order[j])] ?: return
-        if (abs(offset) > h / 2f) {
-            order = order.toMutableList().apply { add(j, removeAt(i)) }
-            offset -= dir * h
-        }
-    }
-
-    fun drop() {
-        val k = dragKey ?: return
-        val from = currentItems.indexOfFirst { keyOf(it) == k }
-        val to = order.indexOfFirst { keyOf(it) == k }
-        dragKey = null
-        offset = 0f
-        if (from >= 0 && to >= 0 && from != to) currentMove(from, to)
-    }
+    val state = remember { ReorderState(keyOf) }
+    state.keyOf = keyOf
+    state.items = items
+    state.onMove = onMove
+    val order = state.order()
 
     Column(modifier) {
         order.forEachIndexed { i, item ->
             val k = keyOf(item)
-            // Keyed by item, so a swap moves the row (and the drag it is running) rather than re-keying the slot.
             key(k) {
-                val dragging = dragKey == k
-                val handle = Modifier.pointerInput(k, items) {
-                    detectVerticalDragGestures(
-                        onDragStart = { dragKey = k; offset = 0f },
-                        onDragEnd = { drop() },
-                        onDragCancel = { drop() },
-                    ) { change, dy -> change.consume(); dragBy(dy) }
+                val dragging = state.dragKey == k
+                val shift by animateFloatAsState(state.shiftOf(i), tween(160), label = "reorder-shift")
+                val handle = Modifier.pointerInput(state, k) {
+                    try {
+                        detectVerticalDragGestures(
+                            onDragStart = { state.start(k) },
+                            onDragEnd = { state.drop() },
+                            onDragCancel = { state.drop() },
+                        ) { change, dy -> change.consume(); state.dragBy(dy) }
+                    } finally {
+                        // If the handler is ever torn down mid-drag, end the drag rather than leave the row lifted.
+                        if (state.dragKey == k) state.drop()
+                    }
                 }
                 val actions = listOfNotNull(
-                    CustomAccessibilityAction("Move up") { currentMove(i, i - 1); true }.takeIf { i > 0 },
-                    CustomAccessibilityAction("Move down") { currentMove(i, i + 1); true }.takeIf { i < order.lastIndex },
+                    CustomAccessibilityAction("Move up") { onMove(i, i - 1); true }.takeIf { i > 0 },
+                    CustomAccessibilityAction("Move down") { onMove(i, i + 1); true }.takeIf { i < order.lastIndex },
                 )
                 Box(
                     Modifier
-                        .onSizeChanged { heights[k] = it.height }
+                        .onSizeChanged { state.heights[k] = it.height }
                         .zIndex(if (dragging) 1f else 0f)
-                        .graphicsLayer { translationY = if (dragging) offset else 0f }
+                        .graphicsLayer { translationY = if (dragging) state.offset else shift }
                         .semantics { customActions = actions }
                 ) {
                     row(item, handle, dragging)
@@ -163,6 +218,9 @@ fun HandleRow(
             }
             if (sub != null) Text(sub, style = ExType.caption, color = c.inkSoft, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
-        ExIconButton(action, actionLabel, onAction, filled = false)
+        // The icon crossfades when the action flips (an eye closing as a trigger is hidden).
+        Crossfade(action, animationSpec = tween(180), label = "row-action") { icon ->
+            ExIconButton(icon, actionLabel, onAction, filled = false)
+        }
     }
 }

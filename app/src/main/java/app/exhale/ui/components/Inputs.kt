@@ -30,6 +30,11 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -80,10 +85,18 @@ fun ExTextField(
     placeholder: String? = null,
     maxLength: Int? = null,
     suffix: String? = null,
+    /** Put the cursor here (and the keyboard up) when it first shows. */
+    autoFocus: Boolean = false,
+    /** The keyboard's Done key, when set. */
+    onDone: (() -> Unit)? = null,
+    /** Start sentences with a capital, for names. */
+    sentences: Boolean = false,
 ) {
     val c = Ex.colors
     val source = remember { MutableInteractionSource() }
     val focused by source.collectIsFocusedAsState()
+    val focus = remember { FocusRequester() }
+    if (autoFocus) LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
     Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Row {
             Text(label, style = ExType.caption, color = c.inkSoft, modifier = Modifier.weight(1f))
@@ -95,9 +108,14 @@ fun ExTextField(
             singleLine = true,
             textStyle = ExType.body.copy(color = c.ink),
             cursorBrush = SolidColor(c.ink),
-            keyboardOptions = KeyboardOptions(keyboardType = type),
+            keyboardOptions = KeyboardOptions(
+                keyboardType = type,
+                capitalization = if (sentences) KeyboardCapitalization.Sentences else KeyboardCapitalization.None,
+                imeAction = if (onDone != null) ImeAction.Done else ImeAction.Default,
+            ),
+            keyboardActions = KeyboardActions(onDone = { onDone?.invoke() }),
             interactionSource = source,
-            modifier = Modifier.fillMaxWidth().semantics { contentDescription = label },
+            modifier = Modifier.fillMaxWidth().focusRequester(focus).semantics { contentDescription = label },
             decorationBox = { inner ->
                 Box(
                     Modifier

@@ -1,5 +1,13 @@
 package app.exhale.ui.screens
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -8,12 +16,15 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import kotlinx.coroutines.delay
 import app.exhale.domain.NameCheck
 import app.exhale.domain.TriggerEntry
 import app.exhale.domain.Triggers
@@ -45,6 +56,9 @@ class TriggerActions(
     val delete: (key: String) -> Unit = {},
 )
 
+/** How long a hidden (or shown-again) row takes to leave its list. */
+private const val MOVE_OUT_MS = 280
+
 private fun usesText(n: Int) = when (n) {
     0 -> "Not used yet"
     1 -> "Tagged once"
@@ -65,22 +79,53 @@ internal fun TriggersPage(
 ) {
     val c = Ex.colors
     val (hidden, shown) = triggers.partition { it.hidden }
+    // Hiding (or showing again) plays out before it's saved: the eye turns, the row drifts toward it
+    // and fades as its space closes, then it grows into the other list.
+    // Key → whether it is going to be hidden. Saving waits for the row to leave; the same target is
+    // saved however often the effect runs, and the row stops leaving once the list has it there.
+    var leaving by remember { mutableStateOf(mapOf<String, Boolean>()) }
+    leaving.forEach { (k, toHidden) ->
+        key(k) {
+            LaunchedEffect(Unit) {
+                delay(MOVE_OUT_MS.toLong())
+                actions.setHidden(k, toHidden)
+            }
+        }
+    }
+    LaunchedEffect(triggers) {
+        leaving = leaving.filter { (k, toHidden) -> triggers.firstOrNull { it.key == k }?.hidden != toHidden }
+    }
 
     // One row for both lists: shown ones have a handle and hide; hidden ones show again and say what they keep.
     @Composable
     fun Row(e: TriggerEntry, handle: Modifier? = null, dragging: Boolean = false) {
         val label = e.trigger.label
         val n = uses[e.key] ?: 0
-        HandleRow(
-            label, { onOpen(e.key) },
-            if (e.hidden) ExIcons.EyeOff else ExIcons.Eye,
-            if (e.hidden) "Show $label" else "Hide $label",
-            { actions.setHidden(e.key, !e.hidden) },
-            handle = handle, dragging = dragging,
-            badge = "Yours".takeIf { e.trigger.builtIn == null },
-            sub = if (e.hidden && n > 0) "${usesText(n)}, still on Rhythm" else null,
-            dimmed = e.hidden,
-        )
+        val target = leaving[e.key]
+        val going = target != null && target != e.hidden
+        // A row that just came over from the other list grows in; the rest are simply there.
+        val arrive = remember { MutableTransitionState(target != e.hidden).apply { targetState = true } }
+        AnimatedVisibility(
+            arrive,
+            enter = expandVertically(tween(240)) + fadeIn(tween(200, delayMillis = 80)),
+        ) {
+            AnimatedVisibility(
+                !going,
+                exit = slideOutHorizontally(tween(MOVE_OUT_MS)) { it / 12 } + fadeOut(tween(MOVE_OUT_MS - 60)) +
+                    shrinkVertically(tween(MOVE_OUT_MS - 40, delayMillis = 40)),
+            ) {
+                HandleRow(
+                    label, { onOpen(e.key) },
+                    if (e.hidden != going) ExIcons.EyeOff else ExIcons.Eye,
+                    if (e.hidden) "Show $label" else "Hide $label",
+                    { leaving = leaving + (e.key to !e.hidden) },
+                    handle = handle, dragging = dragging,
+                    badge = "Yours".takeIf { e.trigger.builtIn == null },
+                    sub = if (e.hidden && n > 0) "${usesText(n)}, still on Rhythm" else null,
+                    dimmed = e.hidden,
+                )
+            }
+        }
     }
 
     EditPage("Triggers", onBack, savesOnBack = false) {
@@ -97,9 +142,18 @@ internal fun TriggersPage(
                 ReorderColumn(shown, keyOf = { it.key }, onMove = actions.move) { e, handle, dragging -> Row(e, handle, dragging) }
             }
         }
-        if (hidden.isNotEmpty()) {
-            Overline("Hidden · ${hidden.size}", Modifier.padding(top = ExSpace.xs))
-            ExCard(padding = ExSpace.sm) { hidden.forEach { Row(it) } }
+        // The Hidden list folds in with its first trigger and away with its last.
+        var lastHidden by remember { mutableStateOf(hidden) }
+        if (hidden.isNotEmpty()) lastHidden = hidden
+        AnimatedVisibility(
+            hidden.isNotEmpty(),
+            enter = expandVertically(tween(240)) + fadeIn(tween(200)),
+            exit = shrinkVertically(tween(240)) + fadeOut(tween(160)),
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(ExSpace.md)) {
+                Overline("Hidden · ${lastHidden.size}", Modifier.padding(top = ExSpace.xs))
+                ExCard(padding = ExSpace.sm) { lastHidden.forEach { key(it.key) { Row(it) } } }
+            }
         }
         ExButton(
             "Add a trigger", { onOpen(null) }, Modifier.fillMaxWidth().padding(top = ExSpace.xs),

@@ -35,6 +35,14 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.ui.input.pointer.pointerInput
 import app.exhale.ui.theme.Ex
 import app.exhale.ui.theme.ExRadius
 import app.exhale.ui.theme.ExSize
@@ -112,8 +120,8 @@ fun ExDialog(onDismiss: () -> Unit, modifier: Modifier = Modifier, action: Strin
     }
 }
 
-/** One button in an [ExChoiceDialog]. */
-data class DialogAction(val label: String, val style: ButtonStyle, val onClick: () -> Unit)
+/** One button in an [ExChoiceDialog] or [ExInputDialog]. */
+data class DialogAction(val label: String, val style: ButtonStyle, val enabled: Boolean = true, val onClick: () -> Unit)
 
 /**
  * A question before something that can't be undone or would be lost: a serif title, a line on
@@ -128,7 +136,37 @@ fun ExChoiceDialog(title: String, text: String, actions: List<DialogAction>, onD
             Text(title, style = ExType.headline, color = c.ink)
             Text(text, style = ExType.body, color = c.inkSoft)
             Column(Modifier.padding(top = ExSpace.sm), verticalArrangement = Arrangement.spacedBy(ExSpace.xs)) {
-                actions.forEach { ExButton(it.label, it.onClick, Modifier.fillMaxWidth(), style = it.style, size = ButtonSize.Medium) }
+                actions.forEach { ExButton(it.label, it.onClick, Modifier.fillMaxWidth(), style = it.style, size = ButtonSize.Medium, enabled = it.enabled) }
+            }
+        }
+    }
+}
+
+/**
+ * A dialog for typing something short, such as a new trigger's name: a serif title, the field(s), then
+ * the choices stacked full width. It centres in the space above the keyboard, so the field is never
+ * covered. Tapping outside or Back is [onDismiss].
+ */
+@Composable
+fun ExInputDialog(title: String, onDismiss: () -> Unit, actions: List<DialogAction>, content: @Composable ColumnScope.() -> Unit) {
+    val c = Ex.colors
+    Dialog(onDismiss, DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .clickable(remember { MutableInteractionSource() }, indication = null, onClick = onDismiss)
+                .imePadding()
+                .systemBarsPadding()
+                .padding(horizontal = ExSpace.gutter),
+            contentAlignment = Alignment.Center,
+        ) {
+            // The card keeps its own taps, so only the scrim around it dismisses.
+            ExCard(Modifier.fillMaxWidth().pointerInput(Unit) { detectTapGestures { } }, padding = ExSpace.xl) {
+                Text(title, style = ExType.headline, color = c.ink)
+                content()
+                Column(Modifier.padding(top = ExSpace.sm), verticalArrangement = Arrangement.spacedBy(ExSpace.xs)) {
+                    actions.forEach { ExButton(it.label, it.onClick, Modifier.fillMaxWidth(), style = it.style, size = ButtonSize.Medium, enabled = it.enabled) }
+                }
             }
         }
     }

@@ -1,6 +1,16 @@
 package app.exhale.ui.components
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -25,6 +35,7 @@ import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -54,9 +65,12 @@ import app.exhale.ui.theme.ExType
 
 /**
  * Wrapping set of trigger chips in the user's order ([Triggers.chipRow]): the first nine, then a
- * "N more" chip that opens the rest in place. With [onAdd], a "Your own" chip at the end turns into a
- * field to name a new trigger; Add (or the keyboard's Done) passes the tidied name, Back cancels.
- * [onEditing] says when that field opens and closes, so a card that closes on its own can wait.
+ * "N more" chip that opens the rest in place. With [onAdd], a "Your own" chip at the end names a new
+ * trigger and passes the tidied name: inline, it gives way to a field that unfolds under the chips
+ * (Back cancels); with [addInDialog] (a screen whose bottom the keyboard would cover) it opens a
+ * dialog that sits above the keyboard. [onEditing] says when the inline field opens and closes, so a
+ * card that closes on its own can wait. Chips that arrive after the first frame (a trigger just
+ * added) pop in.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -66,6 +80,7 @@ fun TriggerChips(
     onPick: (Trigger) -> Unit,
     modifier: Modifier = Modifier,
     onAdd: ((String) -> Unit)? = null,
+    addInDialog: Boolean = false,
     onEditing: (Boolean) -> Unit = {},
     /** Screenshots: open the field with this text. */
     initialDraft: String? = null,
@@ -74,42 +89,97 @@ fun TriggerChips(
     var expanded by rememberSaveable { mutableStateOf(false) }
     // null while not naming a new trigger.
     var draft by rememberSaveable { mutableStateOf(initialDraft) }
+    // The text the field shows, kept while it folds away after Add or Cancel.
+    var shownDraft by remember { mutableStateOf(initialDraft ?: "") }
+    draft?.let { shownDraft = it }
     val editing by rememberUpdatedState(onEditing)
-    LaunchedEffect(draft != null) { editing(draft != null) }
-    BackHandler(enabled = draft != null) { draft = null }
+    LaunchedEffect(draft != null) { if (!addInDialog) editing(draft != null) }
+    BackHandler(enabled = draft != null && !addInDialog) { draft = null }
+    val firstKeys = remember { triggers.map { it.key }.toSet() }
 
     val row = Triggers.chipRow(triggers, selected, expanded)
-    Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(ExSpace.xs)) {
+    Column(modifier.fillMaxWidth()) {
         FlowRow(
             Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(ExSpace.xs),
             verticalArrangement = Arrangement.spacedBy(ExSpace.xs),
         ) {
-            row.visible.forEach { t -> ExChip(t.label, selected == t, { onPick(t) }, accent = c.flare) }
+            row.visible.forEach { t ->
+                key(t.key) {
+                    if (t.key in firstKeys) {
+                        ExChip(t.label, selected == t, { onPick(t) }, accent = c.flare)
+                    } else {
+                        // A trigger just added: it grows into its place.
+                        AnimatedVisibility(
+                            remember { MutableTransitionState(false).apply { targetState = true } },
+                            enter = fadeIn(tween(220)) + scaleIn(spring(dampingRatio = 0.55f, stiffness = 500f), initialScale = 0.6f),
+                        ) { ExChip(t.label, selected == t, { onPick(t) }, accent = c.flare) }
+                    }
+                }
+            }
             if (row.more > 0) {
                 QuietChip("${row.more} more", null, "Show ${row.more} more triggers") { expanded = true }
             }
             if (onAdd != null) {
-                val d = draft
-                if (d == null) {
+                AnimatedVisibility(
+                    draft == null || addInDialog,
+                    enter = fadeIn(tween(200, delayMillis = 120)) + scaleIn(tween(200, delayMillis = 120), initialScale = 0.85f),
+                    exit = fadeOut(tween(120)) + scaleOut(tween(120), targetScale = 0.85f),
+                ) {
                     QuietChip("Your own", ExIcons.Plus, "Add your own trigger") { draft = "" }
-                } else {
+                }
+            }
+        }
+        if (onAdd != null && !addInDialog) {
+            // The field unfolds under the chips as "Your own" fades, and folds back after Add or Cancel.
+            AnimatedVisibility(
+                draft != null,
+                enter = expandVertically(tween(240), expandFrom = Alignment.Top) + fadeIn(tween(200, delayMillis = 60)),
+                exit = shrinkVertically(tween(200), shrinkTowards = Alignment.Top) + fadeOut(tween(120)),
+            ) {
+                Column(Modifier.padding(top = ExSpace.xs), verticalArrangement = Arrangement.spacedBy(ExSpace.xs)) {
                     ChipField(
-                        d, { draft = it.take(Triggers.NAME_MAX) },
+                        shownDraft, { if (draft != null) draft = it.take(Triggers.NAME_MAX) },
                         onDone = {
-                            Triggers.clean(d)?.let(onAdd)
+                            draft?.let { d -> Triggers.clean(d)?.let(onAdd) }
                             draft = null
                         },
+                    )
+                    Text(
+                        "${shownDraft.length} / ${Triggers.NAME_MAX} · It joins your list for next time.",
+                        style = ExType.caption, color = c.inkFaint, modifier = Modifier.padding(horizontal = ExSpace.xxs),
                     )
                 }
             }
         }
-        draft?.let { d ->
-            Text(
-                "${d.length} / ${Triggers.NAME_MAX} · It joins your list for next time.",
-                style = ExType.caption, color = c.inkFaint, modifier = Modifier.padding(horizontal = ExSpace.xxs),
-            )
-        }
+    }
+    if (onAdd != null && addInDialog && draft != null) {
+        NameTriggerDialog(
+            onAdd = { name -> draft = null; onAdd(name) },
+            onDismiss = { draft = null },
+        )
+    }
+}
+
+/** "Your own" as a dialog: a name field with the keyboard up, Add and Cancel. */
+@Composable
+private fun NameTriggerDialog(onAdd: (String) -> Unit, onDismiss: () -> Unit) {
+    var name by rememberSaveable { mutableStateOf("") }
+    val clean = Triggers.clean(name)
+    val add = { clean?.let(onAdd); Unit }
+    ExInputDialog(
+        "Your own trigger",
+        onDismiss,
+        listOf(
+            DialogAction("Add", ButtonStyle.Primary, enabled = clean != null, onClick = add),
+            DialogAction("Cancel", ButtonStyle.Ghost, onClick = onDismiss),
+        ),
+    ) {
+        ExTextField(
+            "Name", name, { name = it }, placeholder = "Phone calls", maxLength = Triggers.NAME_MAX,
+            autoFocus = true, onDone = add, sentences = true,
+        )
+        Text("It joins your list for next time.", style = ExType.caption, color = Ex.colors.inkFaint)
     }
 }
 

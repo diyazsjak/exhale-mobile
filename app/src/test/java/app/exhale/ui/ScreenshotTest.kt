@@ -341,6 +341,20 @@ class ScreenshotTest {
     @Test fun waveOwnDark() = shot("3d_wave_own", true) {
         UrgeWaveScreen({ _, _, _ -> }, {}, startAt = 30f, triggers = Triggers.shown(ownTriggers))
     }
+    // The dialog has its own window, so these capture the whole screen.
+    private fun waveNaming(dark: Boolean) {
+        compose.setContent {
+            ExhaleTheme(dark = dark) {
+                Box(Modifier.fillMaxSize().background(Ex.colors.bg)) {
+                    UrgeWaveScreen({ _, _, _ -> }, {}, startAt = 30f, triggers = Triggers.shown(ownTriggers), naming = true)
+                }
+            }
+        }
+        compose.waitForIdle()
+        com.github.takahirom.roborazzi.captureScreenRoboImage("build/outputs/roborazzi/3e_wave_naming_${if (dark) "dark" else "light"}.png")
+    }
+    @Test fun waveNamingDark() = waveNaming(true)
+    @Test fun waveNamingLight() = waveNaming(false)
     @Test fun waveOwnLight() = shot("3d_wave_own", false) {
         UrgeWaveScreen({ _, _, _ -> }, {}, startAt = 30f, triggers = Triggers.shown(ownTriggers))
     }

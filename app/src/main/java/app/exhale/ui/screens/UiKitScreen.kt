@@ -45,6 +45,7 @@ import app.exhale.ui.components.ExCard
 import app.exhale.ui.components.ExChip
 import app.exhale.ui.components.ExChoiceDialog
 import app.exhale.ui.components.ExDialog
+import app.exhale.ui.components.ExInputDialog
 import app.exhale.ui.components.ExIconButton
 import app.exhale.ui.components.ExIcons
 import app.exhale.ui.components.ExLink
@@ -207,6 +208,18 @@ fun UiKitScreen(theme: ThemeMode, onTheme: (ThemeMode) -> Unit, onClose: () -> U
                 ),
                 onDismiss = { choice = false },
             )
+            var input by remember { mutableStateOf(false) }
+            ExButton("Open an input dialog", { input = true }, Modifier.fillMaxWidth(), style = ButtonStyle.Secondary, size = ButtonSize.Medium)
+            if (input) {
+                var typed by remember { mutableStateOf("") }
+                ExInputDialog(
+                    "Your own trigger", { input = false },
+                    listOf(
+                        DialogAction("Add", ButtonStyle.Primary, enabled = typed.isNotBlank()) { input = false },
+                        DialogAction("Cancel", ButtonStyle.Ghost) { input = false },
+                    ),
+                ) { ExTextField("Name", typed, { typed = it }, placeholder = "Phone calls", maxLength = 20, autoFocus = true, sentences = true) }
+            }
             ExButton("Show a toast", { toast.show("Saved") }, Modifier.fillMaxWidth(), style = ButtonStyle.Secondary, size = ButtonSize.Medium)
             var lit by remember { mutableStateOf(true) }
             ExCard(onClick = { lit = !lit }, outlined = lit) { Text("Tappable card, outlined while on", style = ExType.body, color = c.ink) }

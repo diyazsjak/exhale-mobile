@@ -1,5 +1,7 @@
 package app.exhale.ui.components
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -17,6 +19,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -44,17 +47,20 @@ fun ExChip(
     val c = Ex.colors
     val a = accent ?: c.sky
     val source = remember { MutableInteractionSource() }
+    // Picking eases the tint in rather than snapping (a trigger just named turns pink as it lands).
+    val bg by animateColorAsState(if (selected) c.tint(a) else c.surface, tween(220), label = "chip-bg")
+    val fg by animateColorAsState(if (selected) c.inkOf(a) else c.ink, tween(220), label = "chip-fg")
     Box(
         modifier
             .scale(pressScale(source))
             .heightIn(min = ExSize.chip)
             .clip(ExRadius.pill)
-            .background(if (selected) c.tint(a) else c.surface)
+            .background(bg)
             .selectable(selected, source, ripple(), role = Role.Checkbox, onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 10.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text(text, style = ExType.labelSmall, color = if (selected) c.inkOf(a) else c.ink)
+        Text(text, style = ExType.labelSmall, color = fg)
     }
 }
 
