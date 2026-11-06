@@ -106,15 +106,11 @@ fun TriggerChips(
         ) {
             row.visible.forEach { t ->
                 key(t.key) {
-                    if (t.key in firstKeys) {
-                        ExChip(t.label, selected == t, { onPick(t) }, accent = c.flare)
-                    } else {
-                        // A trigger just added: it grows into its place.
-                        AnimatedVisibility(
-                            remember { MutableTransitionState(false).apply { targetState = true } },
-                            enter = fadeIn(tween(220)) + scaleIn(spring(dampingRatio = 0.55f, stiffness = 500f), initialScale = 0.6f),
-                        ) { ExChip(t.label, selected == t, { onPick(t) }, accent = c.flare) }
-                    }
+                    // A trigger added since the first frame grows into its place; the rest are simply there.
+                    AnimatedVisibility(
+                        remember { MutableTransitionState(t.key in firstKeys).apply { targetState = true } },
+                        enter = fadeIn(tween(220)) + scaleIn(spring(dampingRatio = 0.55f, stiffness = 500f), initialScale = 0.6f),
+                    ) { ExChip(t.label, selected == t, { onPick(t) }, accent = c.flare) }
                 }
             }
             if (row.more > 0) {
@@ -145,10 +141,7 @@ fun TriggerChips(
                             draft = null
                         },
                     )
-                    Text(
-                        "${shownDraft.length} / ${Triggers.NAME_MAX} · It joins your list for next time.",
-                        style = ExType.caption, color = c.inkFaint, modifier = Modifier.padding(horizontal = ExSpace.xxs),
-                    )
+                    Footnote("${shownDraft.length} / ${Triggers.NAME_MAX} · It joins your list for next time.")
                 }
             }
         }
@@ -179,7 +172,7 @@ private fun NameTriggerDialog(onAdd: (String) -> Unit, onDismiss: () -> Unit) {
             "Name", name, { name = it }, placeholder = "Phone calls", maxLength = Triggers.NAME_MAX,
             autoFocus = true, onDone = add, sentences = true,
         )
-        Text("It joins your list for next time.", style = ExType.caption, color = Ex.colors.inkFaint)
+        Footnote("It joins your list for next time.")
     }
 }
 

@@ -37,12 +37,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.systemBarsPadding
-import androidx.compose.ui.input.pointer.pointerInput
 import app.exhale.ui.theme.Ex
 import app.exhale.ui.theme.ExRadius
 import app.exhale.ui.theme.ExSize
@@ -135,9 +133,7 @@ fun ExChoiceDialog(title: String, text: String, actions: List<DialogAction>, onD
         ExCard(padding = ExSpace.xl) {
             Text(title, style = ExType.headline, color = c.ink)
             Text(text, style = ExType.body, color = c.inkSoft)
-            Column(Modifier.padding(top = ExSpace.sm), verticalArrangement = Arrangement.spacedBy(ExSpace.xs)) {
-                actions.forEach { ExButton(it.label, it.onClick, Modifier.fillMaxWidth(), style = it.style, size = ButtonSize.Medium, enabled = it.enabled) }
-            }
+            DialogActions(actions)
         }
     }
 }
@@ -161,13 +157,22 @@ fun ExInputDialog(title: String, onDismiss: () -> Unit, actions: List<DialogActi
             contentAlignment = Alignment.Center,
         ) {
             // The card keeps its own taps, so only the scrim around it dismisses.
-            ExCard(Modifier.fillMaxWidth().pointerInput(Unit) { detectTapGestures { } }, padding = ExSpace.xl) {
+            ExCard(
+                Modifier.fillMaxWidth().clickable(remember { MutableInteractionSource() }, indication = null) {},
+                padding = ExSpace.xl,
+            ) {
                 Text(title, style = ExType.headline, color = c.ink)
                 content()
-                Column(Modifier.padding(top = ExSpace.sm), verticalArrangement = Arrangement.spacedBy(ExSpace.xs)) {
-                    actions.forEach { ExButton(it.label, it.onClick, Modifier.fillMaxWidth(), style = it.style, size = ButtonSize.Medium, enabled = it.enabled) }
-                }
+                DialogActions(actions)
             }
         }
+    }
+}
+
+/** A dialog's choices, stacked full width as Medium buttons. */
+@Composable
+private fun DialogActions(actions: List<DialogAction>) {
+    Column(Modifier.padding(top = ExSpace.sm), verticalArrangement = Arrangement.spacedBy(ExSpace.xs)) {
+        actions.forEach { ExButton(it.label, it.onClick, Modifier.fillMaxWidth(), style = it.style, size = ButtonSize.Medium, enabled = it.enabled) }
     }
 }

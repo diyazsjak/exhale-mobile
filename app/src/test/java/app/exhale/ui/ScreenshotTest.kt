@@ -165,6 +165,8 @@ class ScreenshotTest {
         barHidden: Boolean = false,
         glow: Boolean = false,
         holdMs: Long? = null,
+        /** Capture every window on screen (dialogs), not just the content. */
+        window: Boolean = false,
         content: @Composable () -> Unit,
     ) {
         val barState = bar ?: sampleState()
@@ -199,7 +201,8 @@ class ScreenshotTest {
                 .performTouchInput { down(androidx.compose.ui.geometry.Offset(width * 0.65f, height * 0.45f)) }
             compose.mainClock.advanceTimeBy(holdMs)
         }
-        compose.onRoot().captureRoboImage("build/outputs/roborazzi/${name}_${if (dark) "dark" else "light"}.png")
+        val file = "build/outputs/roborazzi/${name}_${if (dark) "dark" else "light"}.png"
+        if (window) com.github.takahirom.roborazzi.captureScreenRoboImage(file) else compose.onRoot().captureRoboImage(file)
     }
 
     @Test fun emberDark() = shot("1_ember", true, 0) { EmberScreen(sampleState(), null, {}, {}, { _, _ -> }, {}, {}) }
@@ -341,20 +344,13 @@ class ScreenshotTest {
     @Test fun waveOwnDark() = shot("3d_wave_own", true) {
         UrgeWaveScreen({ _, _, _ -> }, {}, startAt = 30f, triggers = Triggers.shown(ownTriggers))
     }
-    // The dialog has its own window, so these capture the whole screen.
-    private fun waveNaming(dark: Boolean) {
-        compose.setContent {
-            ExhaleTheme(dark = dark) {
-                Box(Modifier.fillMaxSize().background(Ex.colors.bg)) {
-                    UrgeWaveScreen({ _, _, _ -> }, {}, startAt = 30f, triggers = Triggers.shown(ownTriggers), naming = true)
-                }
-            }
-        }
-        compose.waitForIdle()
-        com.github.takahirom.roborazzi.captureScreenRoboImage("build/outputs/roborazzi/3e_wave_naming_${if (dark) "dark" else "light"}.png")
+    // The "Your own" dialog has its own window, so these capture the whole screen.
+    @Test fun waveNamingDark() = shot("3e_wave_naming", true, window = true) {
+        UrgeWaveScreen({ _, _, _ -> }, {}, startAt = 30f, triggers = Triggers.shown(ownTriggers), naming = true)
     }
-    @Test fun waveNamingDark() = waveNaming(true)
-    @Test fun waveNamingLight() = waveNaming(false)
+    @Test fun waveNamingLight() = shot("3e_wave_naming", false, window = true) {
+        UrgeWaveScreen({ _, _, _ -> }, {}, startAt = 30f, triggers = Triggers.shown(ownTriggers), naming = true)
+    }
     @Test fun waveOwnLight() = shot("3d_wave_own", false) {
         UrgeWaveScreen({ _, _, _ -> }, {}, startAt = 30f, triggers = Triggers.shown(ownTriggers))
     }

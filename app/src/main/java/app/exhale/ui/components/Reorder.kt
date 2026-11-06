@@ -58,8 +58,8 @@ private class ReorderState<T>(var keyOf: (T) -> Any) {
     var items: List<T> = emptyList()
     var onMove: (Int, Int) -> Unit = { _, _ -> }
 
-    /** The order just dropped, shown until [items] catches up with the move. */
-    private var dropped by mutableStateOf<List<T>?>(null)
+    /** The order just dropped, shown until [items] changes (to the move, normally). */
+    private var dropped: List<T>? = null
     private var droppedFor: List<T>? = null
     var dragKey by mutableStateOf<Any?>(null)
         private set
@@ -67,7 +67,10 @@ private class ReorderState<T>(var keyOf: (T) -> Any) {
         private set
     val heights = mutableStateMapOf<Any, Int>()
 
-    fun order(): List<T> = dropped?.takeIf { droppedFor == items } ?: items
+    fun order(): List<T> {
+        if (dropped != null && droppedFor != items) dropped = null
+        return dropped ?: items
+    }
 
     private fun from(): Int = order().indexOfFirst { keyOf(it) == dragKey }
 
@@ -88,9 +91,8 @@ private class ReorderState<T>(var keyOf: (T) -> Any) {
         t
     }
 
-    /** How far the row at [index] slides to make room: one dragged-row height, or none. */
-    fun shiftOf(index: Int): Float {
-        val i = from()
+    /** How far the row at [index] slides to make room for the row dragged from [i]: one row height, or none. */
+    fun shiftOf(index: Int, i: Int): Float {
         val t = target
         if (i < 0 || index == i) return 0f
         val h = (heights[dragKey] ?: 0).toFloat()
@@ -136,13 +138,14 @@ fun <T> ReorderColumn(
     state.items = items
     state.onMove = onMove
     val order = state.order()
+    val from = order.indexOfFirst { keyOf(it) == state.dragKey }
 
     Column(modifier) {
         order.forEachIndexed { i, item ->
             val k = keyOf(item)
             key(k) {
                 val dragging = state.dragKey == k
-                val shift by animateFloatAsState(state.shiftOf(i), tween(160), label = "reorder-shift")
+                val shift by animateFloatAsState(state.shiftOf(i, from), tween(160), label = "reorder-shift")
                 val handle = Modifier.pointerInput(state, k) {
                     try {
                         detectVerticalDragGestures(

@@ -360,15 +360,16 @@ People can name their own triggers and shape the list. Rules are in §4 Triggers
 - **Your own**: an outlined chip with a plus at the end. On the Logged card it fades as a full-width field
   unfolds under the chips, with a `sky` ring, "Name it, like “Phone calls”", and a small button that says
   Add (Cancel while the field is empty); the keyboard's Done also adds. Under it: "11 / 20 · It joins
-  your list for next time." Back cancels; the field folds back as the chip returns. The new chip then
-  pops into the row already picked, holds for 0.9 s, and the card closes. In Urge Wave, Your own opens a
+  your list for next time." Back cancels; the field folds back as the chip returns. Add saves the trigger
+  and tags the log at once; the new chip then pops into the row already picked, holds for 0.9 s, and the
+  card closes. In Urge Wave, Your own opens a
   dialog instead ("Your own trigger", a Name field with the keyboard up, Add and Cancel) centred above
   the keyboard. Adding a name the list already has picks that trigger (and shows it again if it was
   hidden). Any chip a trigger was just added for grows into place; picking a chip eases its tint in.
 - **Settings → Triggers** (applies at once, no Save): "Your triggers", "Shown · 9" in a card where
   each row has a drag handle (drag to reorder; screen readers get Move up / Move down), the name, a
   "Yours" sky badge on the user's own, and an eye that hides it. While dragging, the other rows slide
-  aside and the new order is laid out on release. Hiding plays out before it's saved: the eye
+  aside and the new order is laid out on release. Hiding is saved at once, then plays out: the eye
   crossfades shut, the row drifts a little toward it and fades as its space closes (0.28 s), then it
   grows into the Hidden list, which folds in with its first trigger and away with its last. Showing one
   again is the same the other way. Then "Hidden · 1" with dimmed rows ("Tagged 12 times, still on

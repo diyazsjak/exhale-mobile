@@ -26,12 +26,14 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.add
 import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.union
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -51,7 +53,6 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.CornerRadius
@@ -107,8 +108,8 @@ fun EmberScreen(
     onTodayOpen: (Boolean) -> Unit = {},
     /** Glow home only: the hold (0..1) and the log's flash (1 → 0), for the edge light drawn behind the tabs. */
     onGlowLight: (hold: Float, flash: Float) -> Unit = { _, _ -> },
-    /** "Your own" on the Logged card: adds a trigger by name, then hands back the saved one. */
-    onAddTrigger: (name: String, then: (Trigger) -> Unit) -> Unit = { _, _ -> },
+    /** "Your own" on the Logged card: adds a trigger by name and tags the log with it, then hands it back. */
+    onAddAndTag: (logId: Long, name: String, then: (Trigger) -> Unit) -> Unit = { _, _, _ -> },
     /** Screenshots: open the Logged card's "Your own" field with this text. */
     initialDraft: String? = null,
 ) {
@@ -200,42 +201,42 @@ fun EmberScreen(
         if (logged != null) shown = logged
         // The card sits above the tab bar, or just above the keyboard (naming a trigger), whichever is
         // higher, every frame of the keyboard's slide, so it never dips behind the tab bar on the way down.
-        val density = LocalDensity.current
-        val keyboardOver = with(density) {
-            (WindowInsets.ime.getBottom(density) - WindowInsets.navigationBars.getBottom(density)).coerceAtLeast(0).toDp()
-        }
-        val cardBottom = maxOf(keyboardOver + ExSpace.sm, ExSize.tabBar + ExSpace.lg)
+        // Worked out at layout, so the keyboard's slide doesn't recompose the screen.
+        val cardInsets = WindowInsets.ime.add(WindowInsets(bottom = ExSpace.sm))
+            .union(WindowInsets.navigationBars.add(WindowInsets(bottom = ExSize.tabBar + ExSpace.lg)))
         AnimatedVisibility(
             visible = logged != null,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .navigationBarsPadding()
-                .padding(horizontal = ExSpace.sm)
-                .padding(bottom = cardBottom),
+                .windowInsetsPadding(cardInsets)
+                .padding(horizontal = ExSpace.sm),
             // Unhurried: it arrives after the log's burst has played out.
             enter = slideInVertically(tween(650, delayMillis = 250, easing = FastOutSlowInEasing)) { it } + fadeIn(tween(500, delayMillis = 250)),
             exit = slideOutVertically(tween(450, easing = FastOutSlowInEasing)) { it } + fadeOut(tween(350)),
         ) {
             val ev = shown ?: return@AnimatedVisibility
-            // Closes on its own after 8 s, but not while a trigger is being named; a touch starts the 8 s again.
-            var editing by remember(ev.logId) { mutableStateOf(initialDraft != null) }
-            var touched by remember(ev.logId) { mutableIntStateOf(0) }
-            LaunchedEffect(ev.logId, editing, touched) { if (!editing) { delay(8000); onDismissLogged() } }
-            // Keyed by the log, so a name half typed on the last card doesn't carry over to this one.
-            key(ev.logId) { LoggedCard(
-                ev, state,
-                onUndo = { onUndo(ev.logId) },
-                onTag = { onTag(ev.logId, it) },
-                onAdd = onAddTrigger,
-                onEditing = { editing = it },
-                initialDraft = initialDraft,
-                modifier = Modifier.pointerInput(ev.logId) {
-                    awaitEachGesture {
-                        awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
-                        touched++
-                    }
-                },
-            ) }
+            // Keyed by the log, so each log gets a fresh card: its own timer, and no name half typed on the last one.
+            key(ev.logId) {
+                // Closes on its own after 8 s, but not while a trigger is being named; a touch starts the 8 s again.
+                var editing by remember { mutableStateOf(initialDraft != null) }
+                var touched by remember { mutableIntStateOf(0) }
+                LaunchedEffect(editing, touched) { if (!editing) { delay(8000); onDismissLogged() } }
+                LoggedCard(
+                    ev, state,
+                    onUndo = { onUndo(ev.logId) },
+                    onTag = { onTag(ev.logId, it) },
+                    onAdd = { name, then -> onAddAndTag(ev.logId, name, then) },
+                    onDismiss = onDismissLogged,
+                    onEditing = { editing = it },
+                    initialDraft = initialDraft,
+                    modifier = Modifier.pointerInput(Unit) {
+                        awaitEachGesture {
+                            awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                            touched++
+                        }
+                    },
+                )
+            }
         }
 
         // Tap anywhere outside the popover to close it.
@@ -299,6 +300,7 @@ private fun LoggedCard(
     onUndo: () -> Unit,
     onTag: (Trigger) -> Unit,
     onAdd: (name: String, then: (Trigger) -> Unit) -> Unit,
+    onDismiss: () -> Unit,
     onEditing: (Boolean) -> Unit,
     initialDraft: String?,
     modifier: Modifier = Modifier,
@@ -317,10 +319,10 @@ private fun LoggedCard(
             ExButton("Undo", onUndo, style = ButtonStyle.Ghost, size = ButtonSize.Medium, icon = ExIcons.Undo)
         }
         Text("What set it off? Optional.", style = ExType.caption, color = c.inkSoft, modifier = Modifier.padding(top = ExSpace.xxs))
-        // A trigger named here lands in the chips already picked, shows for a moment, then tags the log
-        // (which closes the card).
+        // A trigger named here is saved and the log tagged at once; the card shows it landing in the chips,
+        // picked, for a moment before it closes.
         var named by remember { mutableStateOf<Trigger?>(null) }
-        LaunchedEffect(named) { named?.let { delay(900); onTag(it) } }
+        LaunchedEffect(named) { if (named != null) { delay(900); onDismiss() } }
         TriggerChips(
             state.shownTriggers, selected = named, onPick = onTag,
             onAdd = { name -> onAdd(name) { named = it } },

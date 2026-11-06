@@ -89,21 +89,21 @@ object Triggers {
      * was hidden); the name of a deleted built-in brings the built-in back; anything else becomes a new
      * trigger with [key] at the end of the shown ones. Null when [name] is blank.
      */
-    fun add(list: List<TriggerEntry>, name: String, key: String): TriggerAdded? {
-        val label = clean(name) ?: return null
-        named(list, label)?.let { found ->
-            val next = if (found.hidden) setHidden(list, found.key, false) else list
-            return TriggerAdded(next, found.trigger)
+    fun add(list: List<TriggerEntry>, name: String, key: String): TriggerAdded? = when (val c = check(list, name)) {
+        NameCheck.Blank -> null
+        is NameCheck.Taken -> TriggerAdded(list, c.entry.trigger)
+        is NameCheck.Hidden -> TriggerAdded(setHidden(list, c.entry.key, false), c.entry.trigger)
+        is NameCheck.Ok -> {
+            val trigger = Trigger.BUILT_IN.firstOrNull { norm(it.label) == norm(c.name) } ?: Trigger(key, c.name)
+            TriggerAdded(insertShown(list, TriggerEntry(trigger)), trigger)
         }
-        val trigger = Trigger.BUILT_IN.firstOrNull { norm(it.label) == norm(label) } ?: Trigger(key, label)
-        return TriggerAdded(insertShown(list, TriggerEntry(trigger)), trigger)
     }
 
     /** Renames the user's own trigger [key]. Null when it's a built-in, missing, or [name] is blank or taken. */
     fun rename(list: List<TriggerEntry>, key: String, name: String): List<TriggerEntry>? {
-        val label = clean(name) ?: return null
+        val label = (check(list, name, except = key) as? NameCheck.Ok)?.name ?: return null
         val entry = list.firstOrNull { it.key == key } ?: return null
-        if (entry.trigger.builtIn != null || check(list, label, except = key) !is NameCheck.Ok) return null
+        if (entry.trigger.builtIn != null) return null
         return list.map { if (it.key == key) it.copy(trigger = it.trigger.copy(label = label)) else it }
     }
 

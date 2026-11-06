@@ -78,33 +78,31 @@ internal fun TriggersPage(
     onBack: () -> Unit,
 ) {
     val c = Ex.colors
-    val (hidden, shown) = triggers.partition { it.hidden }
-    // Hiding (or showing again) plays out before it's saved: the eye turns, the row drifts toward it
-    // and fades as its space closes, then it grows into the other list.
-    // Key → whether it is going to be hidden. Saving waits for the row to leave; the same target is
-    // saved however often the effect runs, and the row stops leaving once the list has it there.
+    // Hiding (or showing again) is saved at once; the screen then plays it out. The eye turns, the row
+    // drifts toward it and fades as its space closes, then it grows into the other list.
+    // Key → the hidden state it had: while in here, the row stays in its old list to play its exit.
     var leaving by remember { mutableStateOf(mapOf<String, Boolean>()) }
-    leaving.forEach { (k, toHidden) ->
-        key(k) {
-            LaunchedEffect(Unit) {
-                delay(MOVE_OUT_MS.toLong())
-                actions.setHidden(k, toHidden)
-            }
-        }
-    }
-    LaunchedEffect(triggers) {
-        leaving = leaving.filter { (k, toHidden) -> triggers.firstOrNull { it.key == k }?.hidden != toHidden }
-    }
+    // Keys that just moved, which grow into their new list.
+    var arriving by remember { mutableStateOf(setOf<String>()) }
+    val (hidden, shown) = triggers
+        .map { e -> leaving[e.key]?.let { was -> e.copy(hidden = was) } ?: e }
+        .partition { it.hidden }
 
     // One row for both lists: shown ones have a handle and hide; hidden ones show again and say what they keep.
     @Composable
     fun Row(e: TriggerEntry, handle: Modifier? = null, dragging: Boolean = false) {
         val label = e.trigger.label
         val n = uses[e.key] ?: 0
-        val target = leaving[e.key]
-        val going = target != null && target != e.hidden
-        // A row that just came over from the other list grows in; the rest are simply there.
-        val arrive = remember { MutableTransitionState(target != e.hidden).apply { targetState = true } }
+        val going = e.key in leaving
+        LaunchedEffect(going) {
+            if (going) {
+                delay(MOVE_OUT_MS.toLong())
+                leaving = leaving - e.key
+                arriving = arriving + e.key
+            }
+        }
+        val arrive = remember { MutableTransitionState(e.key !in arriving).apply { targetState = true } }
+        LaunchedEffect(arrive.isIdle) { if (arrive.isIdle) arriving = arriving - e.key }
         AnimatedVisibility(
             arrive,
             enter = expandVertically(tween(240)) + fadeIn(tween(200, delayMillis = 80)),
@@ -118,7 +116,10 @@ internal fun TriggersPage(
                     label, { onOpen(e.key) },
                     if (e.hidden != going) ExIcons.EyeOff else ExIcons.Eye,
                     if (e.hidden) "Show $label" else "Hide $label",
-                    { leaving = leaving + (e.key to !e.hidden) },
+                    {
+                        actions.setHidden(e.key, !e.hidden)
+                        leaving = leaving + (e.key to e.hidden)
+                    },
                     handle = handle, dragging = dragging,
                     badge = "Yours".takeIf { e.trigger.builtIn == null },
                     sub = if (e.hidden && n > 0) "${usesText(n)}, still on Rhythm" else null,
@@ -210,19 +211,17 @@ private fun NewTriggerPage(triggers: List<TriggerEntry>, actions: TriggerActions
                 ideas.forEach { idea -> ExChip(idea, (check as? NameCheck.Ok)?.name == idea, { name = idea }) }
             }
         }
+        // What Add will say, or null while there's nothing it can add.
+        val added = when (check) {
+            is NameCheck.Ok -> "Added “${check.name}”"
+            is NameCheck.Hidden -> "“${check.entry.trigger.label}” is shown again"
+            else -> null
+        }
         ExButton(
             "Add",
-            {
-                when (check) {
-                    is NameCheck.Ok -> toast.show("Added “${check.name}”")
-                    is NameCheck.Hidden -> toast.show("“${check.entry.trigger.label}” is shown again")
-                    else -> return@ExButton
-                }
-                actions.add(name)
-                onBack()
-            },
+            { added?.let { toast.show(it); actions.add(name); onBack() } },
             Modifier.fillMaxWidth().padding(top = ExSpace.sm),
-            enabled = check is NameCheck.Ok || check is NameCheck.Hidden,
+            enabled = added != null,
         )
     }
 }

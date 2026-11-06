@@ -192,6 +192,15 @@ class ExhaleViewModel(private val repo: ExhaleRepository) : ViewModel() {
         }
     }
 
+    /**
+     * "Your own" on the Logged card: adds the trigger and tags log [logId] with it, whatever happens to
+     * the card meanwhile; [then] gets the trigger so the card can show it picked before it closes.
+     */
+    fun addAndTag(logId: Long, name: String, then: (Trigger) -> Unit = {}) = addTrigger(name) { t ->
+        viewModelScope.launch { triggerLock.withLock { repo.tagLog(logId, t) } }
+        then(t)
+    }
+
     fun renameTrigger(key: String, name: String) = editTriggers { Triggers.rename(it, key, name) }
     fun setTriggerHidden(key: String, hidden: Boolean) = editTriggers { Triggers.setHidden(it, key, hidden) }
     fun moveTrigger(from: Int, to: Int) = editTriggers { Triggers.move(it, from, to) }
