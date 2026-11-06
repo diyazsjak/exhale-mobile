@@ -48,6 +48,7 @@ import app.exhale.domain.PlanMath
 import app.exhale.domain.SettingsInput
 import app.exhale.domain.SettingsInput.Field
 import app.exhale.domain.TaperType
+import app.exhale.domain.HomeStyle
 import app.exhale.domain.ThemeMode
 import app.exhale.domain.UserSettings
 import app.exhale.ui.Fmt
@@ -93,7 +94,7 @@ private enum class Ask { UNSAVED, ERASE, DEMO }
 private val SaveBarHeight = 108.dp
 
 /**
- * Appearance applies at once. Before Exhale and Starting allowance are counted here and wait for
+ * Appearance and Home screen apply at once. Before Exhale and Starting allowance are counted here and wait for
  * "Save changes", which rises from the bottom while either differs from what's saved; Back with
  * unsaved counts asks first. How it drops, A pack and Saving for open their own screens, which
  * save when you go back and say so in a toast. Keeps the original plan start.
@@ -108,6 +109,7 @@ fun SettingsScreen(
     onErase: () -> Unit,
     onClose: () -> Unit,
     prototypeTools: PrototypeTools? = null,
+    onHome: (HomeStyle) -> Unit = {},
     initialScroll: Int = 0,
     initialPage: SettingsPage? = null,
     initialAllowance: Int = current.startAllowance,
@@ -153,7 +155,7 @@ fun SettingsScreen(
             when (p) {
                 null -> SettingsMain(
                     current, today, baseline, { baseline = it }, baselineChanged, allowance, { allowance = it }, allowanceChanged,
-                    dirty, mainScroll, onTheme, { page = it }, { ask = Ask.ERASE }, prototypeTools?.let { t -> PrototypeTools(t.onDesignSystem) { ask = Ask.DEMO } },
+                    dirty, mainScroll, onTheme, onHome, { page = it }, { ask = Ask.ERASE }, prototypeTools?.let { t -> PrototypeTools(t.onDesignSystem) { ask = Ask.DEMO } },
                     onBack = { if (dirty) ask = Ask.UNSAVED else onClose() },
                     onSaveCounts = { saveCounts(); toast.show("Saved") },
                 )
@@ -214,6 +216,7 @@ private fun SettingsMain(
     dirty: Boolean,
     scroll: ScrollState,
     onTheme: (ThemeMode) -> Unit,
+    onHome: (HomeStyle) -> Unit,
     onOpen: (SettingsPage) -> Unit,
     onErase: () -> Unit,
     tools: PrototypeTools?,
@@ -234,6 +237,14 @@ private fun SettingsMain(
         ) {
             Overline("Appearance")
             SegmentedControl(ThemeMode.entries.map { it.label }, current.theme.ordinal, { onTheme(ThemeMode.entries[it]) })
+
+            Overline("Home screen", Modifier.paddingTop())
+            SegmentedControl(HomeStyle.entries.map { it.label }, current.home.ordinal, { onHome(HomeStyle.entries[it]) })
+            Text(
+                if (current.home == HomeStyle.GLOW) "The gap as light around the screen, and a line that fills toward the next one."
+                else "The ember you hold, with a ring that fills toward the next one.",
+                style = ExType.caption, color = c.inkSoft, modifier = Modifier.padding(horizontal = 4.dp),
+            )
 
             Overline("Plan", Modifier.paddingTop())
             ExCard(padding = ExSpace.sm) {

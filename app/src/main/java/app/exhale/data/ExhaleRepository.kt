@@ -47,11 +47,12 @@ class ExhaleRepository(
     }
 
     /** Replaces everything with [DemoData]: a matching onboarded profile and 60 days of history. */
-    suspend fun seedDemo() {
+    /** Replaces everything with 60 days of demo history. Appearance ([keep]'s theme and home) stays as it is. */
+    suspend fun seedDemo(keep: UserSettings) {
         clearHistory()
         val zone = ZoneId.systemDefault()
         val demo = DemoData.generate(LocalDate.now(zone), Instant.now(), zone)
-        saveSettings(demo.settings)
+        saveSettings(demo.settings.copy(theme = keep.theme, home = keep.home))
         db.logs().insertAll(demo.logs.map { it.toEntity() })
         db.urges().insertAll(demo.urges.map { it.toEntity() })
     }

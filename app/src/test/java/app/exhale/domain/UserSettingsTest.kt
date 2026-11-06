@@ -27,4 +27,9 @@ class UserSettingsTest {
         val seen = UserSettings().withBorrowNoticeSeen(day)
         assertEquals(day.plusDays(1).toEpochDay(), seen.withBorrowNoticeSeen(day.plusDays(1)).borrowNoticeSeenDay)
     }
+
+    @Test fun home_defaultsToTheEmberAndHasOneLabelPerStyle() {
+        assertEquals(HomeStyle.EMBER, UserSettings().home)
+        assertEquals(listOf("Ember", "Glow"), HomeStyle.entries.map { it.label })
+    }
 }

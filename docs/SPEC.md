@@ -129,6 +129,24 @@ First launch shows **Onboarding** (§3.7). Regulate is no longer a tab: its coun
 - **Logged card** after logging: count, **Undo**, optional trigger chips. Auto-dismisses after 8 s.
 - "I want one. Help me wait." → Urge Wave.
 
+#### Glow home (Settings → Home screen → Glow) — `Glow.kt`
+The same tab without the orb (concept "Floor, edge glow" from the First Screen Lab). Everything else
+above stays: the Today badge and popover, the earned haptic, the Logged card, the craving button.
+- **Middle**: the same one number at 88sp with the same line under it, centred in a hold area that
+  fills the space between the app bar and the countdown line. Hold anywhere in it to log.
+- **Countdown line** above the hint: a straight 3dp line that fills left to right, sky → oxygen, as
+  the gap is earned, with "last one" and "next one earned" under its ends. Once earned it is a full
+  oxygen line with a soft breathing glow.
+- **Edge light**: soft light along the four screen edges coloured by `heat` (warm right after a
+  cigarette, cooling to oxygen), breathing every 4 s. It is drawn once in `ExhaleNav`, under all the
+  tabs (the Glow home's `ExScreen` is not `opaque`), so it stays fixed while pages slide. It fades out
+  in about 100ms when another tab is chosen and back in over the 260ms slide when Ember is chosen; it
+  fades with the bars when a full-screen route pushes in. While it shows, the app bar is see-through.
+- **Hold to log**: the same 1.5 s hold and haptics as the ember (`HoldToLog.kt`, shared by both).
+  The line's cool fill fades and a warm trail runs along it on the heat scale, brightest at its head;
+  the edge light brightens and deepens. A log flashes the edge light. The hint at rest says "Hold
+  anywhere to log".
+
 ### 3.3 Urge Wave — `UrgeWaveScreen.kt`
 - 240 s wave; crest at ~46 % (minute ~2). Dot rides the curve.
 - Breath pacing 4-2-6 (in-hold-out), `breath()` haptic on phase change.
@@ -260,6 +278,8 @@ No demo data in onboarding.
 ### 3.8 Settings — `SettingsScreen.kt`
 Edits everything set during onboarding; keeps the original plan start. Sections, top to bottom:
 - **Appearance**: System / Light / Dark. Applies and saves the moment it's tapped.
+- **Home screen**: Ember / Glow (§3.1), with a caption describing the one chosen. Applies and saves
+  the moment it's tapped. Default Ember.
 - **Plan**, one card: **Before Exhale** and **Starting allowance** as counter rows (1–100 and 0–100;
   holding −/+ repeats), then **How it drops** (current taper) opening its own screen. Under the card a
   caption shows the plan as counted on screen: "This week 10 a day, next week 9." ("Holding at 14 a
@@ -368,6 +388,7 @@ copies it into `ExhaleState`.
 `DemoData.generate(today, now, zone, random)` is what Settings → Load demo data writes: an onboarded
 profile whose plan started 59 days ago, 60 days of logs tapering from about 16 to 8 a day with
 hour-of-day weights and triggers, and 0–2 urges a day (4 min, trigger Stress). Nothing after `now`.
+Loading it keeps the current Appearance and Home screen.
 
 ### Milestones — `Milestones`
 WHO timeline; lower bound of each range unlocks it. `clearFraction` = progress to 12 h, min 0.05.

@@ -138,7 +138,7 @@ internal fun Modifier.barRow(): Modifier =
  * changes with [key]: the new one drops in from above and fades in while the old one drops away and
  * fades out. The Settings button on the right never moves.
  *
- * Solid `bg`. While content is [scrolled] under it, a hairline `line` border shows along its bottom
+ * Solid `bg`, or see-through by [seeThrough] (0 solid, 1 clear) on the Glow home, whose light shows behind it. While content is [scrolled] under it, a hairline `line` border shows along its bottom
  * (Material 3's scrolled state). With a [scrollBehavior] it slides away as the content scrolls up
  * and comes back as it scrolls down; the status bar strip above it stays. Screens under it leave
  * room with `ExScreen(underAppBar = true)`.
@@ -150,6 +150,7 @@ fun <T> ExAppBar(
     modifier: Modifier = Modifier,
     scrolled: Boolean = false,
     scrollBehavior: AppBarScrollBehavior? = null,
+    seeThrough: () -> Float = { 0f },
     leading: @Composable RowScope.(T) -> Unit,
 ) {
     val bg = Ex.colors.bg
@@ -161,7 +162,7 @@ fun <T> ExAppBar(
                 .statusBarsPadding()
                 .onSizeChanged { scrollBehavior?.heightPx = it.height.toFloat() }
                 .graphicsLayer { translationY = -(scrollBehavior?.hiddenPx ?: 0f) }
-                .background(bg)
+                .drawBehind { drawRect(bg.copy(alpha = 1f - seeThrough().coerceIn(0f, 1f))) }
                 .scrolledBorder(scrolled)
         ) {
             Row(
@@ -185,6 +186,6 @@ fun <T> ExAppBar(
             }
         }
         // The status bar strip stays put; the bar slides up behind it.
-        Box(Modifier.fillMaxWidth().windowInsetsTopHeight(WindowInsets.statusBars).background(bg))
+        Box(Modifier.fillMaxWidth().windowInsetsTopHeight(WindowInsets.statusBars).drawBehind { drawRect(bg.copy(alpha = 1f - seeThrough().coerceIn(0f, 1f))) })
     }
 }

@@ -15,6 +15,7 @@ import app.exhale.domain.Recovery
 import app.exhale.domain.RecoverySummary
 import app.exhale.domain.SmokeLog
 import app.exhale.domain.Stats
+import app.exhale.domain.HomeStyle
 import app.exhale.domain.ThemeMode
 import app.exhale.domain.TodayPlan
 import app.exhale.domain.Trigger
@@ -145,6 +146,7 @@ class ExhaleViewModel(private val repo: ExhaleRepository) : ViewModel() {
     fun saveSettings(s: UserSettings) { viewModelScope.launch { repo.saveSettings(s) } }
 
     fun setTheme(mode: ThemeMode) { saveSettings(state.value.settings.copy(theme = mode)) }
+    fun setHome(style: HomeStyle) { saveSettings(state.value.settings.copy(home = style)) }
 
     /** The user opened today's "borrowed from yesterday" note: hide the badge dot until next time. */
     fun markBorrowNoticeSeen() {
@@ -152,7 +154,7 @@ class ExhaleViewModel(private val repo: ExhaleRepository) : ViewModel() {
         if (!st.settings.borrowNoticeSeenOn(st.today)) saveSettings(st.settings.withBorrowNoticeSeen(st.today))
     }
 
-    fun loadDemo() { viewModelScope.launch { repo.seedDemo() } }
+    fun loadDemo() { viewModelScope.launch { repo.seedDemo(keep = state.value.settings) } }
 
     fun eraseAll() { viewModelScope.launch { repo.eraseAll() } }
 

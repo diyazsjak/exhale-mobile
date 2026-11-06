@@ -4,11 +4,7 @@ import android.graphics.ColorMatrixColorFilter
 import android.graphics.RenderEffect
 import android.graphics.Shader
 import android.os.Build
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.requiredSize
@@ -17,10 +13,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
@@ -36,18 +29,11 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.onLongClick
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import app.exhale.ui.components.rememberHaptics
 import app.exhale.ui.theme.Ex
 import app.exhale.ui.theme.ExColors
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.pow
@@ -60,25 +46,12 @@ import kotlin.math.sin
  * a log flings them back out with a ring and a splash of droplets.
  */
 
-/** How long the ember must be held to log. */
-const val HOLD_MS = 1500
-
-/** Haptic ticks during a hold, rising in strength. */
-private const val CHARGE_TICKS = 12
-
 private const val PULSE_S = 4f
-private const val BURST_MS = 900
-/** Time for a full hold to drain back to zero after release. */
-private const val RELEASE_MS = 450
-
 private const val TAU = (2 * PI).toFloat()
 
 /** Countdown ring around the ember: radius as a fraction of the ember's size, and stroke. */
 private const val RING_RADIUS = 0.47f
 private val RING_WIDTH = 6.dp
-
-/** A release before this much of the hold counts as a tap. */
-private const val TAP_THRESHOLD = 0.08f
 
 /** Drawing area around the ember, as a multiple of its size, so flung droplets aren't clipped. */
 private const val OVERDRAW = 1.4f
@@ -124,16 +97,7 @@ fun EmberOrb(
     onHoldStart: () -> Unit = {},
     onHoldEnd: (held: Float) -> Unit = {},
 ) {
-    val haptics = rememberHaptics()
-    val scope = rememberCoroutineScope()
-    val hold = remember { Animatable(0f) }
-    val burst = remember { Animatable(0f) }
-    val wobble = remember { Animatable(1f) }
-    val currentOnLog by rememberUpdatedState(onLog)
-    val currentOnHoldStart by rememberUpdatedState(onHoldStart)
-    val currentOnHoldEnd by rememberUpdatedState(onHoldEnd)
-    val currentNextLogIsOver by rememberUpdatedState(nextLogIsOver)
-    var burstOver by remember { mutableStateOf(false) }
+    val h = rememberHoldToLog(onLog, nextLogIsOver, onHoldStart, onHoldEnd)
 
     // One frame clock: `clock` drives the pulse, `phase` the drops (faster while held).
     var clock by remember { mutableFloatStateOf(0f) }
@@ -145,69 +109,27 @@ fun EmberOrb(
                 val dt = ((now - last) / 1e9f).coerceIn(0f, 0.05f)
                 last = now
                 clock += dt
-                phase += dt * (1f + 3f * hold.value)
+                phase += dt * (1f + 3f * h.hold.value)
             }
         }
     }
     val breathe = (1f - cos(clock / PULSE_S * TAU)) / 2f
 
-    fun release() = scope.launch {
-        hold.animateTo(0f, tween((RELEASE_MS * hold.value).toInt().coerceAtLeast(1), easing = LinearEasing))
-    }
-
     // Tap feedback: a short damped wobble of the core.
-    val w = wobble.value
+    val w = h.wobble.value
     val wobbleScale = if (w < 1f) sin(w * PI.toFloat() * 4f) * (1f - w) * 0.06f else 0f
 
     EmberOrbCanvas(
         heat = heat,
-        hold = hold.value,
-        burst = burst.value,
+        hold = h.hold.value,
+        burst = h.burst.value,
         breathe = breathe + wobbleScale / 0.03f,
         phase = phase,
         ring = ring,
-        burstOver = burstOver,
+        burstOver = h.burstOver,
         modifier = modifier
             .size(EmberSize)
-            .semantics {
-                contentDescription = "Ember. Press and hold to log a cigarette."
-                onLongClick("Log cigarette") { haptics.logged(); currentOnLog(); true }
-            }
-            .pointerInput(Unit) {
-                detectTapGestures(onPress = {
-                    currentOnHoldStart()
-                    var committed = false
-                    val job = scope.launch {
-                        val ticks = launch {
-                            repeat(CHARGE_TICKS) { k ->
-                                delay(HOLD_MS.toLong() / CHARGE_TICKS)
-                                haptics.charge((k + 1f) / CHARGE_TICKS)
-                            }
-                        }
-                        hold.animateTo(1f, tween((HOLD_MS * (1f - hold.value)).toInt().coerceAtLeast(1), easing = LinearEasing))
-                        ticks.cancel()
-                        committed = true
-                        burstOver = currentNextLogIsOver
-                        if (burstOver) haptics.loggedOver() else haptics.logged()
-                        currentOnLog()
-                        launch {
-                            burst.snapTo(0f)
-                            burst.animateTo(1f, tween(BURST_MS, easing = LinearEasing))
-                            burst.snapTo(0f)
-                        }
-                        release()
-                    }
-                    tryAwaitRelease()
-                    if (!committed) {
-                        val held = hold.value
-                        job.cancel()
-                        haptics.cancel()
-                        release()
-                        if (held < TAP_THRESHOLD) scope.launch { wobble.snapTo(0f); wobble.animateTo(1f, tween(600, easing = LinearEasing)) }
-                        currentOnHoldEnd(held)
-                    }
-                })
-            },
+            .holdToLog(h, "Ember. Press and hold to log a cigarette."),
     )
 }
 
