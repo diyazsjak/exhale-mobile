@@ -272,7 +272,6 @@ private fun SettingsMain(
                     sub = shownTriggers.joinToString(", ") { it.label }.ifEmpty { "None shown" },
                 )
             }
-            Footnote("The chips you can tag a cigarette or a craving with.")
 
             Overline("Money", Modifier.paddingTop())
             ExCard(padding = ExSpace.sm) {

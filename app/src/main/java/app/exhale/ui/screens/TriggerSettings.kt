@@ -86,7 +86,6 @@ internal fun TriggersPage(
                     )
                 }
             }
-            Footnote("Drag the handle to change the order. Tap a trigger to rename or delete it.")
         }
         if (hidden.isNotEmpty()) {
             Overline("Hidden · ${hidden.size}", Modifier.padding(top = ExSpace.xs))

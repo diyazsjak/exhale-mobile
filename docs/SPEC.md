@@ -301,8 +301,7 @@ Edits everything set during onboarding; keeps the original plan start. Sections,
   caption shows the plan as counted on screen: "This week 10 a day, next week 9." ("Holding at 14 a
   day." for Hold steady), plus "That start is above your usual 16." when the start is above Before Exhale.
 - **Triggers**, one card: **Your triggers** with how many are shown ("9 shown") and their names on a
-  second line cut short with "…", opening the Triggers screen (§3.11). Caption: "The chips you can tag a
-  cigarette or a craving with."
+  second line cut short with "…", opening the Triggers screen (§3.11).
 - **Money**, one card: **A pack** ("20 for 10.00 $") and **Saving for** (the amount on the right, the
   goal name on a second line that is cut short when long, so the amount always shows whole). Each opens
   its own screen.
@@ -362,8 +361,7 @@ People can name their own triggers and shape the list. Rules are in §4 Triggers
   was hidden).
 - **Settings → Triggers** (applies at once, no Save): "Your triggers", "Shown · 9" in a card where
   each row has a drag handle (drag to reorder; screen readers get Move up / Move down), the name, a
-  "Yours" sky badge on the user's own, and an eye that hides it. "Drag the handle to change the order.
-  Tap a trigger to rename or delete it." Then "Hidden · 1" with dimmed rows ("Tagged 12 times, still on
+  "Yours" sky badge on the user's own, and an eye that hides it. Then "Hidden · 1" with dimmed rows ("Tagged 12 times, still on
   Rhythm") and an eye-off that shows one again, and a Secondary **Add a trigger** button.
 - **One trigger**: the user's own ("Your trigger"): a Name field (20 at most), "Tagged 14 times. Tags keep
   up with the new name.", saved on the way back like Settings' other pages ("Saved", or "The name stays
