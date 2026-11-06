@@ -7,6 +7,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.performTouchInput
 import app.exhale.domain.Money
 import app.exhale.domain.TodayPlan
 import app.exhale.domain.Recovery
@@ -160,6 +162,7 @@ class ScreenshotTest {
         barScrolled: Boolean = false,
         barHidden: Boolean = false,
         glow: Boolean = false,
+        holdMs: Long? = null,
         content: @Composable () -> Unit,
     ) {
         val barState = bar ?: sampleState()
@@ -188,6 +191,12 @@ class ScreenshotTest {
             }
         }
         compose.mainClock.advanceTimeBy(2_000)
+        // Press and hold the Glow home off-centre for [holdMs], without letting go.
+        if (holdMs != null) {
+            compose.onNodeWithContentDescription("Press and hold anywhere to log a cigarette.")
+                .performTouchInput { down(androidx.compose.ui.geometry.Offset(width * 0.65f, height * 0.45f)) }
+            compose.mainClock.advanceTimeBy(holdMs)
+        }
         compose.onRoot().captureRoboImage("build/outputs/roborazzi/${name}_${if (dark) "dark" else "light"}.png")
     }
 
@@ -224,6 +233,9 @@ class ScreenshotTest {
     @Test fun glowWaitingDark() = shot("1i_glow_waiting", true, 0, bar = glowState(38), glow = true) { EmberScreen(glowState(38), null, {}, {}, { _, _ -> }, {}, {}) }
     @Test fun glowWaitingLight() = shot("1i_glow_waiting", false, 0, bar = glowState(38), glow = true) { EmberScreen(glowState(38), null, {}, {}, { _, _ -> }, {}, {}) }
     @Test fun glowLoggedDark() = shot("1j_glow_logged", true, 0, bar = glowState(4), glow = true) { EmberScreen(glowState(4), LoggedEvent(1, 5, 12), {}, {}, { _, _ -> }, {}, {}) }
+    // Mid-hold: the warm trail on the line and the glow gathering under the finger.
+    @Test fun glowHoldingDark() = shot("1k_glow_holding", true, 0, bar = glowState(38), glow = true, holdMs = 900) { EmberScreen(glowState(38), null, {}, {}, { _, _ -> }, {}, {}) }
+    @Test fun glowHoldingLight() = shot("1k_glow_holding", false, 0, bar = glowState(38), glow = true, holdMs = 900) { EmberScreen(glowState(38), null, {}, {}, { _, _ -> }, {}, {}) }
     @Test fun waveDark() = shot("3_wave", true) { UrgeWaveScreen({ _, _, _ -> }, {}, startAt = 1.5f) }
     @Test fun waveLight() = shot("3_wave", false) { UrgeWaveScreen({ _, _, _ -> }, {}, startAt = 1.5f) }
     @Test fun waveReadyDark() = shot("3b_wave_get_ready", true) { UrgeWaveScreen({ _, _, _ -> }, {}, startAt = 63.4f) }
