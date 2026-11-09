@@ -103,9 +103,6 @@ import app.exhale.ui.theme.ExType
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
-import java.time.format.DateTimeFormatter
-import java.time.format.TextStyle
-import java.util.Locale
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.atan2
@@ -196,7 +193,7 @@ fun RhythmScreen(
             label = "filter",
         ) { tally ->
             if (tally != null) {
-                val name = dayName(tally.date, state.today)
+                val name = Fmt.dayName(tally.date, state.today)
                 ActiveFilter(
                     when {
                         tally.allowance == null -> "$name · ${tally.count}"
@@ -313,13 +310,11 @@ fun RhythmScreen(
     }
 
     editing?.let { log ->
-        val name = dayName(log.at.atZone(zone).toLocalDate(), state.today)
+        val name = Fmt.dayName(log.at.atZone(zone).toLocalDate(), state.today)
         LogEditDialog(
-            log, name, zone, state.now, h24, state.shownTriggers,
-            onSave = { at, t ->
-                if (at != log.at || t != log.trigger) onEditLog(log.id, at, t)
-                editing = null
-            },
+            // To the minute, as the edit works: the dialog then redraws once a minute, not every second.
+            log, name, zone, Instant.ofEpochSecond(minute * 60), h24, state.shownTriggers,
+            onSave = { at, t -> onEditLog(log.id, at, t); editing = null },
             onDelete = { deleting = log; editing = null },
             onDismiss = { editing = null },
             onAddTrigger = onAddTrigger,
@@ -329,7 +324,7 @@ fun RhythmScreen(
         val d = log.at.atZone(zone).toLocalDate()
         ExChoiceDialog(
             "Delete the one at ${Fmt.time(log.at, zone, h24)}?",
-            "It comes off ${if (d == state.today) "today's" else "${dayName(d, state.today)}'s"} count. This can't be undone.",
+            "It comes off ${if (d == state.today) "today's" else "${Fmt.dayName(d, state.today)}'s"} count. This can't be undone.",
             listOf(
                 DialogAction("Delete", ButtonStyle.Primary) { onDeleteLog(log.id); deleting = null },
                 DialogAction("Keep it", ButtonStyle.Ghost) { deleting = null },
@@ -349,7 +344,7 @@ private fun DayCard(times: DayTimes, today: LocalDate, zone: ZoneId, h24: Boolea
     val isToday = times.day == today
     ExCard(Modifier.padding(vertical = ExSpace.xxs)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Overline("${dayName(times.day, today)}, one by one", Modifier.weight(1f))
+            Overline("${Fmt.dayName(times.day, today)}, one by one", Modifier.weight(1f))
             if (times.count > 0) Text("Tap one to change it", style = ExType.caption, color = c.inkFaint)
         }
         if (times.entries.isEmpty() && times.running == null) {
@@ -535,13 +530,6 @@ private fun ifAt(t: Trigger, hour: String): String? = when (t.builtIn) {
     BuiltInTrigger.SOCIAL -> "If I'm with people at $hour,"
     BuiltInTrigger.OTHER -> null
     null -> "If it's ${t.inSentence} at $hour,"
-}
-
-/** "Today", a weekday name within the last week, else "Sun 12 Oct". */
-private fun dayName(d: LocalDate, today: LocalDate): String = when {
-    d == today -> "Today"
-    !d.isBefore(today.minusDays(6)) -> d.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.getDefault())
-    else -> d.format(DateTimeFormatter.ofPattern("EEE d MMM", Locale.getDefault()))
 }
 
 /** "13:00" or "1 pm", following the phone's 12/24-hour setting. */

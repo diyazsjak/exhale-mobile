@@ -31,7 +31,7 @@ class DayTimesTest {
     )
 
     @Test fun pastDay_listsCigarettesInOrder_withGapsAndNumbers() {
-        val t = DayTimes.of(sundayLogs.reversed() + saturdayLast, emptyList(), sunday, zone, allowance = 8, now = now)
+        val t = DayTimes.of(listOf(saturdayLast) + sundayLogs, emptyList(), sunday, zone, allowance = 8, now = now)
         assertEquals(6, t.count)
         assertEquals(saturdayLast, t.previous)
         assertEquals(sundayLogs, t.cigarettes.map { it.log })
@@ -73,7 +73,7 @@ class DayTimesTest {
     }
 
     @Test fun longestGap_isBetweenCigarettes_notOvernight() {
-        val t = DayTimes.of(sundayLogs + saturdayLast, emptyList(), sunday, zone, allowance = 8, now = now)
+        val t = DayTimes.of(listOf(saturdayLast) + sundayLogs, emptyList(), sunday, zone, allowance = 8, now = now)
         assertEquals(Gap(sundayLogs[2].at, sundayLogs[3].at, ongoing = false), t.longestGap)
         assertEquals(Duration.ofMinutes(4 * 60 + 52), t.longestGap!!.length)
     }
@@ -102,8 +102,23 @@ class DayTimesTest {
     @Test fun today_withNothingYet_runsFromTheLastOneBefore() {
         val t = DayTimes.of(sundayLogs, emptyList(), monday, zone, allowance = 10, now = now)
         assertEquals(0, t.count)
+        assertFalse(t.isEmpty)
         assertEquals(Gap(sundayLogs.last().at, now, ongoing = true), t.running)
         assertNull(t.longestGap)
+    }
+
+    @Test fun aDayWithNothing_isEmpty() {
+        assertTrue(DayTimes.of(emptyList(), emptyList(), monday, zone, allowance = 10, now = now).isEmpty)
+        // A past day with no logs has no running gap, whatever came before.
+        assertTrue(DayTimes.of(listOf(saturdayLast), emptyList(), sunday, zone, allowance = 8, now = now).isEmpty)
+        assertFalse(DayTimes.of(sundayLogs, emptyList(), sunday, zone, allowance = 8, now = now).isEmpty)
+    }
+
+    @Test fun pastDay_ignoresLaterDays_andTheFuture() {
+        val later = listOf(log(monday, 7, 0), log(monday, 20, 0))
+        val t = DayTimes.of(listOf(saturdayLast) + sundayLogs + later, emptyList(), sunday, zone, allowance = 8, now = now)
+        assertEquals(sundayLogs, t.cigarettes.map { it.log })
+        assertEquals(saturdayLast, t.previous)
     }
 
     @Test fun lineStart_isSixAm_orTheHourOfAnEarlierFirstOne() {
@@ -147,7 +162,7 @@ class DayTimesTest {
 
     @Test fun rhythm_pickedDay_carriesItsTimes() {
         val s = UserSettings(onboarded = true, startAllowance = 10, planStart = sunday.minusDays(10))
-        val logs = sundayLogs + saturdayLast
+        val logs = listOf(saturdayLast) + sundayLogs
         val v = Rhythm.view(s, logs, emptyList(), monday, now, zone, Stats.dataStart(s.planStart, logs, zone), sunday, DayFilter.ALL)
         val times = v.times!!
         assertEquals(sunday, times.day)

@@ -45,6 +45,9 @@ data class DayTimes(
     val cigarettes: List<DayEntry.Cigarette> get() = entries.filterIsInstance<DayEntry.Cigarette>()
     val count: Int get() = cigarettes.size
 
+    /** Nothing to list: no cigarette or wave on the day, and (today) nothing logged before it either. */
+    val isEmpty: Boolean get() = entries.isEmpty() && running == null
+
     /**
      * The longest stretch in the day: between two of its cigarettes, or, today, from the last one to
      * now. The night before the first one doesn't count. Null with nothing to measure.
@@ -61,8 +64,9 @@ data class DayTimes(
         const val LINE_START_MINUTE = 6 * 60
 
         /**
-         * [day] from [logs] and [urges] (any order). Only waves ridden out show. [now] makes today's
-         * running gap and leaves out anything after it.
+         * [day] from [logs] (oldest first, as stored) and [urges] (any order). Only waves ridden out
+         * show. [now] makes today's running gap and leaves out anything after it. Runs every second
+         * for today, so it walks back from the newest log instead of going through the whole history.
          */
         fun of(
             logs: List<SmokeLog>,
@@ -74,9 +78,14 @@ data class DayTimes(
         ): DayTimes {
             val start = day.atStartOfDay(zone).toInstant()
             val end = day.plusDays(1).atStartOfDay(zone).toInstant()
-            val sorted = logs.filter { it.at <= now }.sortedBy { it.at }
-            val onDay = sorted.filter { it.at >= start && it.at < end }
-            val previous = sorted.lastOrNull { it.at < start }
+            var i = logs.lastIndex
+            while (i >= 0 && logs[i].at > now) i--
+            val last = logs.getOrNull(i)
+            while (i >= 0 && logs[i].at >= end) i--
+            val dayEnd = i
+            while (i >= 0 && logs[i].at >= start) i--
+            val onDay = logs.subList(i + 1, dayEnd + 1)
+            val previous = logs.getOrNull(i)
             var before = previous?.at
             val cigarettes = onDay.mapIndexed { i, log ->
                 val number = i + 1
@@ -87,7 +96,6 @@ data class DayTimes(
                 .filter { it.outcome == UrgeOutcome.SURVIVED && it.startedAt >= start && it.startedAt < end && it.startedAt <= now }
                 .map { DayEntry.Wave(it) }
             val isToday = now >= start && now < end
-            val last = sorted.lastOrNull()
             return DayTimes(
                 day = day,
                 entries = (cigarettes + waves).sortedBy { it.at },
@@ -97,6 +105,9 @@ data class DayTimes(
                 lineStartMinute = lineStart(onDay.firstOrNull()?.at?.atZone(zone)?.toLocalTime()),
             )
         }
+
+        /** Minutes after midnight of [at] on its own day. */
+        fun minuteOf(at: Instant, zone: ZoneId): Int = at.atZone(zone).let { it.hour * 60 + it.minute }
 
         /** [LINE_START_MINUTE], or the hour of [first] when that is earlier. */
         fun lineStart(first: LocalTime?): Int =
@@ -112,16 +123,13 @@ object LogEdit {
     /** [minuteOfDay] with its minutes moved by [delta], round the hour; the hour stays. */
     fun stepMinute(minuteOfDay: Int, delta: Int): Int = minuteOfDay / 60 * 60 + Math.floorMod(minuteOfDay % 60 + delta, 60)
 
-    /** Minutes after midnight of [at] on its own day. */
-    fun minuteOf(at: Instant, zone: ZoneId): Int = at.atZone(zone).let { it.hour * 60 + it.minute }
-
     /**
      * The moment a log at [original] moves to when set to [minuteOfDay]: on the same day, at the
      * start of that minute. Unchanged minutes keep [original] to the second. Null when that moment
      * is after [now]: a log can't move into the future.
      */
     fun moved(original: Instant, minuteOfDay: Int, zone: ZoneId, now: Instant): Instant? {
-        if (minuteOf(original, zone) == minuteOfDay) return original
+        if (DayTimes.minuteOf(original, zone) == minuteOfDay) return original
         val day = original.atZone(zone).toLocalDate()
         val at = day.atTime(minuteOfDay / 60, minuteOfDay % 60).atZone(zone).toInstant()
         return at.takeIf { it <= now }

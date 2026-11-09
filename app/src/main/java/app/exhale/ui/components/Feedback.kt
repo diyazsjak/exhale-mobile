@@ -29,6 +29,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
@@ -124,11 +125,7 @@ data class DialogAction(val label: String, val style: ButtonStyle, val enabled: 
 fun ExChoiceDialog(title: String, text: String, actions: List<DialogAction>, onDismiss: () -> Unit) {
     val c = Ex.colors
     Dialog(onDismissRequest = onDismiss) {
-        ExCard(padding = ExSpace.xl) {
-            Text(title, style = ExType.headline, color = c.ink)
-            Text(text, style = ExType.body, color = c.inkSoft)
-            DialogActions(actions)
-        }
+        ExDialogCard(title, actions) { Text(text, style = ExType.body, color = c.inkSoft) }
     }
 }
 
@@ -139,20 +136,34 @@ fun ExChoiceDialog(title: String, text: String, actions: List<DialogAction>, onD
  */
 @Composable
 fun ExInputDialog(title: String, onDismiss: () -> Unit, actions: List<DialogAction>, content: @Composable ColumnScope.() -> Unit) {
-    val c = Ex.colors
     // The same modal as ExChoiceDialog: the platform's scrim, and the window moves up for the keyboard.
-    Dialog(onDismissRequest = onDismiss) {
-        ExCard(padding = ExSpace.xl) {
-            Text(title, style = ExType.headline, color = c.ink)
-            content()
-            DialogActions(actions)
-        }
+    Dialog(onDismissRequest = onDismiss) { ExDialogCard(title, actions, content = content) }
+}
+
+/**
+ * The card inside the kit's dialogs, without the dialog window: `space-xl` padding, a `headline`
+ * [title], [content], then [actions] stacked full width. The dialogs wrap it in `Dialog`; the
+ * catalogue and screenshots draw it in place (a dialog window never goes idle in the test harness).
+ * [color] `surface-high` lifts `surface` chips off it.
+ */
+@Composable
+fun ExDialogCard(
+    title: String,
+    actions: List<DialogAction>,
+    modifier: Modifier = Modifier,
+    color: Color? = null,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    ExCard(modifier, color = color, padding = ExSpace.xl) {
+        Text(title, style = ExType.headline, color = Ex.colors.ink)
+        content()
+        DialogActions(actions)
     }
 }
 
 /** A dialog's choices, stacked full width as Medium buttons. */
 @Composable
-internal fun DialogActions(actions: List<DialogAction>) {
+private fun DialogActions(actions: List<DialogAction>) {
     Column(Modifier.padding(top = ExSpace.sm), verticalArrangement = Arrangement.spacedBy(ExSpace.xs)) {
         actions.forEach { ExButton(it.label, it.onClick, Modifier.fillMaxWidth(), style = it.style, size = ButtonSize.Medium, enabled = it.enabled) }
     }

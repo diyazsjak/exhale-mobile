@@ -752,9 +752,7 @@ private fun LongRoadToggle(open: Boolean, onToggle: () -> Unit) {
 
 /** How the Air screen says when something happens, relative to [now], following the 12/24-hour setting. */
 private class TimeWords(val now: Instant, val zone: ZoneId, val h24: Boolean) {
-    private val clockFmt = DateTimeFormatter.ofPattern(if (h24) "HH:mm" else "h:mm a", Locale.getDefault())
-
-    fun clock(t: Instant): String = t.atZone(zone).format(clockFmt)
+    fun clock(t: Instant): String = Fmt.time(t, zone, h24)
 
     private fun daysFromToday(t: Instant): Long =
         ChronoUnit.DAYS.between(now.atZone(zone).toLocalDate(), t.atZone(zone).toLocalDate())

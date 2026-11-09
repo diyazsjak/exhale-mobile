@@ -277,7 +277,7 @@ The modal behind a tap on a DayTimeline cigarette: change its time or trigger, o
 
 A `surface-high` card (so the `surface` trigger chips stand out, as on the Logged card) with `space-xl` padding: a `headline` title ("Sunday, 1:05 PM"), a "Time" overline and a TimeStepper, a "Trigger" overline and TriggerChips (tap the picked one again to clear it; "Your own" adds one), then a Primary "Save" and a Ghost "Delete this one". Delete asks first with a ChoiceDialog ("Delete the one at 1:05 PM?", Primary "Delete", Ghost "Keep it"). Tapping outside or Back closes without saving. Scrolls on a short screen.
 
-- Compose: `LogEditDialog(log, dayName, zone, now, h24, triggers, onSave = { at, trigger -> … }, onDelete = { … }, onDismiss = { … }, onAddTrigger = vm::addTrigger)`; `LogEditor(...)` is the same card without the dialog window (catalogue, screenshots).
+- Compose: `LogEditDialog(log, dayName, zone, now, h24, triggers, onSave = { at, trigger -> … }, onDelete = { … }, onDismiss = { … }, onAddTrigger = vm::addTrigger)`; `LogEditor(...)` is the same card without the dialog window (catalogue, screenshots), built on `ExDialogCard`, the card every kit dialog uses.
 
 ### Toast
 

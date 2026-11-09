@@ -206,8 +206,8 @@ Shows the last 30 days (today and the 29 before), or one picked day. Order:
   Screen readers get a summary and Next/Previous/Clear hour actions.
 - **Day list** (`DayTimeline`, a picked day, in the clock's place): "Sunday, one by one" with "Tap one
   to change it", then the day on a vertical oxygen line. It opens with the day before's last one,
-  faint ("9:49 PM · Saturday's last one"; "Yesterday's last one"; "Last one before: 12 Oct" when
-  older than a week). Each cigarette is a 44dp row: an ember dot (flare past the allowance), the exact
+  faint ("9:49 PM · Saturday's last one"; "Yesterday's last one"; "Last one before: Sun 12 Oct"
+  when older than a week). Each cigarette is a 44dp row: an ember dot (flare past the allowance), the exact
   time, the trigger or "No trigger", and "3 of 8" (flare ink past the allowance; just the number
   before the plan start). The line between rows is the gap, longer for longer gaps, labelled with
   the time since the cigarette before ("3h 27m") just above each cigarette. Craving waves ridden out
@@ -221,7 +221,7 @@ Shows the last 30 days (today and the 29 before), or one picked day. Order:
   12-hour phones get AM/PM), the trigger chips (the picked one again clears it; "Your own" adds one,
   as on the Logged card; a hidden trigger the log has keeps its chip here), Save (Primary) and
   "Delete this one" (Ghost). Rules in §4 LogEdit: the time stays on the log's day and never goes past
-  now. Save writes only what changed and closes; outside or Back closes without saving. Delete asks
+  now. Save writes only what changed (a save that changes nothing writes nothing) and closes; outside or Back closes without saving. Delete asks
   "Delete the one at 1:05 PM?" / "It comes off Sunday's count. This can't be undone." with Delete
   (Primary) and Keep it (Ghost). Counts, allowances, borrowing, gaps and every other screen follow
   the edit at once. Only cigarettes are editable; waves aren't.

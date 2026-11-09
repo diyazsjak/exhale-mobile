@@ -169,8 +169,13 @@ class ExhaleViewModel(private val repo: ExhaleRepository) : ViewModel() {
 
     fun dismissLogged() { _lastLogged.value = null }
 
-    /** The day list's edit: [id] moves to [at] with [trigger] (null clears it). Takes the tag lock, like [tag]. */
+    /**
+     * The day list's edit: [id] moves to [at] with [trigger] (null clears it). A save that changes
+     * nothing writes nothing. Takes the tag lock, like [tag].
+     */
     fun editLog(id: Long, at: Instant, trigger: Trigger?) {
+        val log = state.value.logs.firstOrNull { it.id == id }
+        if (log != null && log.at == at && log.trigger == trigger) return
         viewModelScope.launch { triggerLock.withLock { repo.editLog(id, at, trigger) } }
     }
 

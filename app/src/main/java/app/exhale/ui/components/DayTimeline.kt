@@ -31,7 +31,6 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -62,7 +61,6 @@ import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import java.time.format.TextStyle
 import java.util.Locale
 import kotlin.math.ln
 
@@ -82,7 +80,7 @@ private sealed interface TimelineRow {
 private fun rowsOf(times: DayTimes): List<TimelineRow> {
     val rows = mutableListOf<TimelineRow>()
     var last: Instant? = times.previous?.at
-    if (times.entries.isNotEmpty() || times.running != null) times.previous?.let { rows += TimelineRow.Previous(it) }
+    if (!times.isEmpty) times.previous?.let { rows += TimelineRow.Previous(it) }
     for (e in times.entries) {
         last?.let { rows += TimelineRow.Stretch(Duration.between(it, e.at), (e as? DayEntry.Cigarette)?.gapBefore?.let(Fmt::gap)) }
         rows += when (e) {
@@ -128,8 +126,8 @@ fun DayTimeline(
             when (row) {
                 is TimelineRow.Previous -> MarkRow(
                     Mark.Previous, above, below, timeWidth,
-                    time = Fmt.time(row.log.at, zone, h24), timeColor = c.inkFaint,
-                    label = previousLabel(row.log.at.atZone(zone).toLocalDate(), today), labelColor = c.inkFaint,
+                    time = Fmt.time(row.log.at, zone, h24),
+                    label = previousLabel(row.log.at.atZone(zone).toLocalDate(), today),
                 )
                 is TimelineRow.Stretch -> StretchRow(row.length, row.label, timeWidth)
                 is TimelineRow.Smoke -> {
@@ -165,14 +163,16 @@ fun DayTimeline(
     }
 }
 
-/** "Yesterday's last one", "Saturday's last one" within the week, else "Last one before: 12 Oct". */
-private fun previousLabel(date: LocalDate, today: LocalDate): String = when {
-    date == today.minusDays(1) -> "Yesterday's last one"
-    !date.isBefore(today.minusDays(6)) -> "${date.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.getDefault())}'s last one"
-    else -> "Last one before: ${date.format(DateTimeFormatter.ofPattern("d MMM", Locale.getDefault()))}"
+/** "Yesterday's last one", "Saturday's last one" within the week, else "Last one before: Sun 12 Oct". */
+private fun previousLabel(date: LocalDate, today: LocalDate): String {
+    val name = Fmt.dayName(date, today, yesterday = true)
+    return if (date.isBefore(today.minusDays(6))) "Last one before: $name" else "$name's last one"
 }
 
-/** A row with a dot on the rail: time, label and an optional count at the end. Tappable with [onClick]. */
+/**
+ * A row with a dot on the rail: time, label and an optional count at the end. Tappable with [onClick].
+ * The day before's last one ([Mark.Previous]) is all faint and small, whatever colours are passed.
+ */
 @Composable
 private fun MarkRow(
     mark: Mark,
@@ -180,15 +180,16 @@ private fun MarkRow(
     below: Boolean,
     timeWidth: Dp,
     time: String,
-    timeColor: Color,
     label: String,
-    labelColor: Color,
+    timeColor: Color = Color.Unspecified,
+    labelColor: Color = Color.Unspecified,
     end: String? = null,
     endColor: Color = Color.Unspecified,
     onClick: (() -> Unit)? = null,
     description: String? = null,
 ) {
     val faintText = mark == Mark.Previous
+    val faint = Ex.colors.inkFaint
     Row(
         Modifier
             .fillMaxWidth()
@@ -202,11 +203,11 @@ private fun MarkRow(
         Text(
             time,
             style = if (faintText) ExType.caption else ExType.numberSmall,
-            color = timeColor,
+            color = if (faintText) faint else timeColor,
             modifier = Modifier.padding(start = ExSpace.sm).width(timeWidth),
         )
         Text(
-            label, style = if (faintText) ExType.caption else ExType.bodySmall, color = labelColor,
+            label, style = if (faintText) ExType.caption else ExType.bodySmall, color = if (faintText) faint else labelColor,
             maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f),
         )
         if (end != null) Text(end, style = ExType.caption, color = endColor, modifier = Modifier.padding(start = ExSpace.xs, end = ExSpace.xxs))
@@ -227,51 +228,44 @@ private fun StretchRow(length: Duration, label: String?, timeWidth: Dp) {
     }
 }
 
+/** How a [Mark] is drawn: a dot of [radius], or with [ring] a ring on a card-coloured disc; [halo] behind it. */
+private class MarkStyle(val color: Color, val radius: Dp, val ring: Dp? = null, val halo: Color? = null)
+
 /** The rail cell of a row: the line above and below its centre, and its [mark] (none on a stretch). */
 @Composable
 private fun Rail(mark: Mark?, above: Boolean, below: Boolean) {
     val c = Ex.colors
-    // Read before the draw lambda: colours never come from Ex.colors inside DrawScope.
+    // Colours are read here, before the draw lambda, never from Ex.colors inside DrawScope.
     val line = c.oxy.copy(alpha = 0.55f)
-    val ember = c.ember
-    val flare = c.flare
-    val oxy = c.oxy
-    val halo = c.tint(c.oxy)
-    val faint = c.inkFaint
     val card = c.surface
+    val style = when (mark) {
+        null -> null
+        Mark.Smoke -> MarkStyle(c.ember, 5.5.dp)
+        Mark.Over -> MarkStyle(c.flare, 5.5.dp)
+        Mark.Wave -> MarkStyle(c.oxy, 4.5.dp, ring = 2.dp)
+        Mark.Now -> MarkStyle(c.oxy, 5.dp, halo = c.tint(c.oxy))
+        Mark.Previous -> MarkStyle(c.inkFaint, 3.75.dp, ring = 1.5.dp)
+    }
     Box(
         Modifier.width(RAIL).fillMaxHeight().drawBehind {
-            val x = size.width / 2
-            val y = size.height / 2
+            val at = Offset(size.width / 2, size.height / 2)
             val w = 3.dp.toPx()
-            if (mark == null) {
-                drawLine(line, Offset(x, 0f), Offset(x, size.height), w, StrokeCap.Butt)
+            if (style == null) {
+                drawLine(line, Offset(at.x, 0f), Offset(at.x, size.height), w, StrokeCap.Butt)
                 return@drawBehind
             }
-            if (above) drawLine(line, Offset(x, 0f), Offset(x, y), w, StrokeCap.Butt)
-            if (below) drawLine(line, Offset(x, y), Offset(x, size.height), w, StrokeCap.Butt)
-            drawMark(mark, Offset(x, y), ember, flare, oxy, halo, faint, card)
+            if (above) drawLine(line, Offset(at.x, 0f), at, w, StrokeCap.Butt)
+            if (below) drawLine(line, at, Offset(at.x, size.height), w, StrokeCap.Butt)
+            style.halo?.let { drawCircle(it, 9.dp.toPx(), at) }
+            val ring = style.ring
+            if (ring == null) {
+                drawCircle(style.color, style.radius.toPx(), at)
+            } else {
+                drawCircle(card, (style.radius + ring / 2).toPx(), at)
+                drawCircle(style.color, style.radius.toPx(), at, style = Stroke(ring.toPx()))
+            }
         },
     )
-}
-
-private fun DrawScope.drawMark(mark: Mark, at: Offset, ember: Color, flare: Color, oxy: Color, halo: Color, faint: Color, card: Color) {
-    when (mark) {
-        Mark.Smoke -> drawCircle(ember, 5.5.dp.toPx(), at)
-        Mark.Over -> drawCircle(flare, 5.5.dp.toPx(), at)
-        Mark.Wave -> {
-            drawCircle(card, 5.5.dp.toPx(), at)
-            drawCircle(oxy, 4.5.dp.toPx(), at, style = Stroke(2.dp.toPx()))
-        }
-        Mark.Now -> {
-            drawCircle(halo, 9.dp.toPx(), at)
-            drawCircle(oxy, 5.dp.toPx(), at)
-        }
-        Mark.Previous -> {
-            drawCircle(card, 4.5.dp.toPx(), at)
-            drawCircle(faint, 3.75.dp.toPx(), at, style = Stroke(1.5.dp.toPx()))
-        }
-    }
 }
 
 /**
@@ -296,12 +290,12 @@ fun DayLine(
     val bg = c.surface
     val start = times.lineStartMinute
     val span = (24 * 60 - start).toFloat()
-    fun minuteOf(t: Instant) = LogEdit.minuteOf(t, zone)
-    val cigarettes = times.cigarettes
-    val dots = cigarettes.map { minuteOf(it.at) to it.over }
-    val nowMinute = minuteOf(now)
+    // Ember recomposes every second; today's cigarettes only change with a log.
+    val cigarettes = remember(times.entries) { times.cigarettes }
+    val dots = remember(cigarettes, zone) { cigarettes.map { DayTimes.minuteOf(it.at, zone) to it.over } }
+    val labels = remember(cigarettes, zone, h24) { cigarettes.map { Fmt.time(it.at, zone, h24) } }
+    val nowMinute = DayTimes.minuteOf(now, zone)
     val lastOnLine = dots.lastOrNull()?.first ?: start
-    val labels = cigarettes.map { Fmt.time(it.at, zone, h24) }
     Row(
         modifier
             .fillMaxWidth()
@@ -376,17 +370,20 @@ fun TimeStepper(minuteOfDay: Int, onChange: (Int) -> Unit, canSet: (Int) -> Bool
 @Composable
 private fun TimePart(text: String, unit: String, minuteOfDay: Int, onChange: (Int) -> Unit, canSet: (Int) -> Boolean, step: (Int, Int) -> Int) {
     val c = Ex.colors
+    val up = step(minuteOfDay, 1)
+    val down = step(minuteOfDay, -1)
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        RepeatButton(ExIcons.Up, "One $unit later", canSet(step(minuteOfDay, 1)), { onChange(step(minuteOfDay, 1)) })
+        RepeatButton(ExIcons.Up, "One $unit later", canSet(up), { onChange(up) })
         Text(text, style = ExType.numberLarge, color = c.ink, textAlign = TextAlign.Center, modifier = Modifier.widthIn(min = 64.dp))
-        RepeatButton(ExIcons.Down, "One $unit earlier", canSet(step(minuteOfDay, -1)), { onChange(step(minuteOfDay, -1)) })
+        RepeatButton(ExIcons.Down, "One $unit earlier", canSet(down), { onChange(down) })
     }
 }
 
 /**
  * Change one logged cigarette: its time (same day, never later than [now]) and its trigger (tap the
  * picked one again to clear it; "Your own" names a new one with [onAddTrigger]). Save hands back the
- * time and trigger (unchanged ones too). Delete hands over to the caller, which asks first. Shown in [LogEditDialog].
+ * time and trigger, changed or not (the ViewModel skips a save that changes nothing). Delete hands
+ * over to the caller, which asks first. Shown in [LogEditDialog].
  */
 @Composable
 fun LogEditor(
@@ -402,14 +399,20 @@ fun LogEditor(
     onAddTrigger: ((name: String, then: (Trigger) -> Unit) -> Unit)? = null,
 ) {
     val c = Ex.colors
-    var minute by remember(log.id) { mutableIntStateOf(LogEdit.minuteOf(log.at, zone)) }
+    var minute by remember(log.id) { mutableIntStateOf(DayTimes.minuteOf(log.at, zone)) }
     var trigger by remember(log.id) { mutableStateOf(log.trigger) }
     // A trigger hidden since keeps its chip here, so the log doesn't lose it by being opened.
     val chips = remember(triggers, log.trigger) { log.trigger?.takeIf { it !in triggers }?.let { triggers + it } ?: triggers }
     val at = LogEdit.moved(log.at, minute, zone, now)
     // On surface-high like the Logged card, so the trigger chips stand out from it.
-    ExCard(modifier, color = c.surfaceHigh, padding = ExSpace.xl) {
-        Text("$dayName, ${Fmt.time(log.at, zone, h24)}", style = ExType.headline, color = c.ink)
+    ExDialogCard(
+        "$dayName, ${Fmt.time(log.at, zone, h24)}",
+        listOf(
+            DialogAction("Save", ButtonStyle.Primary) { onSave(at ?: log.at, trigger) },
+            DialogAction("Delete this one", ButtonStyle.Ghost, onClick = onDelete),
+        ),
+        modifier, color = c.surfaceHigh,
+    ) {
         Overline("Time", Modifier.padding(top = ExSpace.sm))
         TimeStepper(minute, { minute = it }, canSet = { LogEdit.moved(log.at, it, zone, now) != null }, h24 = h24)
         Overline("Trigger", Modifier.padding(top = ExSpace.sm))
@@ -417,12 +420,6 @@ fun LogEditor(
             chips, selected = trigger,
             onPick = { t -> trigger = if (trigger == t) null else t },
             onAdd = onAddTrigger?.let { add -> { name -> add(name) { trigger = it } } },
-        )
-        DialogActions(
-            listOf(
-                DialogAction("Save", ButtonStyle.Primary) { onSave(at ?: log.at, trigger) },
-                DialogAction("Delete this one", ButtonStyle.Ghost, onClick = onDelete),
-            ),
         )
     }
 }

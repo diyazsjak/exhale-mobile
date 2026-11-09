@@ -6,6 +6,7 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.time.format.TextStyle
 import java.util.Currency
 import java.util.Locale
 import kotlin.math.roundToInt
@@ -47,8 +48,26 @@ object Fmt {
     }
 
     /** A time of day following the phone's 12/24-hour setting: "13:05" or "1:05 PM". */
-    fun time(at: Instant, zone: ZoneId, h24: Boolean): String =
-        at.atZone(zone).format(DateTimeFormatter.ofPattern(if (h24) "HH:mm" else "h:mm a", Locale.getDefault()))
+    fun time(at: Instant, zone: ZoneId, h24: Boolean): String = at.atZone(zone).format(clockFormat(h24))
+
+    // Built once per locale: times are formatted for every row, every second on Ember.
+    private var clockFormats: Pair<Locale, Array<DateTimeFormatter>>? = null
+
+    private fun clockFormat(h24: Boolean): DateTimeFormatter {
+        val locale = Locale.getDefault()
+        val cached = clockFormats?.takeIf { it.first == locale }?.second
+            ?: arrayOf(DateTimeFormatter.ofPattern("h:mm a", locale), DateTimeFormatter.ofPattern("HH:mm", locale))
+                .also { clockFormats = locale to it }
+        return cached[if (h24) 1 else 0]
+    }
+
+    /** "Today", "Yesterday" (with [yesterday]), a weekday name within the last week, else "Sun 12 Oct". */
+    fun dayName(d: LocalDate, today: LocalDate, yesterday: Boolean = false): String = when {
+        d == today -> "Today"
+        yesterday && d == today.minusDays(1) -> "Yesterday"
+        !d.isBefore(today.minusDays(6)) -> d.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.getDefault())
+        else -> d.format(DateTimeFormatter.ofPattern("EEE d MMM", Locale.getDefault()))
+    }
 
     /** "4 September": a date within the year, e.g. when the plan started. */
     fun dayMonth(date: LocalDate): String = date.format(DateTimeFormatter.ofPattern("d MMMM", Locale.getDefault()))
