@@ -50,22 +50,21 @@ import kotlin.math.roundToInt
 /** One change of [ExhaleText]'s text: from what (null on first show) to what. */
 private class TextChange(val from: String?, val to: String)
 
-/** A changed glyph's animation, in ms: the old one breathes out over OUT_MS; the new one settles in after IN_DELAY_MS. */
+/** A changed number's animation, in ms: the old one breathes out over OUT_MS; the new one settles in after IN_DELAY_MS. */
 private const val OUT_MS = 340
 private const val IN_DELAY_MS = 90
 private const val IN_MS = 300
 private const val TOTAL_MS = IN_DELAY_MS + IN_MS
-/** Each glyph further left starts this much later, so a change reads right to left like a counter. */
-private const val STAGGER_MS = 35
 
 /**
- * Text that breathes out when it changes: each changed character drifts up, swells and blurs away
- * like a breath leaving, and the new one settles in under it (about 0.4 s). Unchanged characters
- * hold still; characters are matched from the right, so minutes line up with minutes. A change of
- * length ("1m" → "1h 30m") moves every character. The first show does not animate. Blur needs
- * Android 12; below that it is fade and drift only. Each glyph is drawn as its slice of one laid-out
- * line, so at rest it is exactly a plain Text; the old text stays centred where it was. It stays on
- * one line, shrinking to fit the width if it must. For the heroes' big numbers.
+ * Text that breathes out when it changes: a number that changed drifts up, swells and blurs away
+ * like a breath leaving, and the new one settles in under it, all its digits together (about 0.4 s).
+ * Numbers and units that didn't change hold still, gliding aside if the text's width changed.
+ * Numbers and the words between them are matched from the right, so minutes line up with minutes.
+ * The first show does not animate. Blur needs Android 12; below that it is fade and drift only.
+ * Each piece is drawn as its slice of one laid-out line, so at rest it is exactly a plain Text; the
+ * old text stays centred where it was. It stays on one line, shrinking to fit the width if it must.
+ * For the heroes' big numbers.
  */
 @Composable
 fun ExhaleText(text: String, style: TextStyle, color: Color, modifier: Modifier = Modifier) {
@@ -94,11 +93,57 @@ private fun measureToFit(measurer: TextMeasurer, text: String, style: TextStyle,
     return measurer.measure(text, smaller, maxLines = 1, softWrap = false)
 }
 
+/**
+ * [text] split into numbers and what is between them ("1h 42m" → "1", "h ", "42", "m"): the
+ * pieces that change together.
+ */
+internal fun exhaleTokens(text: String): List<IntRange> {
+    val out = mutableListOf<IntRange>()
+    var start = 0
+    for (i in 1..text.length) {
+        if (i == text.length || text[i].isDigit() != text[i - 1].isDigit()) {
+            out += start until i
+            start = i
+        }
+    }
+    return out
+}
+
+/** One piece of the new text ([to], a range in it) matched with the old one in the same place from the right ([from]). */
+internal class TokenPair(val to: IntRange?, val from: IntRange?, val changed: Boolean)
+
+/**
+ * The pieces of [text] matched from the right with those of [old] (null on first show): a piece
+ * changed if its text did; pieces only one side has come or go.
+ */
+internal fun exhalePairs(old: String?, text: String): List<TokenPair> {
+    val now = exhaleTokens(text)
+    val was = old?.let(::exhaleTokens).orEmpty()
+    return (maxOf(now.size, was.size) - 1 downTo 0).map { fromRight ->
+        val n = now.getOrNull(now.size - 1 - fromRight)
+        val o = was.getOrNull(was.size - 1 - fromRight)
+        val changed = old != null && (n == null || o == null || text.substring(n) != old.substring(o))
+        TokenPair(n, o, changed)
+    }
+}
+
 @Composable
 private fun ExhaleLines(text: String, from: String?, now: TextLayoutResult, before: TextLayoutResult?, change: TextChange, color: Color) {
     // Built once per change, not on every recomposition (the hero's screen recomposes every second).
-    val cells = remember(now) { List(text.length) { Cell(now, it, 0f) } }
-    val oldCells = remember(before, now) { before?.let { b -> List(b.layoutInput.text.length) { Cell(b, it, (now.size.width - b.size.width) / 2f) } } }
+    val pieces = remember(now, before) {
+        val shift = before?.let { (now.size.width - it.size.width) / 2f } ?: 0f
+        exhalePairs(from, text).map { pair ->
+            val cell = pair.to?.let { Cell(now, it, 0f) }
+            val old = if (before != null && pair.from != null) Cell(before, pair.from, shift) else null
+            Piece(
+                cell = cell,
+                old = old.takeIf { pair.changed && from!!.substring(pair.from!!).isNotBlank() },
+                changed = pair.changed,
+                // A piece that stayed the same glides from where it was, if the text's width changed.
+                slideFrom = if (!pair.changed && cell != null && old != null) old.boxStart - cell.boxStart else 0f,
+            )
+        }
+    }
     Box(
         Modifier
             .layout { m, _ ->
@@ -107,54 +152,49 @@ private fun ExhaleLines(text: String, from: String?, now: TextLayoutResult, befo
             }
             .clearAndSetSemantics { contentDescription = text },
     ) {
-        // Matched from the right; a shorter text still breathes out the old characters on its left.
-        for (fromRight in maxOf(text.length, from?.length ?: 0) - 1 downTo 0) {
-            val i = text.length - 1 - fromRight
-            val j = from?.let { it.length - 1 - fromRight } ?: -1
-            val ch = text.getOrNull(i)
-            val old = from?.getOrNull(j)
-            val moved = from != null && (from.length != text.length || old != ch)
-            key(fromRight) {
-                ExhaleGlyph(
-                    cell = cells.getOrNull(i),
-                    old = if (moved && old != null && old != ' ') oldCells?.getOrNull(j) else null,
-                    moved = moved, change = change, delayMs = fromRight * STAGGER_MS, color = color,
-                )
-            }
+        pieces.forEachIndexed { i, piece ->
+            // Keyed from the right, as the pieces are matched.
+            key(pieces.size - 1 - i) { ExhalePiece(piece, change, color) }
         }
     }
 }
 
+/** What one piece does in a change: [old] breathes out and [cell] settles in, or [cell] glides [slideFrom] px back into place. */
+private class Piece(val cell: Cell?, val old: Cell?, val changed: Boolean, val slideFrom: Float)
+
 /**
- * Character [i] of a laid-out line, as the slice of the line between its edge and the next one's
- * (the first and last slices run on past the ends). Drawing every slice of a line rebuilds it
- * exactly, kerning and all. [dx] moves it sideways (an old line kept centred where it was).
+ * Characters [range] of a laid-out line, as the slice of the line between its edge and the next
+ * piece's (the first and last slices run on past the ends). Drawing every slice of a line rebuilds
+ * it exactly, kerning and all. [dx] moves it sideways (an old line kept centred where it was).
  */
-private class Cell(val line: TextLayoutResult, i: Int, val dx: Float) {
-    private val start = line.getHorizontalPosition(i, true)
-    private val end = if (i >= line.layoutInput.text.length - 1) line.size.width.toFloat() else line.getHorizontalPosition(i + 1, true)
+private class Cell(val line: TextLayoutResult, range: IntRange, val dx: Float) {
+    private val last = line.layoutInput.text.length - 1
+    private val start = line.getHorizontalPosition(range.first, true)
+    private val end = if (range.last >= last) line.size.width.toFloat() else line.getHorizontalPosition(range.last + 1, true)
     // Clip edges on whole pixels, so neighbouring slices meet without a seam; the ends run on.
-    val left = if (i == 0) Float.NEGATIVE_INFINITY else start.roundToInt().toFloat()
-    val right = if (i >= line.layoutInput.text.length - 1) Float.POSITIVE_INFINITY else end.roundToInt().toFloat()
-    /** Where the character sits in the box, for sizing its layer and scaling about its middle. */
+    val left = if (range.first == 0) Float.NEGATIVE_INFINITY else start.roundToInt().toFloat()
+    val right = if (range.last >= last) Float.POSITIVE_INFINITY else end.roundToInt().toFloat()
+    /** Where the piece sits in the box, for sizing its layer and scaling about its middle. */
     val boxStart = start + dx
     val boxEnd = end + dx
     val mid = (boxStart + boxEnd) / 2f
 }
 
 @Composable
-private fun ExhaleGlyph(cell: Cell?, old: Cell?, moved: Boolean, change: TextChange, delayMs: Int, color: Color) {
-    // Time into this glyph's change, in ms; at TOTAL_MS it is at rest. Read only in layers, so frames don't recompose.
+private fun ExhalePiece(piece: Piece, change: TextChange, color: Color) {
+    // Time into this piece's change, in ms; at TOTAL_MS it is at rest. Read only in layers, so frames don't recompose.
     val t = remember { Animatable(TOTAL_MS.toFloat()) }
     LaunchedEffect(change) {
-        if (moved) {
-            t.snapTo(-delayMs.toFloat())
-            t.animateTo(TOTAL_MS.toFloat(), tween(TOTAL_MS + delayMs, easing = LinearEasing))
+        if (piece.changed || piece.slideFrom != 0f) {
+            t.snapTo(0f)
+            t.animateTo(TOTAL_MS.toFloat(), tween(TOTAL_MS, easing = LinearEasing))
         } else {
             t.snapTo(TOTAL_MS.toFloat())
         }
     }
     val outgoing by remember { derivedStateOf { t.value < OUT_MS } }
+    val cell = piece.cell
+    val old = piece.old
     val em = (cell ?: old ?: return).line.layoutInput.style.fontSize
     if (old != null && outgoing) {
         Slice(old, color) {
@@ -166,18 +206,22 @@ private fun ExhaleGlyph(cell: Cell?, old: Cell?, moved: Boolean, change: TextCha
         }
     }
     if (cell != null) Slice(cell, color) {
-        val k = FastOutSlowInEasing.transform(((t.value - IN_DELAY_MS) / IN_MS).coerceIn(0f, 1f))
-        alpha = k
-        translationY = 0.12f * em.toPx() * (1f - k)
-        scaleX = 0.94f + 0.06f * k; scaleY = scaleX
-        renderEffect = blur(6.dp.toPx() * (1f - k))
+        if (piece.changed) {
+            val k = FastOutSlowInEasing.transform(((t.value - IN_DELAY_MS) / IN_MS).coerceIn(0f, 1f))
+            alpha = k
+            translationY = 0.12f * em.toPx() * (1f - k)
+            scaleX = 0.94f + 0.06f * k; scaleY = scaleX
+            renderEffect = blur(6.dp.toPx() * (1f - k))
+        } else {
+            translationX = piece.slideFrom * (1f - FastOutSlowInEasing.transform(t.value / TOTAL_MS))
+        }
     }
 }
 
 /** A blur of [r] px, or none when it would not show (or before Android 12, which can't). */
 private fun blur(r: Float) = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && r > 0.5f) BlurEffect(r, r, TileMode.Decal) else null
 
-/** One [cell] in its own layer, just around its character, with room for the blur and the drift. */
+/** One [cell] in its own layer, just around its piece, with room for the blur and the drift. */
 @Composable
 private fun Slice(cell: Cell, color: Color, layer: GraphicsLayerScope.() -> Unit) {
     val p = with(LocalDensity.current) { 16.dp.roundToPx() }

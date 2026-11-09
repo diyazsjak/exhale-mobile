@@ -15,6 +15,9 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.exhale.ui.components.ExhaleText
+import app.exhale.ui.components.exhalePairs
+import app.exhale.ui.components.exhaleTokens
+import org.junit.Assert.assertEquals
 import app.exhale.ui.theme.Ex
 import app.exhale.ui.theme.ExType
 import app.exhale.ui.theme.ExhaleTheme
@@ -59,5 +62,37 @@ class ExhaleTextTest {
         fontScale = 1.5f
         compose.waitForIdle()
         assertTrue(heroWidth() > before * 1.2f)
+    }
+
+    /** Each piece as "old→new", "+new" (comes), "-old" (goes) or "=same", left to right. */
+    private fun changes(old: String?, text: String) = exhalePairs(old, text).map { p ->
+        val n = p.to?.let { text.substring(it) }
+        val o = p.from?.let { old!!.substring(it) }
+        when {
+            !p.changed -> "=$n"
+            n == null -> "-$o"
+            o == null -> "+$n"
+            else -> "$o→$n"
+        }
+    }
+
+    @Test fun piecesAreNumbersAndWhatIsBetweenThem() {
+        assertEquals(listOf("1", "h ", "42", "m"), exhaleTokens("1h 42m").map { "1h 42m".substring(it) })
+        assertEquals(listOf("—"), exhaleTokens("—").map { "—".substring(it) })
+    }
+
+    @Test fun aNumberThatChanged_movesWhole_andTheRestHolds() {
+        assertEquals(listOf("25→59", "=m"), changes("25m", "59m"))
+        assertEquals(listOf("=1", "=h ", "42→41", "=m"), changes("1h 42m", "1h 41m"))
+        assertEquals(listOf("1→2", "=h ", "=0", "=m"), changes("1h 0m", "2h 0m"))
+    }
+
+    @Test fun aShorterOrLongerText_onlyTheEndsComeAndGo() {
+        assertEquals(listOf("-1", "-h ", "0→59", "=m"), changes("1h 0m", "59m"))
+        assertEquals(listOf("+1", "+h ", "1→30", "=m"), changes("1m", "1h 30m"))
+    }
+
+    @Test fun theFirstShow_changesNothing() {
+        assertEquals(listOf("=2", "=h ", "=41", "=m"), changes(null, "2h 41m"))
     }
 }

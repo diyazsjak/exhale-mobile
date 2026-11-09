@@ -126,9 +126,10 @@ First launch shows **Onboarding** (§3.7). Regulate is no longer a tab: its coun
   ("58m · until your next one"); once earned, time **since** the last one ("2h 41m · since your last
   one · next one earned"). Before any log: "—" and "nothing logged yet".
   When the number changes (each minute, or when the next one is earned), it breathes out
-  (`ExhaleText`): each changed character drifts up, swells and blurs away while the new one
-  settles in under it, right to left, in about 0.4 s. Unchanged characters hold still; a change of
-  length moves them all. Blur on Android 12+, fade and drift below. The first show does not animate.
+  (`ExhaleText`): a number that changed drifts up, swells and blurs away while the new one settles
+  in under it, all its digits together, in about 0.4 s ("25m" → "59m" moves "25", not "m"). Numbers
+  and units that didn't change hold still, gliding aside if the width changed ("1h 0m" → "59m":
+  "1h" and "0" breathe out, "59" settles in, "m" glides). Blur on Android 12+, fade and drift below. The first show does not animate.
   It stays on one line; if it is wider than the screen (large font size, narrow phone) its type
   shrinks to fit.
 - **Orb** (`EmberOrb.kt`, concept "Gather" from the Ember Lab): a molten core coloured by `heat`

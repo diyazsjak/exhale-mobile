@@ -296,7 +296,7 @@ class ScreenshotTest {
     @Test fun glowWaitingDark() = shot("1i_glow_waiting", true, 0, bar = glowState(38), glow = true) { EmberScreen(glowState(38), null, {}, {}, { _, _ -> }, {}, {}) }
     @Test fun glowWaitingLight() = shot("1i_glow_waiting", false, 0, bar = glowState(38), glow = true) { EmberScreen(glowState(38), null, {}, {}, { _, _ -> }, {}, {}) }
     @Test fun glowLoggedDark() = shot("1j_glow_logged", true, 0, bar = glowState(4), glow = true) { EmberScreen(glowState(4), LoggedEvent(1, 5, 12), {}, {}, { _, _ -> }, {}, {}) }
-    // The hero mid-change, "1h 0m" breathing out into "59m": old digits drift up and blur, new ones settle in.
+    // The hero mid-change, "1h 0m" breathing out into "59m": "1h" and "0" drift up and blur, "59" settles in, "m" glides aside.
     @Test fun heroTickDark() = heroTick(true)
     @Test fun heroTickLight() = heroTick(false)
     private fun heroTick(dark: Boolean) {

@@ -132,7 +132,7 @@ fun UiKitScreen(
             Section("Type")
             TypeRow("display · Newsreader 52", ExType.display, "2h 41m")
             ExhaleTextSample(ExType.display)
-            Footnote("ExhaleText: the heroes' number. Tap to step a minute; changed digits breathe out and the new ones settle in.")
+            Footnote("ExhaleText: the heroes' number. Tap to step a minute; the number that changed breathes out and the new one settles in.")
             TypeRow("title · Newsreader 34", ExType.title, "When you light up")
             TypeRow("titleItalic", ExType.titleItalic, "since your last one")
             TypeRow("headline · Newsreader 24", ExType.headline, "Logged")
