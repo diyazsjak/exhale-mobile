@@ -1,6 +1,20 @@
 package app.exhale.ui.components
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.layout.offset
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntOffset
+import kotlinx.coroutines.launch
+import kotlin.math.abs
+import kotlin.math.roundToInt
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -345,40 +359,107 @@ fun DayLine(
     }
 }
 
+/** Height of one value on a [TimeWheel]; it shows three. */
+private val WHEEL_SLOT = ExSize.row
+
 /**
- * A time of day as hour and minutes, each with an up and a down button that repeat while held:
- * hours go round the clock, minutes round the hour. [canSet] says whether a time can be chosen
- * (a log can't move into the future); a step that would land on one it can't is off.
+ * A time of day as two wheels, hour and minutes, like the iOS and Android spinners: the value in
+ * the middle, its neighbours fading above (earlier) and below (later). Drag a wheel up for later,
+ * down for earlier; tap the value below or above to step to it, and hold to keep going. Hours go
+ * round the clock, minutes round the hour. [canSet] says whether a time can be chosen (a log can't
+ * move into the future): one that can't is dimmed, and the wheel won't turn to it.
  */
 @Composable
-fun TimeStepper(minuteOfDay: Int, onChange: (Int) -> Unit, canSet: (Int) -> Boolean, h24: Boolean, modifier: Modifier = Modifier) {
+fun TimeWheel(minuteOfDay: Int, onChange: (Int) -> Unit, canSet: (Int) -> Boolean, h24: Boolean, modifier: Modifier = Modifier) {
     val c = Ex.colors
     val hour = minuteOfDay / 60
-    val minute = minuteOfDay % 60
-    val hourText = if (h24) "%02d".format(hour) else "${if (hour % 12 == 0) 12 else hour % 12}"
+    val hourText = { m: Int -> (m / 60).let { h -> if (h24) "%02d".format(h) else "${if (h % 12 == 0) 12 else h % 12}" } }
     val half = LocalTime.of(hour, 0).format(DateTimeFormatter.ofPattern("a", Locale.getDefault()))
     Row(
-        modifier.fillMaxWidth().semantics { stateDescription = "$hourText:%02d".format(minute) + if (h24) "" else " $half" },
+        modifier.fillMaxWidth().semantics { stateDescription = hourText(minuteOfDay) + ":%02d".format(minuteOfDay % 60) + if (h24) "" else " $half" },
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        TimePart(hourText, "hour", minuteOfDay, onChange, canSet, LogEdit::stepHour)
+        WheelColumn("hour", minuteOfDay, onChange, canSet, LogEdit::stepHour, hourText)
         Text(":", style = ExType.numberLarge, color = c.inkSoft, modifier = Modifier.padding(horizontal = ExSpace.xxs))
-        TimePart("%02d".format(minute), "minute", minuteOfDay, onChange, canSet, LogEdit::stepMinute)
+        WheelColumn("minute", minuteOfDay, onChange, canSet, LogEdit::stepMinute) { "%02d".format(it % 60) }
         if (!h24) Text(half, style = ExType.label, color = c.inkSoft, modifier = Modifier.padding(start = ExSpace.xs))
     }
 }
 
-/** One column of a [TimeStepper]: an up button, [text], a down button; [step] moves [minuteOfDay] by one [unit]. */
+/**
+ * One wheel of a [TimeWheel]: values [step]ped from [minuteOfDay] by -2..2 by one [unit], drawn
+ * [WHEEL_SLOT] apart and following the finger; past half a slot the wheel turns to the next value.
+ */
 @Composable
-private fun TimePart(text: String, unit: String, minuteOfDay: Int, onChange: (Int) -> Unit, canSet: (Int) -> Boolean, step: (Int, Int) -> Int) {
+private fun WheelColumn(
+    unit: String,
+    minuteOfDay: Int,
+    onChange: (Int) -> Unit,
+    canSet: (Int) -> Boolean,
+    step: (Int, Int) -> Int,
+    label: (Int) -> String,
+) {
     val c = Ex.colors
-    val up = step(minuteOfDay, 1)
-    val down = step(minuteOfDay, -1)
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        RepeatButton(ExIcons.Up, "One $unit later", canSet(up), { onChange(up) })
-        Text(text, style = ExType.numberLarge, color = c.ink, textAlign = TextAlign.Center, modifier = Modifier.widthIn(min = 64.dp))
-        RepeatButton(ExIcons.Down, "One $unit earlier", canSet(down), { onChange(down) })
+    val ink = c.ink
+    val slot = with(LocalDensity.current) { WHEEL_SLOT.toPx() }
+    // How far the values sit from rest, in px: negative while dragged up (towards later).
+    val offset = remember { Animatable(0f) }
+    val scope = rememberCoroutineScope()
+    val current by rememberUpdatedState(minuteOfDay)
+    val change by rememberUpdatedState(onChange)
+    val allowed by rememberUpdatedState(canSet)
+    val later = step(minuteOfDay, 1)
+    val earlier = step(minuteOfDay, -1)
+    Box(
+        Modifier
+            .width(80.dp)
+            .height(WHEEL_SLOT * 3)
+            .clipToBounds()
+            .pointerInput(step) {
+                val settle = { scope.launch { offset.animateTo(0f, tween(160)) } }
+                // The value the drag has turned to, so quick turns build on each other before the screen catches up.
+                var m = current
+                detectVerticalDragGestures(onDragStart = { m = current }, onDragEnd = { settle() }, onDragCancel = { settle() }) { pointer, dy ->
+                    pointer.consume()
+                    var o = offset.value + dy
+                    val was = m
+                    // Turn a value at a time while the drag has gone past half a slot; a value that
+                    // can't be chosen holds the wheel short of it.
+                    while (o <= -slot / 2 || o >= slot / 2) {
+                        val dir = if (o < 0) 1 else -1
+                        val next = step(m, dir)
+                        if (!allowed(next)) { o = o.coerceIn(-slot * 0.3f, slot * 0.3f); break }
+                        m = next
+                        o += dir * slot
+                    }
+                    if (m != was) change(m)
+                    scope.launch { offset.snapTo(o) }
+                }
+            },
+    ) {
+        for (k in -2..2) {
+            val value = step(minuteOfDay, k)
+            val dim = k != 0 && !canSet(value)
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .height(WHEEL_SLOT)
+                    .offset { IntOffset(0, (slot * (k + 1) + offset.value).roundToInt()) }
+                    .graphicsLayer {
+                        val dist = (abs(slot * k + offset.value) / slot).coerceAtMost(2f)
+                        val s = 1f - 0.18f * dist
+                        scaleX = s
+                        scaleY = s
+                        alpha = (1f - 0.6f * dist).coerceAtLeast(0f) * if (dim) 0.35f else 1f
+                    },
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(label(value), style = ExType.numberLarge, color = ink, textAlign = TextAlign.Center)
+            }
+        }
+        RepeatTarget(canSet(earlier), "One $unit earlier", { onChange(earlier) }, Modifier.align(Alignment.TopCenter).fillMaxWidth().height(WHEEL_SLOT))
+        RepeatTarget(canSet(later), "One $unit later", { onChange(later) }, Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(WHEEL_SLOT))
     }
 }
 
@@ -417,7 +498,7 @@ fun LogEditor(
         modifier, color = c.surfaceHigh,
     ) {
         Overline("Time", Modifier.padding(top = ExSpace.sm))
-        TimeStepper(minute, { minute = it }, canSet = { LogEdit.moved(log.at, it, zone, now) != null }, h24 = h24)
+        TimeWheel(minute, { minute = it }, canSet = { LogEdit.moved(log.at, it, zone, now) != null }, h24 = h24)
         Overline("Trigger", Modifier.padding(top = ExSpace.sm))
         TriggerChips(
             chips, selected = trigger,

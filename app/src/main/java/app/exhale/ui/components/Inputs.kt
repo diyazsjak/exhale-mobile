@@ -2,6 +2,7 @@ package app.exhale.ui.components
 
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.foundation.Indication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -10,6 +11,7 @@ import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -329,12 +331,33 @@ private fun CounterButton(icon: ImageVector, description: String, step: Int, val
     RepeatButton(icon, description, enabled = value + step in range, onStep = { onChange(value + step) })
 
 /**
- * A small round step button (44dp touch, 16dp icon) that repeats while held: one step on tap, then
- * every 70ms after 420ms of holding, while [enabled]. Used by [CounterRow] and [TimeStepper].
+ * A small round step button (44dp touch, 16dp icon) that repeats while held; see [RepeatTarget].
+ * Used by [CounterRow].
  */
 @Composable
 internal fun RepeatButton(icon: ImageVector, description: String, enabled: Boolean, onStep: () -> Unit, modifier: Modifier = Modifier) {
     val c = Ex.colors
+    RepeatTarget(
+        enabled, description, onStep, modifier.size(ExSize.touch),
+        indication = ripple(bounded = false, radius = 18.dp),
+    ) {
+        Icon(icon, null, Modifier.size(ExSize.iconSmall), tint = if (enabled) c.inkSoft else c.inkFaint.copy(alpha = 0.5f))
+    }
+}
+
+/**
+ * A tap target that steps once on tap, then every 70ms after 420ms of holding, while [enabled].
+ * Behind [RepeatButton] and the neighbour values of [TimeWheel].
+ */
+@Composable
+internal fun RepeatTarget(
+    enabled: Boolean,
+    description: String,
+    onStep: () -> Unit,
+    modifier: Modifier = Modifier,
+    indication: Indication? = null,
+    content: @Composable BoxScope.() -> Unit = {},
+) {
     val source = remember { MutableInteractionSource() }
     val pressed by source.collectIsPressedAsState()
     val canStep by rememberUpdatedState(enabled)
@@ -353,15 +376,13 @@ internal fun RepeatButton(icon: ImageVector, description: String, enabled: Boole
     }
     Box(
         modifier
-            .size(ExSize.touch)
-            .clickable(source, ripple(bounded = false, radius = 18.dp), enabled = enabled, role = Role.Button) {
+            .clickable(source, indication, enabled = enabled, role = Role.Button) {
                 if (repeated) repeated = false else onStep()
             }
             .semantics { contentDescription = description },
         contentAlignment = Alignment.Center,
-    ) {
-        Icon(icon, null, Modifier.size(ExSize.iconSmall), tint = if (enabled) c.inkSoft else c.inkFaint.copy(alpha = 0.5f))
-    }
+        content = content,
+    )
 }
 
 /**

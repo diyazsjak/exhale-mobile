@@ -46,8 +46,6 @@ object ExIcons {
     val Close = icon("close", "M6 6l12 12", "M18 6L6 18")
     val Back = icon("back", "M19 12H5", "M11 6l-6 6 6 6")
     val Forward = icon("forward", "M9 6l6 6-6 6")
-    val Up = icon("up", "M6 15l6-6 6 6")
-    val Down = icon("down", "M6 9l6 6 6-6")
     val Settings = icon("settings", "M4 7h9", "M17 7h3", "M4 17h3", "M11 17h9", "M15 5v4", "M9 15v4")
     val Undo = icon("undo", "M9 14L4 9l5-5", "M4 9h10a6 6 0 0 1 0 12h-3")
     val Wave = icon("wave", "M2 14c2.5 0 3-6 5.5-6S10 16 12.5 16 15 8 17.5 8 20 14 22 14")

@@ -62,7 +62,7 @@ import app.exhale.ui.components.ListRow
 import app.exhale.ui.components.DayLine
 import app.exhale.ui.components.DayTimeline
 import app.exhale.ui.components.LogEditor
-import app.exhale.ui.components.TimeStepper
+import app.exhale.ui.components.TimeWheel
 import app.exhale.domain.DayTimes
 import app.exhale.domain.SmokeLog
 import app.exhale.domain.Urge
@@ -294,7 +294,7 @@ fun UiKitScreen(
             DayLine(sample, now, zone, h24 = true, onClick = {})
             Footnote("Day line: the today row on Ember.")
             var minuteOfDay by remember { mutableIntStateOf(13 * 60 + 5) }
-            TimeStepper(minuteOfDay, { minuteOfDay = it }, canSet = { true }, h24 = true)
+            TimeWheel(minuteOfDay, { minuteOfDay = it }, canSet = { true }, h24 = true)
             LogEditor(sample.cigarettes[1].log, "Today", zone, now, h24 = true, triggers = Trigger.BUILT_IN, onSave = { _, _ -> }, onDelete = {})
             Footnote("Log editor: the dialog behind a tap on the day timeline.")
 
@@ -302,7 +302,7 @@ fun UiKitScreen(
             FlowRow(horizontalArrangement = Arrangement.spacedBy(ExSpace.md), verticalArrangement = Arrangement.spacedBy(ExSpace.md)) {
                 listOf(
                     ExIcons.Ember, ExIcons.Regulate, ExIcons.Rhythm, ExIcons.Air, ExIcons.Money, ExIcons.Wave, ExIcons.Plus, ExIcons.Minus,
-                    ExIcons.Check, ExIcons.Close, ExIcons.Back, ExIcons.Forward, ExIcons.Up, ExIcons.Down, ExIcons.Settings, ExIcons.Undo, ExIcons.Sun,
+                    ExIcons.Check, ExIcons.Close, ExIcons.Back, ExIcons.Forward, ExIcons.Settings, ExIcons.Undo, ExIcons.Sun,
                     ExIcons.Moon, ExIcons.Palette,
                 ).forEach { Icon(it, null, Modifier.size(28.dp), tint = c.ink) }
             }

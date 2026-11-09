@@ -69,7 +69,7 @@ Plain, short, second person. A cigarette is information: "Logged. 8 of 12 today.
 
 ## Components
 
-Button, IconButton, Link, Chip, Badge, Card, OptionCard, TextField, FieldNote, Footnote, Stepper, CounterRow, TimeStepper, SegmentedControl, ActiveFilter, StepProgress, GradientRing, WeekStrip, MonthCalendar, LegendItem, DayTimeline, DayLine, ListRow, HandleRow, ReorderColumn, TriggerChips, Dialog, ChoiceDialog, LogEditor, Toast, FloatingTabBar and AppBar. Each card below has guidelines and a live web rendition styled by `components/bundle.css`. In the app they are Compose functions in `ui/components/` (`ExButton`, `ExIconButton`, `ExLink`, `ExChip`, `ExBadge`, `ExCard`, `OptionCard`, `ExTextField`, `FieldNote`, `Footnote`, `Stepper`, `CounterRow`, `TimeStepper`, `SegmentedControl`, `ActiveFilter`, `StepProgress`, `GradientRing`, `WeekStrip`, `MonthCalendar`, `LegendItem`, `DayTimeline`, `DayLine`, `ListRow`, `HandleRow`, `ReorderColumn`, `TriggerChips`, `ExDialog`, `ExChoiceDialog`, `LogEditor`/`LogEditDialog`, `ExToast`, `FloatingTabBar`, `ExAppBar`). Every screen sits in `ExScreen`, which applies `bg`, the status-bar inset, the gutter and the tab-bar clearance. The app also has a live catalogue in debug builds: Settings → Prototype tools → Design system.
+Button, IconButton, Link, Chip, Badge, Card, OptionCard, TextField, FieldNote, Footnote, Stepper, CounterRow, TimeWheel, SegmentedControl, ActiveFilter, StepProgress, GradientRing, WeekStrip, MonthCalendar, LegendItem, DayTimeline, DayLine, ListRow, HandleRow, ReorderColumn, TriggerChips, Dialog, ChoiceDialog, LogEditor, Toast, FloatingTabBar and AppBar. Each card below has guidelines and a live web rendition styled by `components/bundle.css`. In the app they are Compose functions in `ui/components/` (`ExButton`, `ExIconButton`, `ExLink`, `ExChip`, `ExBadge`, `ExCard`, `OptionCard`, `ExTextField`, `FieldNote`, `Footnote`, `Stepper`, `CounterRow`, `TimeWheel`, `SegmentedControl`, `ActiveFilter`, `StepProgress`, `GradientRing`, `WeekStrip`, `MonthCalendar`, `LegendItem`, `DayTimeline`, `DayLine`, `ListRow`, `HandleRow`, `ReorderColumn`, `TriggerChips`, `ExDialog`, `ExChoiceDialog`, `LogEditor`/`LogEditDialog`, `ExToast`, `FloatingTabBar`, `ExAppBar`). Every screen sits in `ExScreen`, which applies `bg`, the status-bar inset, the gutter and the tab-bar clearance. The app also has a live catalogue in debug builds: Settings → Prototype tools → Design system.
 
 ## Colour tokens
 
@@ -216,13 +216,13 @@ A count inside a list card, lighter than the Stepper: for settings changed a ste
 
 - Compose: `CounterRow("Starting allowance", value, onChange, 0..100, caption = "a day, since 4 October", changed = value != saved)`.
 
-### TimeStepper
+### TimeWheel
 
-A time of day as hour : minutes, each with an up and a down chevron button, for moving a logged cigarette.
+A time of day as two wheels, hour and minutes, for moving a logged cigarette. It behaves like the iOS and Android spinners people already know.
 
-`number-large` digits (64px minimum each), a `number-large` colon in `ink-soft`, and in 12-hour mode the AM/PM in `label`/`ink-soft` after the minutes. The buttons are the CounterRow's: 44px touch, 16px chevron in `ink-soft`, holding repeats (after 420ms, every 70ms). Hours go round the clock and minutes round the hour; a step that would land on a time that can't be chosen (later than now) disables.
+Each wheel shows three values on a 52px pitch: the chosen one in the middle (`number-large`, `ink`), its neighbours above (earlier) and below (later), smaller and fading; values that can't be chosen (later than now) are dimmer still. Drag a wheel up for later, down for earlier; it follows the finger, turns a value every half slot and settles back in 160ms. Tapping the value below steps later, above earlier; holding repeats (after 420ms, every 70ms). Hours go round the clock, minutes round the hour. A `number-large` colon in `ink-soft` sits between the wheels, and in 12-hour mode the AM/PM in `label`/`ink-soft` after them. Screen readers get "One minute later" / "earlier" buttons and the time in the phone's 12/24-hour form.
 
-- Compose: `TimeStepper(minuteOfDay, onChange, canSet = { LogEdit.moved(at, it, zone, now) != null }, h24)`.
+- Compose: `TimeWheel(minuteOfDay, onChange, canSet = { LogEdit.moved(at, it, zone, now) != null }, h24)`.
 
 ### SegmentedControl
 
@@ -275,7 +275,7 @@ A centred card (`space-xl` padding) over the scrim: a `headline` title as a ques
 
 The modal behind a tap on a DayTimeline cigarette: change its time or trigger, or delete it.
 
-A `surface-high` card (so the `surface` trigger chips stand out, as on the Logged card) with `space-xl` padding: a `headline` title ("Sunday, 1:05 PM"), a "Time" overline and a TimeStepper, a "Trigger" overline and TriggerChips (tap the picked one again to clear it; "Your own" adds one), then a Primary "Save" and a Ghost "Delete this one". Delete asks first with a ChoiceDialog ("Delete the one at 1:05 PM?", Primary "Delete", Ghost "Keep it"). Tapping outside or Back closes without saving. Scrolls on a short screen.
+A `surface-high` card (so the `surface` trigger chips stand out, as on the Logged card) with `space-xl` padding: a `headline` title ("Sunday, 1:05 PM"), a "Time" overline and a TimeWheel, a "Trigger" overline and TriggerChips (tap the picked one again to clear it; "Your own" adds one), then a Primary "Save" and a Ghost "Delete this one". Delete asks first with a ChoiceDialog ("Delete the one at 1:05 PM?", Primary "Delete", Ghost "Keep it"). Tapping outside or Back closes without saving. Scrolls on a short screen.
 
 - Compose: `LogEditDialog(log, dayName, zone, now, h24, triggers, onSave = { at, trigger -> … }, onDelete = { … }, onDismiss = { … }, onAddTrigger = vm::addTrigger)`; `LogEditor(...)` is the same card without the dialog window (catalogue, screenshots), built on `ExDialogCard`, the card every kit dialog uses.
 
@@ -361,4 +361,4 @@ Drawn over the screens (not inside them), so it stays put while pages slide. Lea
 
 - The web previews are static HTML/CSS renditions written by hand from the Compose components; they are not generated from the Kotlin code.
 - Animated and chart components (the Ember orb, the Urge Wave, the particle field, the Smoke Clock, Air's recovery sky, gap chart and timeline) are screen-specific and are not in this kit.
-- Link, ActiveFilter, MonthCalendar, LegendItem, DayTimeline, DayLine, TimeStepper, LogEditor, Dialog, ChoiceDialog, Toast, CounterRow, FieldNote, Footnote, AppBar, the Tonal button, the outlined card, the two-line ListRow and the capped and suffixed text fields are in the in-app catalogue but have no web preview yet.
+- Link, ActiveFilter, MonthCalendar, LegendItem, DayTimeline, DayLine, TimeWheel, LogEditor, Dialog, ChoiceDialog, Toast, CounterRow, FieldNote, Footnote, AppBar, the Tonal button, the outlined card, the two-line ListRow and the capped and suffixed text fields are in the in-app catalogue but have no web preview yet.

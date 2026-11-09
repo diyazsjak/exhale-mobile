@@ -217,8 +217,9 @@ Shows the last 30 days (today and the 29 before), or one picked day. Order:
   night before the first one doesn't count). An empty day says "Nothing logged that day." /
   "Nothing logged today." Switching between the clock and the list, or between days, cross-fades.
 - **Editing a cigarette**: tapping one opens a modal (`LogEditDialog`): "Sunday, 1:05 PM", a Time
-  stepper (hour and minutes, up/down, hold to repeat; hours round the clock, minutes round the hour;
-  12-hour phones get AM/PM), the trigger chips (the picked one again clears it; "Your own" adds one,
+  wheel (hour and minutes as spinner wheels: drag up or tap the value below for later, drag down or
+  tap the value above for earlier, hold to repeat; hours round the clock, minutes round the hour;
+  times that can't be chosen are dimmed; 12-hour phones get AM/PM), the trigger chips (the picked one again clears it; "Your own" adds one,
   as on the Logged card; a hidden trigger the log has keeps its chip here), Save (Primary) and
   "Delete this one" (Ghost). Rules in §4 LogEdit: the time stays on the log's day and never goes past
   now. Save writes only what changed (a save that changes nothing writes nothing) and closes; outside or Back closes without saving. Delete asks
