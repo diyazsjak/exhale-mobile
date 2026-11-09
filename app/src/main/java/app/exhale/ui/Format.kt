@@ -26,6 +26,9 @@ object Fmt {
         }
     }
 
+    /** How long a wave lasted, at least a minute: "4 min". */
+    fun waveLength(d: Duration): String = "${d.toMinutes().coerceAtLeast(1)} min"
+
     /**
      * A wait in round terms, for things hours to years away: "9h 19m" under two days, then
      * "13 days", "11 months", "1 year", "5 years".

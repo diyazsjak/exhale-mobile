@@ -1,26 +1,11 @@
 package app.exhale.ui.components
 
-import androidx.compose.foundation.Canvas
-import androidx.compose.ui.graphics.BlendMode
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.CompositingStrategy
-import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
-import androidx.compose.foundation.layout.offset
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.unit.IntOffset
-import kotlinx.coroutines.launch
-import kotlin.math.abs
-import kotlin.math.roundToInt
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -28,6 +13,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -41,15 +27,25 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -60,6 +56,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import app.exhale.domain.DayEntry
@@ -80,7 +77,10 @@ import java.time.LocalTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlin.math.abs
 import kotlin.math.ln
+import kotlin.math.roundToInt
+import kotlinx.coroutines.launch
 
 /** Width of the line the day list hangs on. */
 private val RAIL = 20.dp
@@ -166,7 +166,7 @@ fun DayTimeline(
                     val u = row.entry.urge
                     val time = Fmt.time(u.startedAt, zone, h24)
                     val label = "Rode out a wave" + (u.trigger?.let { " · ${it.label}" } ?: "")
-                    val length = "${row.entry.length.toMinutes().coerceAtLeast(1)} min"
+                    val length = Fmt.waveLength(row.entry.length)
                     MarkRow(
                         Mark.Wave, above, below, timeWidth,
                         time = time, timeColor = c.oxyInk,
@@ -346,7 +346,8 @@ fun DayLine(
             fun x(m: Int) = r + (size.width - 2 * r) * ((m - start) / span).coerceIn(0f, 1f)
             // Right after a log, now would sit on the newest dot and hide it: keep the ring far enough
             // right that the dot peeks out from behind it.
-            val nowX = if (dots.isEmpty()) x(nowMinute) else maxOf(x(nowMinute), x(lastOnLine) + 6.dp.toPx()).coerceAtMost(size.width - r)
+            val nowX = if (dots.isEmpty()) x(nowMinute)
+            else maxOf(x(nowMinute), x(lastOnLine) + 6.dp.toPx()).coerceAtMost(size.width - r)
             drawLine(track, Offset(x(start), y), Offset(x(24 * 60), y), 2.dp.toPx(), StrokeCap.Round)
             if (times.running != null) drawLine(oxy, Offset(x(lastOnLine), y), Offset(nowX, y), 2.dp.toPx(), StrokeCap.Round)
             dots.forEach { (m, over) ->
@@ -414,7 +415,6 @@ private fun WheelColumn(
     label: (Int) -> String,
 ) {
     val c = Ex.colors
-    val ink = c.ink
     val slot = with(LocalDensity.current) { WHEEL_SLOT.toPx() }
     // How far the values sit from rest, in px: negative while dragged up (towards later).
     val offset = remember { Animatable(0f) }
@@ -474,7 +474,7 @@ private fun WheelColumn(
                     },
                 contentAlignment = Alignment.Center,
             ) {
-                Text(label(value), style = ExType.numberLarge, color = ink, textAlign = TextAlign.Center)
+                Text(label(value), style = ExType.numberLarge, color = c.ink, textAlign = TextAlign.Center)
             }
         }
         // The top half steps earlier, the bottom half later: each a full 44dp touch target.
@@ -484,7 +484,7 @@ private fun WheelColumn(
 }
 
 /** The time part of a [LogEditor]: [at] can move within its own day, never past [now]. */
-class EditTime(val at: Instant, val zone: ZoneId, val now: Instant, val h24: Boolean)
+data class EditTime(val at: Instant, val zone: ZoneId, val now: Instant, val h24: Boolean)
 
 /**
  * Change one thing on the day list: its trigger (tap the picked one again to clear it; "Your own"

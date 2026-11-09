@@ -73,7 +73,6 @@ import androidx.compose.ui.unit.dp
 import app.exhale.domain.DayEntry
 import app.exhale.domain.DayFilter
 import app.exhale.domain.DayTimes
-import app.exhale.domain.SmokeLog
 import app.exhale.domain.Rhythm
 import app.exhale.domain.TopTrigger
 import app.exhale.domain.BuiltInTrigger
@@ -240,9 +239,6 @@ fun RhythmScreen(
             }
             else -> Centre(over = "", big = "—", small = "nothing logged", extra = "", extraFaint = true)
         }
-        // A picked day is a list of its cigarettes; the clock is for the last 30 days.
-        // The clock as last shown for the 30 days, so it fades out as it was when a day is picked
-        // instead of first redrawing with that day's numbers.
         val clock = ClockShown(
             hours, beforeHours, sel, lines, centre,
             description = buildString {
@@ -251,20 +247,20 @@ fun RhythmScreen(
                 if (sel != null) append("Showing ${hourRange(sel, h24)}: ${centre.big} ${centre.small}.")
             },
         )
-        val lastClock = remember { mutableStateOf(clock) }
-        if (view.times == null) lastClock.value = clock
-        // A picked day is a list of its cigarettes; the clock is for the last 30 days.
+        // A picked day is a list of its cigarettes; the clock is for the last 30 days. The clock's
+        // numbers travel in the target, so it fades out as it was shown instead of first redrawing
+        // with the picked day's numbers.
         AnimatedContent(
-            view.times,
+            view.times ?: clock,
             // The size glides over the same time as the fade: a longer spring would be cut short when the fade ends.
             transitionSpec = { (fadeIn(tween(FADE_MS)) togetherWith fadeOut(tween(FADE_MS))).using(SizeTransform(clip = false) { _, _ -> tween(FADE_MS) }) },
-            contentKey = { it?.day },
+            contentKey = { (it as? DayTimes)?.day },
             label = "clock-or-day",
-        ) { times ->
-            if (times != null) {
-                DayCard(times, state.today, zone, h24, onEdit = { editing = it })
+        ) { shown ->
+            if (shown is DayTimes) {
+                DayCard(shown, state.today, zone, h24, onEdit = { editing = it })
             } else {
-                val k = lastClock.value
+                val k = shown as ClockShown
                 SmokeClock(
                     hours = k.hours,
                     before = k.before,
@@ -329,45 +325,48 @@ fun RhythmScreen(
     val nowMinute = Instant.ofEpochSecond(minute * 60)
     editing?.let { entry ->
         val day = Fmt.dayName(entry.at.atZone(zone).toLocalDate(), state.today)
+        val time = remember(entry.at, zone, nowMinute, h24) { EditTime(entry.at, zone, nowMinute, h24) }
+        val heading: String
+        val itemKey: Any
+        val trigger: Trigger?
+        val deleteLabel: String
+        val save: (Instant?, Trigger?) -> Unit
         when (entry) {
-            is DayEntry.Cigarette -> LogEditDialog(
-                heading = "$day · " + (view.times?.allowance?.let { "${entry.number} of $it" } ?: "${entry.number}"),
-                itemKey = entry.log.id, trigger = entry.log.trigger, triggers = state.shownTriggers,
-                onSave = { at, t -> onEditLog(entry.log.id, at ?: entry.at, t); editing = null },
-                onDelete = { deleting = entry; editing = null },
-                deleteLabel = "Delete this one",
-                onDismiss = { editing = null },
-                time = EditTime(entry.at, zone, nowMinute, h24),
-                onAddTrigger = onAddTrigger,
-            )
+            is DayEntry.Cigarette -> {
+                heading = "$day · " + (view.times?.allowance?.let { "${entry.number} of $it" } ?: "${entry.number}")
+                itemKey = entry.log.id; trigger = entry.log.trigger; deleteLabel = "Delete this one"
+                save = { at, t -> onEditLog(entry.log.id, at ?: entry.at, t) }
+            }
             // A wave ridden out keeps when it was and how long; only its trigger changes.
-            is DayEntry.Wave -> LogEditDialog(
-                heading = "$day · wave at ${Fmt.time(entry.at, zone, h24)}, ${entry.length.toMinutes().coerceAtLeast(1)} min",
-                itemKey = "wave" to entry.urge.id, trigger = entry.urge.trigger, triggers = state.shownTriggers,
-                onSave = { _, t -> onTagUrge(entry.urge.id, t); editing = null },
-                onDelete = { deleting = entry; editing = null },
-                deleteLabel = "Delete this wave",
-                onDismiss = { editing = null },
-                onAddTrigger = onAddTrigger,
-            )
+            is DayEntry.Wave -> {
+                heading = "$day · wave at ${Fmt.time(entry.at, zone, h24)}, ${Fmt.waveLength(entry.length)}"
+                itemKey = "wave" to entry.urge.id; trigger = entry.urge.trigger; deleteLabel = "Delete this wave"
+                save = { _, t -> onTagUrge(entry.urge.id, t) }
+            }
         }
+        LogEditDialog(
+            heading = heading, itemKey = itemKey, trigger = trigger, triggers = state.shownTriggers,
+            onSave = { at, t -> save(at, t); editing = null },
+            onDelete = { deleting = entry; editing = null },
+            deleteLabel = deleteLabel,
+            onDismiss = { editing = null },
+            time = time.takeIf { entry is DayEntry.Cigarette },
+            onAddTrigger = onAddTrigger,
+        )
     }
     deleting?.let { entry ->
         val d = entry.at.atZone(zone).toLocalDate()
         val whose = if (d == state.today) "today's" else "${Fmt.dayName(d, state.today)}'s"
         val time = Fmt.time(entry.at, zone, h24)
-        val wave = entry is DayEntry.Wave
+        val (title, body, delete) = when (entry) {
+            is DayEntry.Cigarette -> Triple("Delete the one at $time?", "It comes off $whose count.", { onDeleteLog(entry.log.id) })
+            is DayEntry.Wave -> Triple("Delete the wave at $time?", "It comes off $whose waves ridden out.", { onDeleteUrge(entry.urge.id) })
+        }
         ExChoiceDialog(
-            if (wave) "Delete the wave at $time?" else "Delete the one at $time?",
-            (if (wave) "It comes off $whose waves ridden out." else "It comes off $whose count.") + " This can't be undone.",
+            title,
+            "$body This can't be undone.",
             listOf(
-                DialogAction("Delete", ButtonStyle.Primary) {
-                    when (entry) {
-                        is DayEntry.Cigarette -> onDeleteLog(entry.log.id)
-                        is DayEntry.Wave -> onDeleteUrge(entry.urge.id)
-                    }
-                    deleting = null
-                },
+                DialogAction("Delete", ButtonStyle.Primary) { delete(); deleting = null },
                 DialogAction("Keep it", ButtonStyle.Ghost) { deleting = null },
             ),
             onDismiss = { deleting = null },
