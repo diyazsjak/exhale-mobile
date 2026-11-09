@@ -236,27 +236,38 @@ fun RhythmScreen(
             else -> Centre(over = "", big = "—", small = "nothing logged", extra = "", extraFaint = true)
         }
         // A picked day is a list of its cigarettes; the clock is for the last 30 days.
+        // The clock as last shown for the 30 days, so it fades out as it was when a day is picked
+        // instead of first redrawing with that day's numbers.
+        val clock = ClockShown(
+            hours, beforeHours, sel, lines, centre,
+            description = buildString {
+                append("Smoke clock. ")
+                if (peaks.isEmpty()) append("Nothing logged.") else append("Busiest around ${label(peaks[0])}. ")
+                if (sel != null) append("Showing ${hourRange(sel, h24)}: ${centre.big} ${centre.small}.")
+            },
+        )
+        val lastClock = remember { mutableStateOf(clock) }
+        if (view.times == null) lastClock.value = clock
+        // A picked day is a list of its cigarettes; the clock is for the last 30 days.
         AnimatedContent(
             view.times,
-            transitionSpec = { (fadeIn(tween(FADE_MS)) togetherWith fadeOut(tween(FADE_MS))).using(SizeTransform(clip = false)) },
+            // The size glides over the same time as the fade: a longer spring would be cut short when the fade ends.
+            transitionSpec = { (fadeIn(tween(FADE_MS)) togetherWith fadeOut(tween(FADE_MS))).using(SizeTransform(clip = false) { _, _ -> tween(FADE_MS) }) },
             contentKey = { it?.day },
             label = "clock-or-day",
         ) { times ->
             if (times != null) {
                 DayCard(times, state.today, zone, h24, onEdit = { editing = it })
             } else {
+                val k = lastClock.value
                 SmokeClock(
-                    hours = hours,
-                    before = beforeHours,
-                    selected = sel,
-                    lines = lines,
+                    hours = k.hours,
+                    before = k.before,
+                    selected = k.selected,
+                    lines = k.lines,
                     h24 = h24,
-                    centre = centre,
-                    description = buildString {
-                        append("Smoke clock. ")
-                        if (peaks.isEmpty()) append("Nothing logged.") else append("Busiest around ${label(peaks[0])}. ")
-                        if (sel != null) append("Showing ${hourRange(sel, h24)}: ${centre.big} ${centre.small}.")
-                    },
+                    centre = k.centre,
+                    description = k.description,
                     onTap = { h -> selected = if (h == null || h == selected) null else h },
                     modifier = Modifier.padding(vertical = ExSpace.xxs),
                 )
@@ -550,6 +561,16 @@ private fun hourRange(h: Int, h24: Boolean): String {
     val (bn, bp) = b.split(" ")
     return if (ap == bp) "$an–$bn $bp" else "$a–$b"
 }
+
+/** What the Smoke Clock draws, kept while it fades out (see RhythmScreen). */
+private class ClockShown(
+    val hours: FloatArray,
+    val before: FloatArray?,
+    val selected: Int?,
+    val lines: Boolean,
+    val centre: Centre,
+    val description: String,
+)
 
 private data class Centre(val over: String, val big: String, val small: String, val extra: String, val extraFaint: Boolean)
 
