@@ -23,6 +23,12 @@ Read `docs/SPEC.md` before changing behaviour, and `docs/DESIGN-SYSTEM.md` befor
 - Every new screen gets a case in `ScreenshotTest`; update `docs/screenshots/` when visuals change.
 - Room schema change → bump version, add a Migration, commit `app/schemas/`.
 - Git: work on the branch you are on. Don't create new branches unless asked.
+- Commit authorship: the owner authors every commit and Claude is the co-author. Commit with
+  `git commit --author="Diyaz <112328332+diyazsjak@users.noreply.github.com>"` and keep the
+  `Co-Authored-By: Claude …` trailer. Never leave Claude as the author.
+- Commit authorship: the owner authors every commit and Claude is the co-author. Commit with
+  `git commit --author="Diyaz <112328332+diyazsjak@users.noreply.github.com>"` and keep the
+  `Co-Authored-By: Claude …` trailer. Never leave Claude as the author.
 - Releases: the version lives only in `version.properties`. Don't bump it unless asked; bumping it and pushing to `main` publishes a release.
 - `app/debug.keystore` is a shared debug key committed on purpose (stable signature for sideloaded updates). Don't replace or delete it.
 - Update `docs/SPEC.md` in the same change when behaviour or rules change.
