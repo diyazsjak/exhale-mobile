@@ -325,30 +325,37 @@ fun CounterRow(
 }
 
 @Composable
-private fun CounterButton(icon: ImageVector, description: String, step: Int, value: Int, range: IntRange, onChange: (Int) -> Unit) {
+private fun CounterButton(icon: ImageVector, description: String, step: Int, value: Int, range: IntRange, onChange: (Int) -> Unit) =
+    RepeatButton(icon, description, enabled = value + step in range, onStep = { onChange(value + step) })
+
+/**
+ * A small round step button (44dp touch, 16dp icon) that repeats while held: one step on tap, then
+ * every 70ms after 420ms of holding, while [enabled]. Used by [CounterRow] and [TimeStepper].
+ */
+@Composable
+internal fun RepeatButton(icon: ImageVector, description: String, enabled: Boolean, onStep: () -> Unit, modifier: Modifier = Modifier) {
     val c = Ex.colors
-    val enabled = value + step in range
     val source = remember { MutableInteractionSource() }
     val pressed by source.collectIsPressedAsState()
-    val latest by rememberUpdatedState(value)
-    val change by rememberUpdatedState(onChange)
+    val canStep by rememberUpdatedState(enabled)
+    val step by rememberUpdatedState(onStep)
     // Set once holding has stepped, so the click that ends the press doesn't step again.
     var repeated by remember { mutableStateOf(false) }
     LaunchedEffect(pressed) {
         if (!pressed) return@LaunchedEffect
         repeated = false
         delay(420)
-        while (latest + step in range) {
+        while (canStep) {
             repeated = true
-            change(latest + step)
+            step()
             delay(70)
         }
     }
     Box(
-        Modifier
+        modifier
             .size(ExSize.touch)
             .clickable(source, ripple(bounded = false, radius = 18.dp), enabled = enabled, role = Role.Button) {
-                if (repeated) repeated = false else onChange(value + step)
+                if (repeated) repeated = false else onStep()
             }
             .semantics { contentDescription = description },
         contentAlignment = Alignment.Center,

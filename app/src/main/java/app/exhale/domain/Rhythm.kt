@@ -31,6 +31,8 @@ class RhythmView(
     val daysToCompare: Long,
     /** The picked day's count and allowance; null for the last [Rhythm.WINDOW] days. */
     val day: DayTally?,
+    /** The picked day cigarette by cigarette, with waves ridden out; null for the last [Rhythm.WINDOW] days. */
+    val times: DayTimes?,
     /** The logs in [period], for [topTrigger]. */
     private val logs: List<SmokeLog>,
     private val zone: ZoneId,
@@ -70,6 +72,8 @@ object Rhythm {
         val compare = day == null && Stats.coveredDays(before, now, zone, dataStart) >= MIN_DAYS
         val inPeriod = logs.filter { period.contains(it.at, zone) }
         val hours = Stats.hourly(logs, period, now, zone, dataStart)
+        // Only the day and the one before (for borrowing) matter: count those, not the whole history.
+        val tally = day?.let { d -> History.tally(s, listOf(d, d.minusDays(1)).associateWith { Stats.countOn(logs, it, zone) }, d) }
         return RhythmView(
             period = period,
             hours = hours,
@@ -82,8 +86,8 @@ object Rhythm {
             trackedDays = dataStart?.let { ChronoUnit.DAYS.between(it, today) + 1 } ?: 0,
             // The days before cover MIN_DAYS once tracking began WINDOW + MIN_DAYS - 1 days ago.
             daysToCompare = dataStart?.let { ChronoUnit.DAYS.between(today, it.plusDays(WINDOW + MIN_DAYS - 1L)) } ?: 0,
-            // Only the day and the one before (for borrowing) matter: count those, not the whole history.
-            day = day?.let { d -> History.tally(s, listOf(d, d.minusDays(1)).associateWith { Stats.countOn(logs, it, zone) }, d) },
+            day = tally,
+            times = tally?.let { DayTimes.of(logs, urges, it.date, zone, it.allowance, now) },
             logs = inPeriod,
             zone = zone,
         )

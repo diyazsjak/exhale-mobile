@@ -69,7 +69,7 @@ Plain, short, second person. A cigarette is information: "Logged. 8 of 12 today.
 
 ## Components
 
-Button, IconButton, Link, Chip, Badge, Card, OptionCard, TextField, FieldNote, Footnote, Stepper, CounterRow, SegmentedControl, ActiveFilter, StepProgress, GradientRing, WeekStrip, MonthCalendar, LegendItem, ListRow, HandleRow, ReorderColumn, TriggerChips, Dialog, ChoiceDialog, Toast, FloatingTabBar and AppBar. Each card below has guidelines and a live web rendition styled by `components/bundle.css`. In the app they are Compose functions in `ui/components/` (`ExButton`, `ExIconButton`, `ExLink`, `ExChip`, `ExBadge`, `ExCard`, `OptionCard`, `ExTextField`, `FieldNote`, `Footnote`, `Stepper`, `CounterRow`, `SegmentedControl`, `ActiveFilter`, `StepProgress`, `GradientRing`, `WeekStrip`, `MonthCalendar`, `LegendItem`, `ListRow`, `HandleRow`, `ReorderColumn`, `TriggerChips`, `ExDialog`, `ExChoiceDialog`, `ExToast`, `FloatingTabBar`, `ExAppBar`). Every screen sits in `ExScreen`, which applies `bg`, the status-bar inset, the gutter and the tab-bar clearance. The app also has a live catalogue in debug builds: Settings → Prototype tools → Design system.
+Button, IconButton, Link, Chip, Badge, Card, OptionCard, TextField, FieldNote, Footnote, Stepper, CounterRow, TimeStepper, SegmentedControl, ActiveFilter, StepProgress, GradientRing, WeekStrip, MonthCalendar, LegendItem, DayTimeline, DayLine, ListRow, HandleRow, ReorderColumn, TriggerChips, Dialog, ChoiceDialog, LogEditor, Toast, FloatingTabBar and AppBar. Each card below has guidelines and a live web rendition styled by `components/bundle.css`. In the app they are Compose functions in `ui/components/` (`ExButton`, `ExIconButton`, `ExLink`, `ExChip`, `ExBadge`, `ExCard`, `OptionCard`, `ExTextField`, `FieldNote`, `Footnote`, `Stepper`, `CounterRow`, `TimeStepper`, `SegmentedControl`, `ActiveFilter`, `StepProgress`, `GradientRing`, `WeekStrip`, `MonthCalendar`, `LegendItem`, `DayTimeline`, `DayLine`, `ListRow`, `HandleRow`, `ReorderColumn`, `TriggerChips`, `ExDialog`, `ExChoiceDialog`, `LogEditor`/`LogEditDialog`, `ExToast`, `FloatingTabBar`, `ExAppBar`). Every screen sits in `ExScreen`, which applies `bg`, the status-bar inset, the gutter and the tab-bar clearance. The app also has a live catalogue in debug builds: Settings → Prototype tools → Design system.
 
 ## Colour tokens
 
@@ -216,6 +216,14 @@ A count inside a list card, lighter than the Stepper: for settings changed a ste
 
 - Compose: `CounterRow("Starting allowance", value, onChange, 0..100, caption = "a day, since 4 October", changed = value != saved)`.
 
+### TimeStepper
+
+A time of day as hour : minutes, each with an up and a down chevron button, for moving a logged cigarette.
+
+`number-large` digits (64px minimum each), a `number-large` colon in `ink-soft`, and in 12-hour mode the AM/PM in `label`/`ink-soft` after the minutes. The buttons are the CounterRow's: 44px touch, 16px chevron in `ink-soft`, holding repeats (after 420ms, every 70ms). Hours go round the clock and minutes round the hour; a step that would land on a time that can't be chosen (later than now) disables.
+
+- Compose: `TimeStepper(minuteOfDay, onChange, canSet = { LogEdit.moved(at, it, zone, now) != null }, h24)`.
+
 ### SegmentedControl
 
 iOS-style segmented control with a sliding thumb for switching views or modes.
@@ -263,6 +271,14 @@ A centred card (`space-xl` padding) over the scrim: a `headline` title as a ques
 
 - Compose: `ExChoiceDialog("Erase everything?", "Your logs… leave this phone for good.", listOf(DialogAction("Erase everything", ButtonStyle.Primary) { … }, DialogAction("Keep my data", ButtonStyle.Ghost) { … }), onDismiss)`.
 
+### LogEditor
+
+The modal behind a tap on a DayTimeline cigarette: change its time or trigger, or delete it.
+
+A `surface-high` card (so the `surface` trigger chips stand out, as on the Logged card) with `space-xl` padding: a `headline` title ("Sunday, 1:05 PM"), a "Time" overline and a TimeStepper, a "Trigger" overline and TriggerChips (tap the picked one again to clear it; "Your own" adds one), then a Primary "Save" and a Ghost "Delete this one". Delete asks first with a ChoiceDialog ("Delete the one at 1:05 PM?", Primary "Delete", Ghost "Keep it"). Tapping outside or Back closes without saving. Scrolls on a short screen.
+
+- Compose: `LogEditDialog(log, dayName, zone, now, h24, triggers, onSave = { at, trigger -> … }, onDelete = { … }, onDismiss = { … }, onAddTrigger = vm::addTrigger)`; `LogEditor(...)` is the same card without the dialog window (catalogue, screenshots), built on `ExDialogCard`, the card every kit dialog uses.
+
 ### Toast
 
 A short note that rises from the bottom for about two seconds after something saved quietly, e.g. "Saved" when going back from an edit screen, or "Saved. Pack price stays 10.00 $."
@@ -292,6 +308,22 @@ Weekday letters (`overline`, `ink-faint`, first day per locale), then per day it
 Colour key entry: a 12px dot in the accent and its meaning in `caption`/`ink-soft`. Use the full accent for the dot (not the tint) so it reads in dark.
 
 - Compose: `Row { LegendItem(c.oxy, "Within allowance"); LegendItem(c.ember, "Borrowed from the next day") }`.
+
+### DayTimeline
+
+One day cigarette by cigarette, on Rhythm while a day is picked. It hangs on a 3px line in `oxy` at 55%: warm dots for smoke, the cool line between them for time without one.
+
+Rows are 44px (a touch target): an 11px dot on the line, the time in `number-small`, the trigger in `body-small` (`ink-faint` "No trigger" when untagged) and "3 of 8" in `caption`/`ink-faint` at the end. A cigarette is an `ember` dot, `flare` past the allowance with its count in `flare-ink`. Between rows the line's length grows with the gap (log scale, 18–56px) and, before a cigarette, is labelled "3h 27m" in `caption`/`oxy-ink`. A craving wave ridden out is an `oxy` ring with its time and "Rode out a wave · Stress" in `oxy-ink`. The day before's last one opens the list as a hollow `ink-faint` dot with `caption` text; today ends with a filled `oxy` dot on an `oxy` tint halo, "Now" and the running gap in `oxy-ink`. Cigarette rows are tappable (edit); screen readers hear each as one item.
+
+- Compose: `DayTimeline(times, today, zone, h24, onEdit = { log -> … })` with `times = DayTimes.of(...)`.
+
+### DayLine
+
+Today in one line, the row under the app bar on Ember. Tapping it opens today's DayTimeline on Rhythm.
+
+A 44px `surface` pill: a 2px `line` track from 6 am (or the hour of an earlier first one) to midnight, an 8px `ember` dot per cigarette (`flare` past the allowance, each with a 1.5px `surface` ring so close ones stay apart), a 2px `oxy` stretch from the last one to now and a 10px `oxy` ring at now. Then "Last 11:40" (`ink-soft` "Last", the time in `number-small` at label-small size), or "Nothing yet" in `oxy-ink`, and a 16px chevron in `ink-soft`. It doesn't repeat the count: the Today badge above says it.
+
+- Compose: `DayLine(times, now, zone, h24, onClick = { … })`.
 
 ### ListRow
 
@@ -329,4 +361,4 @@ Drawn over the screens (not inside them), so it stays put while pages slide. Lea
 
 - The web previews are static HTML/CSS renditions written by hand from the Compose components; they are not generated from the Kotlin code.
 - Animated and chart components (the Ember orb, the Urge Wave, the particle field, the Smoke Clock, Air's recovery sky, gap chart and timeline) are screen-specific and are not in this kit.
-- Link, ActiveFilter, MonthCalendar, LegendItem, Dialog, ChoiceDialog, Toast, CounterRow, FieldNote, Footnote, AppBar, the Tonal button, the outlined card, the two-line ListRow and the capped and suffixed text fields are in the in-app catalogue but have no web preview yet.
+- Link, ActiveFilter, MonthCalendar, LegendItem, DayTimeline, DayLine, TimeStepper, LogEditor, Dialog, ChoiceDialog, Toast, CounterRow, FieldNote, Footnote, AppBar, the Tonal button, the outlined card, the two-line ListRow and the capped and suffixed text fields are in the in-app catalogue but have no web preview yet.

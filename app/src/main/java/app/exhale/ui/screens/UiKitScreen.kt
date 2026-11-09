@@ -3,6 +3,7 @@ package app.exhale.ui.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -58,6 +59,14 @@ import app.exhale.ui.components.FloatingTabBar
 import app.exhale.ui.components.GradientRing
 import app.exhale.ui.components.LegendItem
 import app.exhale.ui.components.ListRow
+import app.exhale.ui.components.DayLine
+import app.exhale.ui.components.DayTimeline
+import app.exhale.ui.components.LogEditor
+import app.exhale.ui.components.TimeStepper
+import app.exhale.domain.DayTimes
+import app.exhale.domain.SmokeLog
+import app.exhale.domain.Urge
+import app.exhale.domain.UrgeOutcome
 import app.exhale.ui.components.MonthCalendar
 import app.exhale.ui.components.OptionCard
 import app.exhale.ui.components.Overline
@@ -77,6 +86,7 @@ import app.exhale.ui.theme.ExSpace
 import app.exhale.ui.theme.ExType
 import java.time.LocalDate
 import java.time.YearMonth
+import java.time.ZoneId
 
 /**
  * Living catalogue of the design system: every token and component, interactive, in the
@@ -84,11 +94,18 @@ import java.time.YearMonth
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun UiKitScreen(theme: ThemeMode, onTheme: (ThemeMode) -> Unit, onClose: () -> Unit) {
+fun UiKitScreen(
+    theme: ThemeMode,
+    onTheme: (ThemeMode) -> Unit,
+    onClose: () -> Unit,
+    /** Screenshots: start scrolled this far (past the end means the end). */
+    initialScroll: Int = 0,
+) {
     val c = Ex.colors
     val toast = rememberToastState()
     Box(Modifier.fillMaxSize()) {
         ExScreen(
+            scrollState = rememberScrollState(initialScroll),
             bottomClearance = ExSpace.xl,
             header = { BackHeader("Design system", onClose) },
         ) {
@@ -254,11 +271,38 @@ fun UiKitScreen(theme: ThemeMode, onTheme: (ThemeMode) -> Unit, onClose: () -> U
                 LegendItem(c.oxy, "Within allowance"); LegendItem(c.ember, "Borrowed")
             }
 
+            Section("A day, one by one")
+            // A fixed day (today, as it looks at 23:30), so the samples look the same whenever they're drawn.
+            val zone = ZoneId.systemDefault()
+            val day = LocalDate.now(zone)
+            val now = day.atTime(23, 30).atZone(zone).toInstant()
+            val sample = remember(day) {
+                fun at(d: LocalDate, h: Int, m: Int) = d.atTime(h, m).atZone(zone).toInstant()
+                val logs = listOf(
+                    SmokeLog(1, at(day.minusDays(1), 22, 31), null, false),
+                    SmokeLog(2, at(day, 9, 38), Trigger.COFFEE, false),
+                    SmokeLog(3, at(day, 13, 5), Trigger.AFTER_FOOD, false),
+                    SmokeLog(4, at(day, 13, 52), null, false),
+                    SmokeLog(5, at(day, 18, 44), Trigger.DRINKS, false),
+                    SmokeLog(6, at(day, 22, 31), null, false),
+                )
+                val wave = Urge(7, at(day, 16, 12), at(day, 16, 16), UrgeOutcome.SURVIVED, Trigger.STRESS)
+                DayTimes.of(logs, listOf(wave), day, zone, allowance = 3, now = now)
+            }
+            ExCard { DayTimeline(sample, day, zone, h24 = true, onEdit = {}) }
+            Footnote("Day timeline: ember dots with exact times, oxygen gaps, a wave ridden out, flare past the allowance, now.")
+            DayLine(sample, now, zone, h24 = true, onClick = {})
+            Footnote("Day line: the today row on Ember.")
+            var minuteOfDay by remember { mutableIntStateOf(13 * 60 + 5) }
+            TimeStepper(minuteOfDay, { minuteOfDay = it }, canSet = { true }, h24 = true)
+            LogEditor(sample.cigarettes[1].log, "Today", zone, now, h24 = true, triggers = Trigger.BUILT_IN, onSave = { _, _ -> }, onDelete = {})
+            Footnote("Log editor: the dialog behind a tap on the day timeline.")
+
             Section("Icons")
             FlowRow(horizontalArrangement = Arrangement.spacedBy(ExSpace.md), verticalArrangement = Arrangement.spacedBy(ExSpace.md)) {
                 listOf(
                     ExIcons.Ember, ExIcons.Regulate, ExIcons.Rhythm, ExIcons.Air, ExIcons.Money, ExIcons.Wave, ExIcons.Plus, ExIcons.Minus,
-                    ExIcons.Check, ExIcons.Close, ExIcons.Back, ExIcons.Forward, ExIcons.Settings, ExIcons.Undo, ExIcons.Sun,
+                    ExIcons.Check, ExIcons.Close, ExIcons.Back, ExIcons.Forward, ExIcons.Up, ExIcons.Down, ExIcons.Settings, ExIcons.Undo, ExIcons.Sun,
                     ExIcons.Moon, ExIcons.Palette,
                 ).forEach { Icon(it, null, Modifier.size(28.dp), tint = c.ink) }
             }

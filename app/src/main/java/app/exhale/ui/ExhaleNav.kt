@@ -22,6 +22,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -62,6 +63,7 @@ import app.exhale.ui.screens.UiKitScreen
 import app.exhale.ui.screens.UrgeWaveScreen
 import app.exhale.ui.theme.Ex
 import app.exhale.ui.theme.ExColors
+import kotlinx.coroutines.launch
 import java.time.LocalDate
 
 internal enum class Tab(val route: String, val label: String, val icon: ImageVector) {
@@ -148,6 +150,14 @@ private fun MainNav(state: ExhaleState, logged: LoggedEvent?, vm: ExhaleViewMode
     val triggerActions = remember(vm) {
         TriggerActions({ vm.addTrigger(it) }, vm::renameTrigger, vm::setTriggerHidden, vm::moveTrigger, vm::deleteTrigger)
     }
+    // Switches tab as the tab bar does, keeping each tab's state.
+    val goToTab = { t: Tab ->
+        nav.navigate(t.route) {
+            popUpTo(nav.graph.findStartDestination().id) { saveState = true }
+            launchSingleTop = true
+            restoreState = true
+        }
+    }
     val entry by nav.currentBackStackEntryAsState()
     val tab = Tab.entries.firstOrNull { it.route == entry?.destination?.route }
     // The day Rhythm is showing. Hoisted so History can open a day there.
@@ -156,6 +166,7 @@ private fun MainNav(state: ExhaleState, logged: LoggedEvent?, vm: ExhaleViewMode
     var todayOpen by rememberSaveable { mutableStateOf(false) }
     // The tabs' scroll positions, hoisted so the app bar knows when content is under it.
     val rhythmScroll = rememberScrollState()
+    val scope = rememberCoroutineScope()
     val airScroll = rememberScrollState()
     val moneyScroll = rememberScrollState()
     val currentTab by rememberUpdatedState(tab)
@@ -226,6 +237,12 @@ private fun MainNav(state: ExhaleState, logged: LoggedEvent?, vm: ExhaleViewMode
                     onTodayOpen = { todayOpen = it },
                     onGlowLight = { hold, flash -> glowHold.floatValue = hold; glowFlash.floatValue = flash },
                     onAddAndTag = vm::addAndTag,
+                    onToday = {
+                        rhythmDay = state.today
+                        // Today's list is near the top, where the clock was: start there, not where Rhythm was left.
+                        scope.launch { rhythmScroll.scrollTo(0) }
+                        goToTab(Tab.RHYTHM)
+                    },
                 )
             }
             composable(Tab.RHYTHM.route) {
@@ -236,6 +253,9 @@ private fun MainNav(state: ExhaleState, logged: LoggedEvent?, vm: ExhaleViewMode
                     onDay = { rhythmDay = it },
                     onHistory = { nav.navigate(HISTORY) },
                     onUrge = { nav.navigate(WAVE) },
+                    onEditLog = vm::editLog,
+                    onDeleteLog = vm::deleteLog,
+                    onAddTrigger = vm::addTrigger,
                 )
             }
             composable(Tab.AIR.route) { AirScreen(state, scroll = airScroll, onHeld = { airHeld = it }) }
@@ -312,13 +332,7 @@ private fun MainNav(state: ExhaleState, logged: LoggedEvent?, vm: ExhaleViewMode
                 FloatingTabBar(
                     items = Tab.entries.map { TabItem(it.icon, it.label, it.tint(c, state.heat)) },
                     selected = barTab.ordinal,
-                    onSelect = { i ->
-                        nav.navigate(Tab.entries[i].route) {
-                            popUpTo(nav.graph.findStartDestination().id) { saveState = true }
-                            launchSingleTop = true
-                            restoreState = true
-                        }
-                    },
+                    onSelect = { i -> goToTab(Tab.entries[i]) },
                     modifier = Modifier.align(Alignment.BottomCenter),
                 )
             }
