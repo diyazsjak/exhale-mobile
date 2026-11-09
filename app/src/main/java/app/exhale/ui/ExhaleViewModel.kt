@@ -171,11 +171,17 @@ class ExhaleViewModel(private val repo: ExhaleRepository) : ViewModel() {
 
     // Tags, cravings, erasing and demo data take the same lock, so none of them can slip between an
     // edit's read and its save (a tag landing on a trigger being deleted, say).
-    private fun editTriggers(after: () -> Unit = {}, change: suspend (List<TriggerEntry>) -> List<TriggerEntry>?) {
+    // [alsoLocked] runs after the save, still under the lock; [after] runs once it's released.
+    private fun editTriggers(
+        after: () -> Unit = {},
+        alsoLocked: suspend () -> Unit = {},
+        change: suspend (List<TriggerEntry>) -> List<TriggerEntry>?,
+    ) {
         viewModelScope.launch {
             triggerLock.withLock {
                 val current = repo.triggers.first()
                 change(current)?.takeIf { it != current }?.let { repo.saveTriggers(it) }
+                alsoLocked()
             }
             after()
         }
@@ -196,9 +202,12 @@ class ExhaleViewModel(private val repo: ExhaleRepository) : ViewModel() {
      * "Your own" on the Logged card: adds the trigger and tags log [logId] with it, whatever happens to
      * the card meanwhile; [then] gets the trigger so the card can show it picked before it closes.
      */
-    fun addAndTag(logId: Long, name: String, then: (Trigger) -> Unit = {}) = addTrigger(name) { t ->
-        viewModelScope.launch { triggerLock.withLock { repo.tagLog(logId, t) } }
-        then(t)
+    fun addAndTag(logId: Long, name: String, then: (Trigger) -> Unit = {}) {
+        var added: Trigger? = null
+        // Saved and tagged under one lock, so no delete can slip in between and leave the tag pointing nowhere.
+        editTriggers(after = { added?.let(then) }, alsoLocked = { added?.let { repo.tagLog(logId, it) } }) { list ->
+            Triggers.add(list, name, Triggers.newKey())?.also { added = it.trigger }?.list
+        }
     }
 
     fun renameTrigger(key: String, name: String) = editTriggers { Triggers.rename(it, key, name) }

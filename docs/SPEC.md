@@ -169,7 +169,8 @@ above stays: the Today badge and popover, the earned haptic, the Logged card, th
   its duration; the next ("then hold · 2s") waits below and brightens in the final second; on a
   change it glides up and grows into place. The wave dot's halo swells and shrinks with the breath.
 - Optional trigger selection: the user's chips (§3.11), with "Your own", which here opens a dialog (the
-  keyboard would cover the chips at the bottom). A trigger added here is picked.
+  keyboard would cover the chips at the bottom). A trigger added here is picked; finishing in the moment
+  before it's saved waits for it, so the craving keeps it.
 - Before end: "I'm okay now" (SURVIVED) / "Smoke anyway". After end: "No. I rode it out." /
   "Yes, smoke anyway". Smoking records the urge as SMOKED but never logs a cigarette: it returns to
   the Ember screen, where the user logs it by holding the ember. "Close" records nothing.

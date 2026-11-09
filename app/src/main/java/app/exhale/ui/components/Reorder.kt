@@ -14,10 +14,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.animation.Crossfade
-import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
@@ -74,11 +74,14 @@ private class ReorderState<T>(var keyOf: (T) -> Any) {
 
     private fun from(): Int = order().indexOfFirst { keyOf(it) == dragKey }
 
-    /** Where the dragged row would land: past a neighbour's middle, it takes that neighbour's place. */
-    val target by derivedStateOf {
+    /**
+     * Where the dragged row would land: past a neighbour's middle, it takes that neighbour's place.
+     * Worked out from the current list each time, so it follows [items] if they change mid-drag.
+     */
+    fun target(): Int {
         val list = order()
         val i = from()
-        if (i < 0) return@derivedStateOf -1
+        if (i < 0) return -1
         var t = i
         var left = offset
         val dir = if (left > 0) 1 else -1
@@ -88,12 +91,11 @@ private class ReorderState<T>(var keyOf: (T) -> Any) {
             left -= dir * h
             t += dir
         }
-        t
+        return t
     }
 
-    /** How far the row at [index] slides to make room for the row dragged from [i]: one row height, or none. */
-    fun shiftOf(index: Int, i: Int): Float {
-        val t = target
+    /** How far the row at [index] slides to make room for the row dragged from [i] to [t]: one row height, or none. */
+    fun shiftOf(index: Int, i: Int, t: Int): Float {
         if (i < 0 || index == i) return 0f
         val h = (heights[dragKey] ?: 0).toFloat()
         return when {
@@ -110,7 +112,7 @@ private class ReorderState<T>(var keyOf: (T) -> Any) {
     fun drop() {
         val list = order()
         val i = from()
-        val t = target
+        val t = target()
         dragKey = null
         offset = 0f
         if (i < 0 || t < 0 || i == t) return
@@ -139,13 +141,18 @@ fun <T> ReorderColumn(
     state.onMove = onMove
     val order = state.order()
     val from = order.indexOfFirst { keyOf(it) == state.dragKey }
+    val target = if (from >= 0) state.target() else -1
 
     Column(modifier) {
         order.forEachIndexed { i, item ->
             val k = keyOf(item)
             key(k) {
                 val dragging = state.dragKey == k
-                val shift by animateFloatAsState(state.shiftOf(i, from), tween(160), label = "reorder-shift")
+                // Rows slide aside while a row is dragged. On release they are laid out in the new order in
+                // the same frame their slide is dropped, so nothing jumps.
+                val shift = remember { Animatable(0f) }
+                val goal = state.shiftOf(i, from, target)
+                LaunchedEffect(goal, from >= 0) { if (from >= 0) shift.animateTo(goal, tween(160)) else shift.snapTo(0f) }
                 val handle = Modifier.pointerInput(state, k) {
                     try {
                         detectVerticalDragGestures(
@@ -166,7 +173,13 @@ fun <T> ReorderColumn(
                     Modifier
                         .onSizeChanged { state.heights[k] = it.height }
                         .zIndex(if (dragging) 1f else 0f)
-                        .graphicsLayer { translationY = if (dragging) state.offset else shift }
+                        .graphicsLayer {
+                            translationY = when {
+                                state.dragKey == null -> 0f
+                                dragging -> state.offset
+                                else -> shift.value
+                            }
+                        }
                         .semantics { customActions = actions }
                 ) {
                     row(item, handle, dragging)

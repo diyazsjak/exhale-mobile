@@ -72,6 +72,12 @@ fun UrgeWaveScreen(
     val haptics = rememberHaptics()
     var elapsed by remember { mutableFloatStateOf(startAt) }
     var trigger by remember { mutableStateOf<Trigger?>(null) }
+    // A trigger named in the dialog is picked once it's saved; finishing meanwhile waits for it, so the
+    // craving isn't recorded without it.
+    var saving by remember { mutableStateOf(false) }
+    var finishing by remember { mutableStateOf<UrgeOutcome?>(null) }
+    LaunchedEffect(saving, finishing) { finishing?.let { if (!saving) onFinish(started, it, trigger) } }
+    val finish = { outcome: UrgeOutcome -> if (finishing == null) finishing = outcome }
     var lastPhase by remember { mutableStateOf(BreathPhase.IN) }
 
     LaunchedEffect(Unit) {
@@ -136,19 +142,19 @@ fun UrgeWaveScreen(
         Overline("What's behind it? Optional", Modifier.padding(top = ExSpace.xs))
         TriggerChips(
             triggers, trigger, { trigger = if (trigger == it) null else it },
-            onAdd = { name -> onAddTrigger(name) { trigger = it } },
+            onAdd = { name -> saving = true; onAddTrigger(name) { trigger = it; saving = false } },
             // The keyboard would cover the chips at the bottom of this screen, so naming happens in a dialog.
             addInDialog = true,
             initialDraft = if (naming) "" else null,
         )
         Spacer(Modifier.weight(1f))
         if (done) {
-            ExButton("No. I rode it out.", { onFinish(started, UrgeOutcome.SURVIVED, trigger) }, Modifier.fillMaxWidth(), style = ButtonStyle.Accent)
-            ExButton("Yes, smoke anyway", { onFinish(started, UrgeOutcome.SMOKED, trigger) }, Modifier.fillMaxWidth(), style = ButtonStyle.Secondary)
+            ExButton("No. I rode it out.", { finish(UrgeOutcome.SURVIVED) }, Modifier.fillMaxWidth(), style = ButtonStyle.Accent)
+            ExButton("Yes, smoke anyway", { finish(UrgeOutcome.SMOKED) }, Modifier.fillMaxWidth(), style = ButtonStyle.Secondary)
         } else {
             Row(horizontalArrangement = Arrangement.spacedBy(ExSpace.sm)) {
-                ExButton("I'm okay now", { onFinish(started, UrgeOutcome.SURVIVED, trigger) }, Modifier.weight(1f), style = ButtonStyle.Accent)
-                ExButton("Smoke anyway", { onFinish(started, UrgeOutcome.SMOKED, trigger) }, Modifier.weight(1f), style = ButtonStyle.Secondary)
+                ExButton("I'm okay now", { finish(UrgeOutcome.SURVIVED) }, Modifier.weight(1f), style = ButtonStyle.Accent)
+                ExButton("Smoke anyway", { finish(UrgeOutcome.SMOKED) }, Modifier.weight(1f), style = ButtonStyle.Secondary)
             }
         }
     }

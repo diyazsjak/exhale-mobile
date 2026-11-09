@@ -36,8 +36,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.systemBarsPadding
@@ -150,17 +150,15 @@ fun ExInputDialog(title: String, onDismiss: () -> Unit, actions: List<DialogActi
         Box(
             Modifier
                 .fillMaxSize()
-                .clickable(remember { MutableInteractionSource() }, indication = null, onClick = onDismiss)
+                // Taps on the scrim close it; Back and Cancel are the ways screen readers get.
+                .pointerInput(onDismiss) { detectTapGestures { onDismiss() } }
                 .imePadding()
                 .systemBarsPadding()
                 .padding(horizontal = ExSpace.gutter),
             contentAlignment = Alignment.Center,
         ) {
-            // The card keeps its own taps, so only the scrim around it dismisses.
-            ExCard(
-                Modifier.fillMaxWidth().clickable(remember { MutableInteractionSource() }, indication = null) {},
-                padding = ExSpace.xl,
-            ) {
+            // The card keeps its own taps (without adding anything for screen readers), so only the scrim dismisses.
+            ExCard(Modifier.fillMaxWidth().pointerInput(Unit) { detectTapGestures { } }, padding = ExSpace.xl) {
                 Text(title, style = ExType.headline, color = c.ink)
                 content()
                 DialogActions(actions)

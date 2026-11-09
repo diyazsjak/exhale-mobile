@@ -18,6 +18,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -140,20 +141,25 @@ internal fun TriggersPage(
             ExCard { Text("None shown. Tagging is optional, so that's fine.", style = ExType.caption, color = c.inkSoft) }
         } else {
             ExCard(padding = ExSpace.sm) {
-                ReorderColumn(shown, keyOf = { it.key }, onMove = actions.move) { e, handle, dragging -> Row(e, handle, dragging) }
+                // While a row is still leaving, this list and the saved one differ, so a move would land on the
+                // wrong row: moves wait until it has gone (a fraction of a second).
+                ReorderColumn(shown, keyOf = { it.key }, onMove = { from, to -> if (leaving.isEmpty()) actions.move(from, to) }) { e, handle, dragging ->
+                    Row(e, handle, dragging)
+                }
             }
         }
         // The Hidden list folds in with its first trigger and away with its last.
-        var lastHidden by remember { mutableStateOf(hidden) }
-        if (hidden.isNotEmpty()) lastHidden = hidden
+        // While the list folds away, it keeps its count; its rows are already gone (they left first).
+        var lastCount by remember { mutableIntStateOf(hidden.size) }
+        if (hidden.isNotEmpty()) lastCount = hidden.size
         AnimatedVisibility(
             hidden.isNotEmpty(),
             enter = expandVertically(tween(240)) + fadeIn(tween(200)),
             exit = shrinkVertically(tween(240)) + fadeOut(tween(160)),
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(ExSpace.md)) {
-                Overline("Hidden · ${lastHidden.size}", Modifier.padding(top = ExSpace.xs))
-                ExCard(padding = ExSpace.sm) { lastHidden.forEach { key(it.key) { Row(it) } } }
+                Overline("Hidden · $lastCount", Modifier.padding(top = ExSpace.xs))
+                ExCard(padding = ExSpace.sm) { hidden.forEach { key(it.key) { Row(it) } } }
             }
         }
         ExButton(
@@ -213,7 +219,8 @@ private fun NewTriggerPage(triggers: List<TriggerEntry>, actions: TriggerActions
         }
         // What Add will say, or null while there's nothing it can add.
         val added = when (check) {
-            is NameCheck.Ok -> "Added “${check.name}”"
+            // The label it will really have: a deleted built-in comes back under its own name.
+            is NameCheck.Ok -> "Added “${Triggers.add(triggers, name, "")?.trigger?.label ?: check.name}”"
             is NameCheck.Hidden -> "“${check.entry.trigger.label}” is shown again"
             else -> null
         }

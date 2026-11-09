@@ -29,6 +29,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -126,6 +127,7 @@ fun SettingsScreen(
     var allowance by rememberSaveable { mutableIntStateOf(initialAllowance) }
     var page by rememberSaveable { mutableStateOf(initialPage) }
     var triggerKey by rememberSaveable { mutableStateOf(initialTriggerKey) }
+    var triggerVisit by rememberSaveable { mutableIntStateOf(0) }
     var ask by rememberSaveable { mutableStateOf<Ask?>(null) }
     val mainScroll = rememberScrollState(initialScroll)
     val baselineChanged = baseline != current.baselinePerDay
@@ -172,10 +174,14 @@ fun SettingsScreen(
                 SettingsPage.GOAL -> GoalPage(current, pageDone)
                 SettingsPage.TRIGGERS -> TriggersPage(
                     triggers, triggerUses, triggerActions,
-                    onOpen = { k -> triggerKey = k; page = SettingsPage.TRIGGER },
+                    onOpen = { k -> triggerKey = k; triggerVisit++; page = SettingsPage.TRIGGER },
                     onBack = { page = null },
                 )
-                SettingsPage.TRIGGER -> TriggerPage(triggers, triggerKey, triggerUses, triggerActions, toast, onBack = { page = SettingsPage.TRIGGERS })
+                // A fresh page on every visit: going back and straight in again (while the last one is still
+                // sliding out) would otherwise reuse its state, frozen as it left.
+                SettingsPage.TRIGGER -> key(triggerVisit) {
+                    TriggerPage(triggers, triggerKey, triggerUses, triggerActions, toast, onBack = { page = SettingsPage.TRIGGERS })
+                }
             }
         }
         ExToast(toast, Modifier.align(Alignment.BottomCenter), bottom = if (dirty && page == null) SaveBarHeight else ExSpace.xl)
