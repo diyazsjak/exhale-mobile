@@ -6,6 +6,7 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -31,6 +32,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.rememberTextMeasurer
@@ -62,23 +64,43 @@ private const val STAGGER_MS = 35
  * hold still; characters are matched from the right, so minutes line up with minutes. A change of
  * length ("1m" → "1h 30m") moves every character. The first show does not animate. Blur needs
  * Android 12; below that it is fade and drift only. Each glyph is drawn as its slice of one laid-out
- * line, so at rest it is exactly a plain Text; the old text stays centred where it was. For the heroes' big numbers.
+ * line, so at rest it is exactly a plain Text; the old text stays centred where it was. It stays on
+ * one line, shrinking to fit the width if it must. For the heroes' big numbers.
  */
 @Composable
 fun ExhaleText(text: String, style: TextStyle, color: Color, modifier: Modifier = Modifier) {
     var change by remember { mutableStateOf(TextChange(null, text)) }
     if (change.to != text) change = TextChange(change.to, text)
     val from = change.from
-    val measurer = rememberTextMeasurer()
+    BoxWithConstraints(modifier) {
+        // A new measurer comes with a new density, font scale or layout direction, so those re-measure too.
+        val measurer = rememberTextMeasurer()
+        val maxWidth = constraints.maxWidth
+        val now = remember(text, style, measurer, maxWidth) { measureToFit(measurer, text, style, maxWidth) }
+        val before = remember(from, style, measurer, maxWidth) { from?.let { measureToFit(measurer, it, style, maxWidth) } }
+        ExhaleLines(text, from, now, before, change, color)
+    }
+}
+
+/**
+ * [text] on one line in [style], its font made smaller if it is wider than [maxWidth] (a large
+ * font scale or a narrow phone), so it never runs off the screen.
+ */
+private fun measureToFit(measurer: TextMeasurer, text: String, style: TextStyle, maxWidth: Int): TextLayoutResult {
     val centred = style.copy(textAlign = TextAlign.Center)
-    fun line(s: String) = measurer.measure(s, centred, maxLines = 1, softWrap = false)
-    val now = remember(text, style) { line(text) }
-    val before = remember(from, style) { from?.let(::line) }
+    val line = measurer.measure(text, centred, maxLines = 1, softWrap = false)
+    if (maxWidth == Constraints.Infinity || line.size.width <= maxWidth) return line
+    val smaller = centred.copy(fontSize = centred.fontSize * (maxWidth.toFloat() / line.size.width) * 0.98f)
+    return measurer.measure(text, smaller, maxLines = 1, softWrap = false)
+}
+
+@Composable
+private fun ExhaleLines(text: String, from: String?, now: TextLayoutResult, before: TextLayoutResult?, change: TextChange, color: Color) {
     // Built once per change, not on every recomposition (the hero's screen recomposes every second).
     val cells = remember(now) { List(text.length) { Cell(now, it, 0f) } }
     val oldCells = remember(before, now) { before?.let { b -> List(b.layoutInput.text.length) { Cell(b, it, (now.size.width - b.size.width) / 2f) } } }
     Box(
-        modifier
+        Modifier
             .layout { m, _ ->
                 val pl = m.measure(Constraints.fixed(now.size.width, now.size.height))
                 layout(pl.width, pl.height) { pl.place(0, 0) }

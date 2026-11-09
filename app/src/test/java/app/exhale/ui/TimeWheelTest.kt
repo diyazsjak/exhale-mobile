@@ -44,13 +44,32 @@ class TimeWheelTest {
 
     @Test fun draggingUp_turnsToLater_andDown_toEarlier() {
         wheel()
-        // The minute wheel is the second; drag it up about two slots (52dp each).
+        // The minute wheel is the second; drag it up two slots (44dp each, ExSize.touch), then down one.
         val minutes = compose.onAllNodesWithContentDescription("One minute later")[0]
-        minutes.performTouchInput { swipe(Offset(centerX, centerY), Offset(centerX, centerY - 104.dp.toPx()), 400) }
+        minutes.performTouchInput { swipe(Offset(centerX, centerY), Offset(centerX, centerY - 88.dp.toPx()), 400) }
         compose.waitForIdle()
         assertEquals(13 * 60 + 7, minute)
-        minutes.performTouchInput { swipe(Offset(centerX, centerY), Offset(centerX, centerY + 52.dp.toPx()), 300) }
+        minutes.performTouchInput { swipe(Offset(centerX, centerY), Offset(centerX, centerY + 44.dp.toPx()), 300) }
         compose.waitForIdle()
+        assertEquals(13 * 60 + 6, minute)
+    }
+
+    @Test fun aFastFlick_turnsAsFarAsTheFingerWent() {
+        wheel()
+        // Two slots in 40ms: many moves arrive before the wheel's offset catches up.
+        compose.onAllNodesWithContentDescription("One minute later")[0]
+            .performTouchInput { swipe(Offset(centerX, centerY), Offset(centerX, centerY - 88.dp.toPx()), 40) }
+        compose.waitForIdle()
+        assertEquals(13 * 60 + 7, minute)
+    }
+
+    @Test fun holdingAHalf_stepsOnce_soAPauseBeforeADragAddsNothing() {
+        wheel()
+        compose.mainClock.autoAdvance = false
+        compose.onNodeWithContentDescription("One minute later").performTouchInput { down(center) }
+        compose.mainClock.advanceTimeBy(1_000)
+        compose.onNodeWithContentDescription("One minute later").performTouchInput { up() }
+        compose.mainClock.advanceTimeBy(100)
         assertEquals(13 * 60 + 6, minute)
     }
 
@@ -61,7 +80,7 @@ class TimeWheelTest {
         compose.onNodeWithContentDescription("One minute later").performClick()
         assertEquals(13 * 60 + 6, minute)
         compose.onAllNodesWithContentDescription("One minute later")[0]
-            .performTouchInput { swipe(Offset(centerX, centerY), Offset(centerX, centerY - 156.dp.toPx()), 400) }
+            .performTouchInput { swipe(Offset(centerX, centerY), Offset(centerX, centerY - 132.dp.toPx()), 400) }
         compose.waitForIdle()
         assertEquals(13 * 60 + 6, minute)
     }

@@ -239,14 +239,17 @@ fun RhythmScreen(
             }
             else -> Centre(over = "", big = "—", small = "nothing logged", extra = "", extraFaint = true)
         }
-        val clock = ClockShown(
-            hours, beforeHours, sel, lines, centre,
-            description = buildString {
-                append("Smoke clock. ")
-                if (peaks.isEmpty()) append("Nothing logged.") else append("Busiest around ${label(peaks[0])}. ")
-                if (sel != null) append("Showing ${hourRange(sel, h24)}: ${centre.big} ${centre.small}.")
-            },
-        )
+        // Built once a minute (with the view) or when the hour or lines change, not every second.
+        val clock = remember(view, sel, lines, h24) {
+            ClockShown(
+                hours, beforeHours, sel, lines, centre,
+                description = buildString {
+                    append("Smoke clock. ")
+                    if (peaks.isEmpty()) append("Nothing logged.") else append("Busiest around ${label(peaks[0])}. ")
+                    if (sel != null) append("Showing ${hourRange(sel, h24)}: ${centre.big} ${centre.small}.")
+                },
+            )
+        }
         // A picked day is a list of its cigarettes; the clock is for the last 30 days. The clock's
         // numbers travel in the target, so it fades out as it was shown instead of first redrawing
         // with the picked day's numbers.

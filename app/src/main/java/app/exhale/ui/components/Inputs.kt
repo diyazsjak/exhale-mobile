@@ -346,8 +346,8 @@ internal fun RepeatButton(icon: ImageVector, description: String, enabled: Boole
 }
 
 /**
- * A tap target that steps once on tap, then every 70ms after 420ms of holding, while [enabled].
- * Behind [RepeatButton] and the neighbour values of [TimeWheel].
+ * A tap target that steps once on tap, then (with [repeat]) every 70ms after 420ms of holding,
+ * while [enabled]. Behind [RepeatButton] and the halves of [TimeWheel] (tap only).
  */
 @Composable
 internal fun RepeatTarget(
@@ -356,6 +356,7 @@ internal fun RepeatTarget(
     onStep: () -> Unit,
     modifier: Modifier = Modifier,
     indication: Indication? = null,
+    repeat: Boolean = true,
     content: @Composable BoxScope.() -> Unit = {},
 ) {
     val source = remember { MutableInteractionSource() }
@@ -365,7 +366,7 @@ internal fun RepeatTarget(
     // Set once holding has stepped, so the click that ends the press doesn't step again.
     var repeated by remember { mutableStateOf(false) }
     LaunchedEffect(pressed) {
-        if (!pressed) return@LaunchedEffect
+        if (!pressed || !repeat) return@LaunchedEffect
         repeated = false
         delay(420)
         while (canStep) {

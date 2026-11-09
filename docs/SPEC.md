@@ -129,6 +129,8 @@ First launch shows **Onboarding** (§3.7). Regulate is no longer a tab: its coun
   (`ExhaleText`): each changed character drifts up, swells and blurs away while the new one
   settles in under it, right to left, in about 0.4 s. Unchanged characters hold still; a change of
   length moves them all. Blur on Android 12+, fade and drift below. The first show does not animate.
+  It stays on one line; if it is wider than the screen (large font size, narrow phone) its type
+  shrinks to fit.
 - **Orb** (`EmberOrb.kt`, concept "Gather" from the Ember Lab): a molten core coloured by `heat`
   with four droplets orbiting it. At rest the core pulses every 4 s and the drops drift in and out,
   sometimes touching the core and merging with a liquid bridge (blur + alpha threshold RenderEffect,
@@ -224,7 +226,7 @@ Shows the last 30 days (today and the 29 before), or one picked day. Order:
 - **Editing a cigarette**: tapping one opens a modal (`LogEditDialog`). Its header is an overline,
   "Sunday · 3 of 8" (just the number before the plan start), with a trash button at the right; then a Time
   wheel (hour and minutes as spinner wheels, the neighbours cut to half and fading: drag up or tap the
-  lower half for later, drag down or tap the upper half for earlier, hold to repeat; hours round the clock, minutes round the hour;
+  lower half for later, drag down or tap the upper half for earlier, one step per tap (holding doesn't repeat, so a pause before a drag adds nothing); hours round the clock, minutes round the hour;
   times that can't be chosen are dimmed; 12-hour phones get AM/PM), the trigger chips (the picked one again clears it; "Your own" adds one,
   as on the Logged card; a hidden trigger the log has keeps its chip here) and Save (Primary). Rules in §4 LogEdit: the time stays on the log's day and never goes past
   now. Save writes only what changed (a save that changes nothing writes nothing) and closes; outside or Back closes without saving. Delete asks

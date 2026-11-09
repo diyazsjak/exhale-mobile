@@ -229,6 +229,7 @@ class ScreenshotTest {
     @Test fun rhythmEditLight() = shot("4g_rhythm_edit", false) { EditShot() }
     // A wave ridden out: no time wheel (when and how long stay), just its trigger and delete.
     @Test fun rhythmEditWaveDark() = shot("4h_rhythm_edit_wave", true) { EditWaveShot() }
+    @Test fun rhythmEditWaveLight() = shot("4h_rhythm_edit_wave", false) { EditWaveShot() }
     @Test fun rhythmHourDark() = shot("4c_rhythm_hour", true, 1) { RhythmScreen(longState(), initialHour = 8) }
     @Test fun rhythmLinesLight() = shot("4d_rhythm_lines", false, 1) { RhythmScreen(longState(), initialLines = true) }
     @Test fun rhythmNewDark() = shot("4e_rhythm_new", true, 1) {
@@ -261,7 +262,7 @@ class ScreenshotTest {
         val st = longState()
         val day = dayWithWave(st)
         val wave = st.urges.last { it.outcome == UrgeOutcome.SURVIVED }
-        val heading = "${Fmt.dayName(day, st.today)} · wave at ${Fmt.time(wave.startedAt, zone, false)}, 4 min"
+        val heading = "${Fmt.dayName(day, st.today)} · wave at ${Fmt.time(wave.startedAt, zone, false)}, ${Fmt.waveLength(java.time.Duration.between(wave.startedAt, wave.endedAt))}"
         Box(Modifier.fillMaxSize()) {
             RhythmScreen(st, day = day)
             Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.5f)))
@@ -286,6 +287,7 @@ class ScreenshotTest {
     @Test fun emberHotDark() = shot("1b_ember_logged", true, 0, bar = sampleState(4)) { EmberScreen(sampleState(4), LoggedEvent(1, 5, 12), {}, {}, { _, _ -> }, {}, {}) }
     // A minute after a log: the newest dot on the today row peeks out from behind the now ring.
     @Test fun emberJustLoggedDark() = shot("1n_ember_just_logged", true, 0, bar = sampleState(1)) { EmberScreen(sampleState(1), null, {}, {}, { _, _ -> }, {}, {}) }
+    @Test fun emberJustLoggedLight() = shot("1n_ember_just_logged", false, 0, bar = sampleState(1)) { EmberScreen(sampleState(1), null, {}, {}, { _, _ -> }, {}, {}) }
     @Test fun emberHotLight() = shot("1b_ember_logged", false, 0, bar = sampleState(4)) { EmberScreen(sampleState(4), LoggedEvent(1, 5, 12), {}, {}, { _, _ -> }, {}, {}) }
     // The Glow home: the gap as edge light and a line above the button.
     private fun glowState(minutesSinceLast: Long = 161) = sampleState(minutesSinceLast).let { it.copy(settings = it.settings.copy(home = HomeStyle.GLOW)) }

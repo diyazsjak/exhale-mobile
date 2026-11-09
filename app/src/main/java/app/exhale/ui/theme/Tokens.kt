@@ -50,6 +50,9 @@ object ExSize {
     /** Stroke of selection and focus rings. */
     val ring = 1.5.dp
 
+    /** Width of a TimeWheel column. */
+    val wheel = 80.dp
+
     /** Space screens leave above the navigation-bar inset so content clears the floating tab bar. */
     val tabBarClearance = 100.dp
 }

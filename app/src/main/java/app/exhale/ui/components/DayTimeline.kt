@@ -346,8 +346,9 @@ fun DayLine(
             fun x(m: Int) = r + (size.width - 2 * r) * ((m - start) / span).coerceIn(0f, 1f)
             // Right after a log, now would sit on the newest dot and hide it: keep the ring far enough
             // right that the dot peeks out from behind it.
+            val peek = r + ExSize.hairline.toPx()
             val nowX = if (dots.isEmpty()) x(nowMinute)
-            else maxOf(x(nowMinute), x(lastOnLine) + 6.dp.toPx()).coerceAtMost(size.width - r)
+            else maxOf(x(nowMinute), x(lastOnLine) + peek).coerceAtMost(size.width - r)
             drawLine(track, Offset(x(start), y), Offset(x(24 * 60), y), 2.dp.toPx(), StrokeCap.Round)
             if (times.running != null) drawLine(oxy, Offset(x(lastOnLine), y), Offset(nowX, y), 2.dp.toPx(), StrokeCap.Round)
             dots.forEach { (m, over) ->
@@ -378,8 +379,7 @@ private val WHEEL_SLOT = ExSize.touch
 /**
  * A time of day as two wheels, hour and minutes, like the iOS and Android spinners: the value in
  * the middle, its neighbours half shown and fading above (earlier) and below (later). Drag a wheel
- * up for later, down for earlier; tap its lower half for later or upper half for earlier, and hold
- * to keep going. Hours go
+ * up for later, down for earlier; tap its lower half for later or upper half for earlier. Hours go
  * round the clock, minutes round the hour. [canSet] says whether a time can be chosen (a log can't
  * move into the future): one that can't is dimmed, and the wheel won't turn to it.
  */
@@ -426,7 +426,7 @@ private fun WheelColumn(
     val earlier = step(minuteOfDay, -1)
     Box(
         Modifier
-            .width(80.dp)
+            .width(ExSize.wheel)
             .height(WHEEL_SLOT * 2)
             // The neighbours fade out towards the edges, as on a spinner.
             .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
@@ -437,11 +437,17 @@ private fun WheelColumn(
             .clipToBounds()
             .pointerInput(step) {
                 val settle = { scope.launch { offset.animateTo(0f, tween(160)) } }
-                // The value the drag has turned to, so quick turns build on each other before the screen catches up.
+                // The value and offset the drag has turned to, so quick moves build on each other
+                // before the screen (and the offset's snap) catches up.
                 var m = current
-                detectVerticalDragGestures(onDragStart = { m = current }, onDragEnd = { settle() }, onDragCancel = { settle() }) { pointer, dy ->
+                var o = 0f
+                detectVerticalDragGestures(
+                    onDragStart = { m = current; o = offset.value },
+                    onDragEnd = { settle() },
+                    onDragCancel = { settle() },
+                ) { pointer, dy ->
                     pointer.consume()
-                    var o = offset.value + dy
+                    o += dy
                     val was = m
                     // Turn a value at a time while the drag has gone past half a slot; a value that
                     // can't be chosen holds the wheel short of it.
@@ -453,7 +459,8 @@ private fun WheelColumn(
                         o += dir * slot
                     }
                     if (m != was) change(m)
-                    scope.launch { offset.snapTo(o) }
+                    val shown = o
+                    scope.launch { offset.snapTo(shown) }
                 }
             },
     ) {
@@ -477,9 +484,10 @@ private fun WheelColumn(
                 Text(label(value), style = ExType.numberLarge, color = c.ink, textAlign = TextAlign.Center)
             }
         }
-        // The top half steps earlier, the bottom half later: each a full 44dp touch target.
-        RepeatTarget(canSet(earlier), "One $unit earlier", { onChange(earlier) }, Modifier.align(Alignment.TopCenter).fillMaxWidth().height(WHEEL_SLOT))
-        RepeatTarget(canSet(later), "One $unit later", { onChange(later) }, Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(WHEEL_SLOT))
+        // The top half steps earlier, the bottom half later: each a full 44dp touch target. A tap
+        // steps once; holding doesn't repeat, since a hold is often the start of a drag.
+        RepeatTarget(canSet(earlier), "One $unit earlier", { onChange(earlier) }, Modifier.align(Alignment.TopCenter).fillMaxWidth().height(WHEEL_SLOT), repeat = false)
+        RepeatTarget(canSet(later), "One $unit later", { onChange(later) }, Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(WHEEL_SLOT), repeat = false)
     }
 }
 
