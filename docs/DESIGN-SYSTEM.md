@@ -321,7 +321,7 @@ Rows are 44px (a touch target): an 11px dot on the line, the time in `number-sma
 
 Today in one line, the row under the app bar on Ember. Tapping it opens today's DayTimeline on Rhythm.
 
-A 44px `surface` pill: a 2px `line` track from 6 am (or the hour of an earlier first one) to midnight, an 8px `ember` dot per cigarette (`flare` past the allowance, each with a 1.5px `surface` ring so close ones stay apart), a 2px `oxy` stretch from the last one to now and a 10px `oxy` ring at now. Then "Last 11:40" (`ink-soft` "Last", the time in `number-small` at label-small size), or "Nothing yet" in `oxy-ink`, and a 16px chevron in `ink-soft`. It doesn't repeat the count: the Today badge above says it.
+A 44px `surface` pill: a 2px `line` track from 6 am (or the hour of an earlier first one) to midnight, an 8px `ember` dot per cigarette (`flare` past the allowance, each with a 1.5px `surface` ring so close ones stay apart), a 2px `oxy` stretch from the last one to now and a 10px `oxy` ring at now, at least 6px right of the newest dot so a log just made peeks out from behind it. Then "Last 11:40" (`ink-soft` "Last", the time in `number-small` at label-small size), or "Nothing yet" in `oxy-ink`, and a 16px chevron in `ink-soft`. It doesn't repeat the count: the Today badge above says it.
 
 - Compose: `DayLine(times, now, zone, h24, onClick = { … })`.
 

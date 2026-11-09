@@ -277,6 +277,8 @@ class ScreenshotTest {
     @Test fun emberTodayLoweredWithinLight() = shot("1g_ember_today_lowered", false, 0, bar = loweredWithinState(), todayOpen = true) { EmberScreen(loweredWithinState(), null, {}, {}, { _, _ -> }, {}, {}, todayOpen = true) }
     @Test fun emberTodayWithinLight() = shot("1f_ember_today_within", false, 0, bar = sampleState(38), todayOpen = true) { EmberScreen(sampleState(38), null, {}, {}, { _, _ -> }, {}, {}, todayOpen = true) }
     @Test fun emberHotDark() = shot("1b_ember_logged", true, 0, bar = sampleState(4)) { EmberScreen(sampleState(4), LoggedEvent(1, 5, 12), {}, {}, { _, _ -> }, {}, {}) }
+    // A minute after a log: the newest dot on the today row peeks out from behind the now ring.
+    @Test fun emberJustLoggedDark() = shot("1n_ember_just_logged", true, 0, bar = sampleState(1)) { EmberScreen(sampleState(1), null, {}, {}, { _, _ -> }, {}, {}) }
     @Test fun emberHotLight() = shot("1b_ember_logged", false, 0, bar = sampleState(4)) { EmberScreen(sampleState(4), LoggedEvent(1, 5, 12), {}, {}, { _, _ -> }, {}, {}) }
     // The Glow home: the gap as edge light and a line above the button.
     private fun glowState(minutesSinceLast: Long = 161) = sampleState(minutesSinceLast).let { it.copy(settings = it.settings.copy(home = HomeStyle.GLOW)) }

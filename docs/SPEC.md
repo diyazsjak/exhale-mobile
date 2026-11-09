@@ -116,7 +116,8 @@ First launch shows **Onboarding** (§3.7). Regulate is no longer a tab: its coun
   lines say "anything past your usual 10" instead of "anything more/over".
 - **Today row** (`DayLine`), right under the app bar: today in one line, a 44dp `surface` pill. A
   line from 6 am (or the hour of an earlier first one) to midnight with an ember dot per cigarette
-  (flare past the allowance), an oxygen stretch from the last one to now and a ring at now; then
+  (flare past the allowance), an oxygen stretch from the last one to now and a ring at now (never right on the
+  newest dot: right after a log the ring sits a little to its right, so the new dot peeks out); then
   "Last 11:40" (12/24-hour per the phone), or "Nothing yet" in oxygen ink, and a chevron. No count:
   the badge above has it. Tapping it closes the Today popover, picks today on Rhythm and switches to
   the Rhythm tab scrolled to the top, where today's list (§3.4) shows. TalkBack reads "Today: 4, at 7:57, 9:31, 10:52 and

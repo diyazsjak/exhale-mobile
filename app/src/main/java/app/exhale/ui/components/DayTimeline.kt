@@ -344,14 +344,17 @@ fun DayLine(
             val y = size.height / 2
             val r = 5.dp.toPx()
             fun x(m: Int) = r + (size.width - 2 * r) * ((m - start) / span).coerceIn(0f, 1f)
+            // Right after a log, now would sit on the newest dot and hide it: keep the ring far enough
+            // right that the dot peeks out from behind it.
+            val nowX = if (dots.isEmpty()) x(nowMinute) else maxOf(x(nowMinute), x(lastOnLine) + 6.dp.toPx()).coerceAtMost(size.width - r)
             drawLine(track, Offset(x(start), y), Offset(x(24 * 60), y), 2.dp.toPx(), StrokeCap.Round)
-            if (times.running != null) drawLine(oxy, Offset(x(lastOnLine), y), Offset(x(nowMinute), y), 2.dp.toPx(), StrokeCap.Round)
+            if (times.running != null) drawLine(oxy, Offset(x(lastOnLine), y), Offset(nowX, y), 2.dp.toPx(), StrokeCap.Round)
             dots.forEach { (m, over) ->
                 drawCircle(bg, 5.5.dp.toPx(), Offset(x(m), y))
                 drawCircle(if (over) flare else ember, 4.dp.toPx(), Offset(x(m), y))
             }
-            drawCircle(bg, r, Offset(x(nowMinute), y))
-            drawCircle(oxy, 4.dp.toPx(), Offset(x(nowMinute), y), style = Stroke(2.dp.toPx()))
+            drawCircle(bg, r, Offset(nowX, y))
+            drawCircle(oxy, 4.dp.toPx(), Offset(nowX, y), style = Stroke(2.dp.toPx()))
         }
         if (cigarettes.isEmpty()) {
             Text("Nothing yet", style = ExType.labelSmall, color = c.oxyInk)
