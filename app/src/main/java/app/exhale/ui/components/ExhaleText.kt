@@ -134,10 +134,12 @@ private fun ExhaleLines(text: String, from: String?, now: TextLayoutResult, befo
         val shift = before?.let { (now.size.width - it.size.width) / 2f } ?: 0f
         exhalePairs(from, text).map { pair ->
             val cell = pair.to?.let { Cell(now, it, 0f) }
-            val old = if (before != null && pair.from != null) Cell(before, pair.from, shift) else null
+            val old = if (before != null && from != null && pair.from != null) Cell(before, pair.from, shift) else null
+            // The old piece breathes out only if it changed and has something to show (not a space).
+            val leaving = old != null && pair.changed && from!!.substring(pair.from!!).isNotBlank()
             Piece(
                 cell = cell,
-                old = old.takeIf { pair.changed && from!!.substring(pair.from!!).isNotBlank() },
+                old = if (leaving) old else null,
                 changed = pair.changed,
                 // A piece that stayed the same glides from where it was, if the text's width changed.
                 slideFrom = if (!pair.changed && cell != null && old != null) old.boxStart - cell.boxStart else 0f,

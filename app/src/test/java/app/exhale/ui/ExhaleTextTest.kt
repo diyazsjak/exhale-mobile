@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
@@ -62,6 +63,20 @@ class ExhaleTextTest {
         fontScale = 1.5f
         compose.waitForIdle()
         assertTrue(heroWidth() > before * 1.2f)
+    }
+
+    // A log can make the number longer ("25m" → "1h 30m": pieces that come in with no old piece) or,
+    // undone, shorter again; and the first log replaces "—". None of it may throw.
+    @Test fun changesThatAddOrDropPieces_render() {
+        var text by mutableStateOf("25m")
+        compose.setContent {
+            ExhaleTheme(dark = true) { ExhaleText(text, ExType.display.copy(fontSize = 88.sp), Ex.colors.ink) }
+        }
+        for (next in listOf("1h 30m", "25m", "—", "1h 30m", "2d 3h", "59m")) {
+            compose.runOnUiThread { text = next }
+            compose.waitForIdle()
+            compose.onNodeWithContentDescription(next).assertExists()
+        }
     }
 
     /** Each piece as "old→new", "+new" (comes), "-old" (goes) or "=same", left to right. */
