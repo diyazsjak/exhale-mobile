@@ -55,6 +55,11 @@ class ExhaleRepository(
 
     suspend fun tagLog(id: Long, trigger: Trigger?) = db.logs().setTrigger(id, trigger?.key)
 
+    /** Sets craving wave [id]'s trigger (null clears it). Its time and length stay as they were. */
+    suspend fun tagUrge(id: Long, trigger: Trigger?) = db.urges().setTrigger(id, trigger?.key)
+
+    suspend fun deleteUrge(id: Long) = db.urges().delete(id)
+
     suspend fun recordUrge(started: Instant, ended: Instant, outcome: UrgeOutcome, trigger: Trigger?) {
         db.urges().insert(Urge(0, started, ended, outcome, trigger).toEntity())
     }

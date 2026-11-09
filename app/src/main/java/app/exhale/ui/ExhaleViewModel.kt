@@ -179,6 +179,19 @@ class ExhaleViewModel(private val repo: ExhaleRepository) : ViewModel() {
         viewModelScope.launch { triggerLock.withLock { repo.editLog(id, at, trigger) } }
     }
 
+    /**
+     * The day list's edit of a craving wave: only its trigger (null clears it); when and how long
+     * it was stay. A save that changes nothing writes nothing. Takes the tag lock, like [tag].
+     */
+    fun tagUrge(id: Long, trigger: Trigger?) {
+        if (state.value.urges.firstOrNull { it.id == id }?.trigger == trigger) return
+        viewModelScope.launch { triggerLock.withLock { repo.tagUrge(id, trigger) } }
+    }
+
+    fun deleteUrge(id: Long) {
+        viewModelScope.launch { repo.deleteUrge(id) }
+    }
+
     /** The day list's delete. A Logged card still showing this log closes. */
     fun deleteLog(id: Long) {
         viewModelScope.launch { repo.undoLog(id) }

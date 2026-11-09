@@ -69,6 +69,20 @@ class DatabaseTest {
         db.close()
     }
 
+    @Test fun urge_setTrigger_keepsItsTime_andDeleteRemovesOnlyIt() = runBlocking {
+        val db = ExhaleDatabase.create(context)
+        val a = db.urges().insert(UrgeEntity(startedMillis = 1000, endedMillis = 241_000, outcome = "SURVIVED", trigger = "STRESS"))
+        val b = db.urges().insert(UrgeEntity(startedMillis = 5000, endedMillis = 245_000, outcome = "SURVIVED", trigger = null))
+        db.urges().setTrigger(a, null)
+        db.urges().setTrigger(b, "COFFEE")
+        db.urges().delete(a)
+        val left = db.urges().observeAll().first().single()
+        assertEquals(b, left.id)
+        assertEquals("COFFEE", left.trigger)
+        assertEquals(5000L to 245_000L, left.startedMillis to left.endedMillis)
+        db.close()
+    }
+
     /** Creates exhale.db exactly as version 1 left it, from the exported schema. */
     private fun writeVersion1(fill: (SQLiteDatabase) -> Unit) {
         val schema = JSONObject(File("schemas/app.exhale.data.ExhaleDatabase/1.json").readText()).getJSONObject("database")

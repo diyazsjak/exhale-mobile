@@ -84,6 +84,12 @@ interface UrgeDao {
     @Insert
     suspend fun insertAll(urges: List<UrgeEntity>)
 
+    @Query("UPDATE urge SET trigger = :trigger WHERE id = :id")
+    suspend fun setTrigger(id: Long, trigger: String?)
+
+    @Query("DELETE FROM urge WHERE id = :id")
+    suspend fun delete(id: Long)
+
     @Query("DELETE FROM urge")
     suspend fun clear()
 }

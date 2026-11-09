@@ -255,6 +255,8 @@ private fun MainNav(state: ExhaleState, logged: LoggedEvent?, vm: ExhaleViewMode
                     onUrge = { nav.navigate(WAVE) },
                     onEditLog = vm::editLog,
                     onDeleteLog = vm::deleteLog,
+                    onTagUrge = vm::tagUrge,
+                    onDeleteUrge = vm::deleteUrge,
                     onAddTrigger = vm::addTrigger,
                 )
             }

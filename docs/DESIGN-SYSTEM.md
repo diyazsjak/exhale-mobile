@@ -220,7 +220,7 @@ A count inside a list card, lighter than the Stepper: for settings changed a ste
 
 A time of day as two wheels, hour and minutes, for moving a logged cigarette. It behaves like the iOS and Android spinners people already know.
 
-Each wheel shows three values on a 52px pitch: the chosen one in the middle (`number-large`, `ink`), its neighbours above (earlier) and below (later), smaller and fading; values that can't be chosen (later than now) are dimmer still. Drag a wheel up for later, down for earlier; it follows the finger, turns a value every half slot and settles back in 160ms. Tapping the value below steps later, above earlier; holding repeats (after 420ms, every 70ms). Hours go round the clock, minutes round the hour. A `number-large` colon in `ink-soft` sits between the wheels, and in 12-hour mode the AM/PM in `label`/`ink-soft` after them. Screen readers get "One minute later" / "earlier" buttons and the time in the phone's 12/24-hour form.
+Each wheel is two 44px rows tall: the chosen value whole in the middle (`number-large`, `ink`), its neighbours above (earlier) and below (later) cut to half, smaller and fading out to the edges, as on iOS; values that can't be chosen (later than now) are dimmer still. Drag a wheel up for later, down for earlier; it follows the finger, turns a value every half row and settles back in 160ms. Tapping the lower half steps later, the upper half earlier (each a full 44px target); holding repeats (after 420ms, every 70ms). Hours go round the clock, minutes round the hour. A `number-large` colon in `ink-soft` sits between the wheels, and in 12-hour mode the AM/PM in `label`/`ink-soft` after them. Screen readers get "One minute later" / "earlier" buttons and the time in the phone's 12/24-hour form.
 
 - Compose: `TimeWheel(minuteOfDay, onChange, canSet = { LogEdit.moved(at, it, zone, now) != null }, h24)`.
 
@@ -273,11 +273,11 @@ A centred card (`space-xl` padding) over the scrim: a `headline` title as a ques
 
 ### LogEditor
 
-The modal behind a tap on a DayTimeline cigarette: change its time or trigger, or delete it.
+The modal behind a tap on a DayTimeline entry: change a cigarette's time or trigger, or a wave's trigger, or delete either.
 
-A `surface-high` card (so the `surface` trigger chips stand out, as on the Logged card) with `space-xl` padding: a `headline` title ("Sunday, 1:05 PM"), a "Time" overline and a TimeWheel, a "Trigger" overline and TriggerChips (tap the picked one again to clear it; "Your own" adds one), then a Primary "Save" and a Ghost "Delete this one". Delete asks first with a ChoiceDialog ("Delete the one at 1:05 PM?", Primary "Delete", Ghost "Keep it"). Tapping outside or Back closes without saving. Scrolls on a short screen.
+A `surface-high` card (so the `surface` trigger chips stand out, as on the Logged card) with `space-xl` padding. The header is an `overline` ("Today · 2 of 10", "Sunday · wave at 4:38 PM, 4 min") with a 48px trash IconButton in `ink-soft` at the right, away from Save so it isn't hit by mistake. Then a "Time" overline and a TimeWheel (cigarettes only: a wave keeps when it was and how long), a "Trigger" overline and TriggerChips (tap the picked one again to clear it; "Your own" adds one), and a full-width Primary "Save". The trash asks first with a ChoiceDialog ("Delete the one at 1:05 PM?", Primary "Delete", Ghost "Keep it"). Tapping outside or Back closes without saving. Scrolls on a short screen.
 
-- Compose: `LogEditDialog(log, dayName, zone, now, h24, triggers, onSave = { at, trigger -> … }, onDelete = { … }, onDismiss = { … }, onAddTrigger = vm::addTrigger)`; `LogEditor(...)` is the same card without the dialog window (catalogue, screenshots), built on `ExDialogCard`, the card every kit dialog uses.
+- Compose: `LogEditDialog(heading, itemKey, trigger, triggers, onSave = { at, trigger -> … }, onDelete = { … }, deleteLabel = "Delete this one", onDismiss = { … }, time = EditTime(at, zone, now, h24), onAddTrigger = vm::addTrigger)`; leave out `time` for a wave. `LogEditor(...)` is the same card without the dialog window (catalogue, screenshots), built on `ExDialogCard`, the card every kit dialog uses (here with no title: the header row is its own).
 
 ### Toast
 

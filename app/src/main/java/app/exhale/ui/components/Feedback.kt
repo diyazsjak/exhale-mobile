@@ -142,20 +142,20 @@ fun ExInputDialog(title: String, onDismiss: () -> Unit, actions: List<DialogActi
 
 /**
  * The card inside the kit's dialogs, without the dialog window: `space-xl` padding, a `headline`
- * [title], [content], then [actions] stacked full width. The dialogs wrap it in `Dialog`; the
+ * [title] (or none, when [content] brings its own header), [content], then [actions] stacked full width. The dialogs wrap it in `Dialog`; the
  * catalogue and screenshots draw it in place (a dialog window never goes idle in the test harness).
  * [color] `surface-high` lifts `surface` chips off it.
  */
 @Composable
 fun ExDialogCard(
-    title: String,
+    title: String?,
     actions: List<DialogAction>,
     modifier: Modifier = Modifier,
     color: Color? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     ExCard(modifier, color = color, padding = ExSpace.xl) {
-        Text(title, style = ExType.headline, color = Ex.colors.ink)
+        if (title != null) Text(title, style = ExType.headline, color = Ex.colors.ink)
         content()
         DialogActions(actions)
     }

@@ -102,6 +102,7 @@ fun ExIconButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     filled: Boolean = true,
+    tint: Color? = null,
 ) {
     val c = Ex.colors
     val source = remember { MutableInteractionSource() }
@@ -114,7 +115,7 @@ fun ExIconButton(
             .clickable(source, ripple(), role = Role.Button, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(icon, contentDescription, Modifier.size(ExSize.icon), tint = c.ink)
+        Icon(icon, contentDescription, Modifier.size(ExSize.icon), tint = tint ?: c.ink)
     }
 }
 

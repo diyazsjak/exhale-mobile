@@ -70,6 +70,7 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import app.exhale.domain.DayEntry
 import app.exhale.domain.DayFilter
 import app.exhale.domain.DayTimes
 import app.exhale.domain.SmokeLog
@@ -82,6 +83,7 @@ import app.exhale.ui.ExhaleState
 import app.exhale.ui.Fmt
 import app.exhale.ui.components.DayTimeline
 import app.exhale.ui.components.DialogAction
+import app.exhale.ui.components.EditTime
 import app.exhale.ui.components.ExChoiceDialog
 import app.exhale.ui.components.LogEditDialog
 import app.exhale.ui.components.ActiveFilter
@@ -125,6 +127,9 @@ fun RhythmScreen(
     /** The day list's edit: a log moves to a time and gets a trigger (null clears it). */
     onEditLog: (id: Long, at: Instant, trigger: Trigger?) -> Unit = { _, _, _ -> },
     onDeleteLog: (id: Long) -> Unit = {},
+    /** A wave ridden out on the day list: only its trigger changes (null clears it), or it's deleted. */
+    onTagUrge: (id: Long, trigger: Trigger?) -> Unit = { _, _ -> },
+    onDeleteUrge: (id: Long) -> Unit = {},
     /** "Your own" in the edit dialog: adds a trigger by name, then hands it back. */
     onAddTrigger: (name: String, then: (Trigger) -> Unit) -> Unit = { _, _ -> },
     initialHour: Int? = null,
@@ -140,8 +145,8 @@ fun RhythmScreen(
     var lines by remember(day) { mutableStateOf(initialLines) }
     var idea by remember { mutableIntStateOf(0) }
     // The day list's edit dialog, and the question before a delete.
-    var editing by remember { mutableStateOf<SmokeLog?>(null) }
-    var deleting by remember { mutableStateOf<SmokeLog?>(null) }
+    var editing by remember { mutableStateOf<DayEntry?>(null) }
+    var deleting by remember { mutableStateOf<DayEntry?>(null) }
 
     val dayFilter = DayFilter.entries[filter]
     val minute = state.now.epochSecond / 60
@@ -320,24 +325,49 @@ fun RhythmScreen(
         )
     }
 
-    editing?.let { log ->
-        val name = Fmt.dayName(log.at.atZone(zone).toLocalDate(), state.today)
-        LogEditDialog(
-            // To the minute, as the edit works: the dialog then redraws once a minute, not every second.
-            log, name, zone, Instant.ofEpochSecond(minute * 60), h24, state.shownTriggers,
-            onSave = { at, t -> onEditLog(log.id, at, t); editing = null },
-            onDelete = { deleting = log; editing = null },
-            onDismiss = { editing = null },
-            onAddTrigger = onAddTrigger,
-        )
+    // To the minute, as the edit works: the dialog then redraws once a minute, not every second.
+    val nowMinute = Instant.ofEpochSecond(minute * 60)
+    editing?.let { entry ->
+        val day = Fmt.dayName(entry.at.atZone(zone).toLocalDate(), state.today)
+        when (entry) {
+            is DayEntry.Cigarette -> LogEditDialog(
+                heading = "$day · " + (view.times?.allowance?.let { "${entry.number} of $it" } ?: "${entry.number}"),
+                itemKey = entry.log.id, trigger = entry.log.trigger, triggers = state.shownTriggers,
+                onSave = { at, t -> onEditLog(entry.log.id, at ?: entry.at, t); editing = null },
+                onDelete = { deleting = entry; editing = null },
+                deleteLabel = "Delete this one",
+                onDismiss = { editing = null },
+                time = EditTime(entry.at, zone, nowMinute, h24),
+                onAddTrigger = onAddTrigger,
+            )
+            // A wave ridden out keeps when it was and how long; only its trigger changes.
+            is DayEntry.Wave -> LogEditDialog(
+                heading = "$day · wave at ${Fmt.time(entry.at, zone, h24)}, ${entry.length.toMinutes().coerceAtLeast(1)} min",
+                itemKey = "wave" to entry.urge.id, trigger = entry.urge.trigger, triggers = state.shownTriggers,
+                onSave = { _, t -> onTagUrge(entry.urge.id, t); editing = null },
+                onDelete = { deleting = entry; editing = null },
+                deleteLabel = "Delete this wave",
+                onDismiss = { editing = null },
+                onAddTrigger = onAddTrigger,
+            )
+        }
     }
-    deleting?.let { log ->
-        val d = log.at.atZone(zone).toLocalDate()
+    deleting?.let { entry ->
+        val d = entry.at.atZone(zone).toLocalDate()
+        val whose = if (d == state.today) "today's" else "${Fmt.dayName(d, state.today)}'s"
+        val time = Fmt.time(entry.at, zone, h24)
+        val wave = entry is DayEntry.Wave
         ExChoiceDialog(
-            "Delete the one at ${Fmt.time(log.at, zone, h24)}?",
-            "It comes off ${if (d == state.today) "today's" else "${Fmt.dayName(d, state.today)}'s"} count. This can't be undone.",
+            if (wave) "Delete the wave at $time?" else "Delete the one at $time?",
+            (if (wave) "It comes off $whose waves ridden out." else "It comes off $whose count.") + " This can't be undone.",
             listOf(
-                DialogAction("Delete", ButtonStyle.Primary) { onDeleteLog(log.id); deleting = null },
+                DialogAction("Delete", ButtonStyle.Primary) {
+                    when (entry) {
+                        is DayEntry.Cigarette -> onDeleteLog(entry.log.id)
+                        is DayEntry.Wave -> onDeleteUrge(entry.urge.id)
+                    }
+                    deleting = null
+                },
                 DialogAction("Keep it", ButtonStyle.Ghost) { deleting = null },
             ),
             onDismiss = { deleting = null },
@@ -350,7 +380,7 @@ fun RhythmScreen(
  * delete it. Under it, the day's longest gap.
  */
 @Composable
-private fun DayCard(times: DayTimes, today: LocalDate, zone: ZoneId, h24: Boolean, onEdit: (SmokeLog) -> Unit) {
+private fun DayCard(times: DayTimes, today: LocalDate, zone: ZoneId, h24: Boolean, onEdit: (DayEntry) -> Unit) {
     val c = Ex.colors
     val isToday = times.day == today
     ExCard(Modifier.padding(vertical = ExSpace.xxs)) {

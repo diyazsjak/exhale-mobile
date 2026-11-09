@@ -40,6 +40,7 @@ import app.exhale.ui.components.ExIcons
 import app.exhale.ui.components.FloatingTabBar
 import app.exhale.ui.components.TabItem
 import app.exhale.ui.components.LogEditor
+import app.exhale.ui.components.EditTime
 import androidx.compose.foundation.layout.padding
 import app.exhale.ui.screens.UiKitScreen
 import app.exhale.ui.screens.EmberOrbCanvas
@@ -219,6 +220,8 @@ class ScreenshotTest {
     // The edit dialog's content (a dialog window never goes idle in the harness, so it's drawn in place over the dimmed screen).
     @Test fun rhythmEditDark() = shot("4g_rhythm_edit", true) { EditShot() }
     @Test fun rhythmEditLight() = shot("4g_rhythm_edit", false) { EditShot() }
+    // A wave ridden out: no time wheel (when and how long stay), just its trigger and delete.
+    @Test fun rhythmEditWaveDark() = shot("4h_rhythm_edit_wave", true) { EditWaveShot() }
     @Test fun rhythmHourDark() = shot("4c_rhythm_hour", true, 1) { RhythmScreen(longState(), initialHour = 8) }
     @Test fun rhythmLinesLight() = shot("4d_rhythm_lines", false, 1) { RhythmScreen(longState(), initialLines = true) }
     @Test fun rhythmNewDark() = shot("4e_rhythm_new", true, 1) {
@@ -237,9 +240,27 @@ class ScreenshotTest {
         Box(Modifier.fillMaxSize()) {
             RhythmScreen(st, day = st.today)
             Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.5f)))
+            val e = st.todayTimes!!.cigarettes[1]
             LogEditor(
-                st.todayTimes!!.cigarettes[1].log, "Today", zone, now, h24 = false, triggers = st.shownTriggers,
-                onSave = { _, _ -> }, onDelete = {}, modifier = Modifier.align(Alignment.Center).padding(horizontal = 24.dp),
+                "Today · 2 of ${st.allowance}", e.log.id, e.log.trigger, st.shownTriggers, onSave = { _, _ -> }, onDelete = {},
+                deleteLabel = "Delete this one", modifier = Modifier.align(Alignment.Center).padding(horizontal = 24.dp),
+                time = EditTime(e.at, zone, now, h24 = false),
+            )
+        }
+    }
+
+    @Composable
+    private fun EditWaveShot() {
+        val st = longState()
+        val day = dayWithWave(st)
+        val wave = st.urges.last { it.outcome == UrgeOutcome.SURVIVED }
+        val heading = "${Fmt.dayName(day, st.today)} · wave at ${Fmt.time(wave.startedAt, zone, false)}, 4 min"
+        Box(Modifier.fillMaxSize()) {
+            RhythmScreen(st, day = day)
+            Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.5f)))
+            LogEditor(
+                heading, wave.id, wave.trigger, st.shownTriggers, onSave = { _, _ -> }, onDelete = {},
+                deleteLabel = "Delete this wave", modifier = Modifier.align(Alignment.Center).padding(horizontal = 24.dp),
             )
         }
     }

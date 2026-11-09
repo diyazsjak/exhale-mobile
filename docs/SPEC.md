@@ -216,16 +216,20 @@ Shows the last 30 days (today and the 29 before), or one picked day. Order:
   in the day: 4h 52m, 1:52 PM to 6:44 PM." (today: "Longest gap today: …, 11:40 AM to now."; the
   night before the first one doesn't count). An empty day says "Nothing logged that day." /
   "Nothing logged today." Switching between the clock and the list, or between days, cross-fades.
-- **Editing a cigarette**: tapping one opens a modal (`LogEditDialog`): "Sunday, 1:05 PM", a Time
-  wheel (hour and minutes as spinner wheels: drag up or tap the value below for later, drag down or
-  tap the value above for earlier, hold to repeat; hours round the clock, minutes round the hour;
+- **Editing a cigarette**: tapping one opens a modal (`LogEditDialog`). Its header is an overline,
+  "Sunday · 3 of 8" (just the number before the plan start), with a trash button at the right; then a Time
+  wheel (hour and minutes as spinner wheels, the neighbours cut to half and fading: drag up or tap the
+  lower half for later, drag down or tap the upper half for earlier, hold to repeat; hours round the clock, minutes round the hour;
   times that can't be chosen are dimmed; 12-hour phones get AM/PM), the trigger chips (the picked one again clears it; "Your own" adds one,
-  as on the Logged card; a hidden trigger the log has keeps its chip here), Save (Primary) and
-  "Delete this one" (Ghost). Rules in §4 LogEdit: the time stays on the log's day and never goes past
+  as on the Logged card; a hidden trigger the log has keeps its chip here) and Save (Primary). Rules in §4 LogEdit: the time stays on the log's day and never goes past
   now. Save writes only what changed (a save that changes nothing writes nothing) and closes; outside or Back closes without saving. Delete asks
   "Delete the one at 1:05 PM?" / "It comes off Sunday's count. This can't be undone." with Delete
   (Primary) and Keep it (Ghost). Counts, allowances, borrowing, gaps and every other screen follow
-  the edit at once. Only cigarettes are editable; waves aren't.
+  the edit at once.
+- **Editing a wave ridden out**: tapping one opens the same modal without the Time wheel: when it
+  was and how long stay as they were. Header "Sunday · wave at 4:38 PM, 4 min" with the trash
+  button, the trigger chips and Save. Delete asks "Delete the wave at 4:38 PM?" / "It comes off
+  Sunday's waves ridden out. This can't be undone." Rhythm's waves card follows at once.
 - **Comparison card** (when the 30 days before hold at least 7 tracked days, not on a picked day):
   led by the **average** for the day filter: "Average · last 30 days" ("Average · weekdays, last 30
   days"; "Average · since you started" when tracking began inside the window), a big "9.3" and "a

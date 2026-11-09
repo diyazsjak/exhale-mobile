@@ -1,6 +1,10 @@
 package app.exhale.ui.components
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
@@ -119,7 +123,7 @@ private enum class Mark { Previous, Smoke, Over, Wave, Now }
  * past the allowance) with its exact time, trigger and "3 of 8"; the oxygen line between dots is
  * the gap, longer for longer gaps and labelled "3h 27m". Waves ridden out sit on the line as oxygen
  * rings; today ends with "Now" and the running gap. The day before's last one opens the list, faint.
- * Tapping a cigarette calls [onEdit]. Shows nothing for an empty day: the caller says so.
+ * Tapping a cigarette or a wave calls [onEdit]. Shows nothing for an empty day: the caller says so.
  */
 @Composable
 fun DayTimeline(
@@ -127,7 +131,7 @@ fun DayTimeline(
     today: LocalDate,
     zone: ZoneId,
     h24: Boolean,
-    onEdit: ((SmokeLog) -> Unit)?,
+    onEdit: ((DayEntry) -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
     val c = Ex.colors
@@ -154,17 +158,22 @@ fun DayTimeline(
                         time = time, timeColor = c.ink,
                         label = label, labelColor = if (e.log.trigger == null) c.inkFaint else c.ink,
                         end = count, endColor = if (e.over) c.flareInk else c.inkFaint,
-                        onClick = onEdit?.let { { it(e.log) } },
+                        onClick = onEdit?.let { { it(e) } },
                         description = "$time, $label, $count" + (e.gapBefore?.let { ", ${Fmt.gap(it)} after the one before" } ?: ""),
                     )
                 }
                 is TimelineRow.Wave -> {
                     val u = row.entry.urge
+                    val time = Fmt.time(u.startedAt, zone, h24)
+                    val label = "Rode out a wave" + (u.trigger?.let { " · ${it.label}" } ?: "")
+                    val length = "${row.entry.length.toMinutes().coerceAtLeast(1)} min"
                     MarkRow(
                         Mark.Wave, above, below, timeWidth,
-                        time = Fmt.time(u.startedAt, zone, h24), timeColor = c.oxyInk,
-                        label = "Rode out a wave" + (u.trigger?.let { " · ${it.label}" } ?: ""), labelColor = c.oxyInk,
-                        end = "${row.entry.length.toMinutes().coerceAtLeast(1)} min", endColor = c.inkFaint,
+                        time = time, timeColor = c.oxyInk,
+                        label = label, labelColor = c.oxyInk,
+                        end = length, endColor = c.inkFaint,
+                        onClick = onEdit?.let { { it(row.entry) } },
+                        description = "$time, $label, $length",
                     )
                 }
                 is TimelineRow.Now -> MarkRow(
@@ -359,13 +368,14 @@ fun DayLine(
     }
 }
 
-/** Height of one value on a [TimeWheel]; it shows three. */
-private val WHEEL_SLOT = ExSize.row
+/** Height of one value on a [TimeWheel]: the middle one whole, its neighbours cut to half, two slots in all. */
+private val WHEEL_SLOT = ExSize.touch
 
 /**
  * A time of day as two wheels, hour and minutes, like the iOS and Android spinners: the value in
- * the middle, its neighbours fading above (earlier) and below (later). Drag a wheel up for later,
- * down for earlier; tap the value below or above to step to it, and hold to keep going. Hours go
+ * the middle, its neighbours half shown and fading above (earlier) and below (later). Drag a wheel
+ * up for later, down for earlier; tap its lower half for later or upper half for earlier, and hold
+ * to keep going. Hours go
  * round the clock, minutes round the hour. [canSet] says whether a time can be chosen (a log can't
  * move into the future): one that can't is dimmed, and the wheel won't turn to it.
  */
@@ -414,7 +424,13 @@ private fun WheelColumn(
     Box(
         Modifier
             .width(80.dp)
-            .height(WHEEL_SLOT * 3)
+            .height(WHEEL_SLOT * 2)
+            // The neighbours fade out towards the edges, as on a spinner.
+            .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+            .drawWithContent {
+                drawContent()
+                drawRect(Brush.verticalGradient(0f to Color.Transparent, 0.3f to Color.Black, 0.7f to Color.Black, 1f to Color.Transparent), blendMode = BlendMode.DstIn)
+            }
             .clipToBounds()
             .pointerInput(step) {
                 val settle = { scope.launch { offset.animateTo(0f, tween(160)) } }
@@ -445,7 +461,7 @@ private fun WheelColumn(
                 Modifier
                     .fillMaxWidth()
                     .height(WHEEL_SLOT)
-                    .offset { IntOffset(0, (slot * (k + 1) + offset.value).roundToInt()) }
+                    .offset { IntOffset(0, (slot * k + slot / 2 + offset.value).roundToInt()) }
                     .graphicsLayer {
                         val dist = (abs(slot * k + offset.value) / slot).coerceAtMost(2f)
                         val s = 1f - 0.18f * dist
@@ -458,52 +474,57 @@ private fun WheelColumn(
                 Text(label(value), style = ExType.numberLarge, color = ink, textAlign = TextAlign.Center)
             }
         }
+        // The top half steps earlier, the bottom half later: each a full 44dp touch target.
         RepeatTarget(canSet(earlier), "One $unit earlier", { onChange(earlier) }, Modifier.align(Alignment.TopCenter).fillMaxWidth().height(WHEEL_SLOT))
         RepeatTarget(canSet(later), "One $unit later", { onChange(later) }, Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(WHEEL_SLOT))
     }
 }
 
+/** The time part of a [LogEditor]: [at] can move within its own day, never past [now]. */
+class EditTime(val at: Instant, val zone: ZoneId, val now: Instant, val h24: Boolean)
+
 /**
- * Change one logged cigarette: its time (same day, never later than [now]) and its trigger (tap the
- * picked one again to clear it; "Your own" names a new one with [onAddTrigger]). Save hands back the
- * time and trigger, changed or not (the ViewModel skips a save that changes nothing). Delete hands
- * over to the caller, which asks first. Shown in [LogEditDialog].
+ * Change one thing on the day list: its trigger (tap the picked one again to clear it; "Your own"
+ * names a new one with [onAddTrigger]) and, with [time], when it was (a cigarette; a wave keeps its
+ * time). [heading] is an overline ("Today · 2 of 10") beside a trash button for [onDelete], which
+ * asks first. Save hands back the time ([EditTime.at] when unchanged, null without [time]) and the
+ * trigger, changed or not (the ViewModel skips a save that changes nothing). Shown in [LogEditDialog].
  */
 @Composable
 fun LogEditor(
-    log: SmokeLog,
-    dayName: String,
-    zone: ZoneId,
-    now: Instant,
-    h24: Boolean,
+    heading: String,
+    itemKey: Any,
+    trigger: Trigger?,
     triggers: List<Trigger>,
-    onSave: (at: Instant, trigger: Trigger?) -> Unit,
+    onSave: (at: Instant?, trigger: Trigger?) -> Unit,
     onDelete: () -> Unit,
+    deleteLabel: String,
     modifier: Modifier = Modifier,
+    time: EditTime? = null,
     onAddTrigger: ((name: String, then: (Trigger) -> Unit) -> Unit)? = null,
 ) {
     val c = Ex.colors
-    var minute by remember(log.id) { mutableIntStateOf(DayTimes.minuteOf(log.at, zone)) }
-    var trigger by remember(log.id) { mutableStateOf(log.trigger) }
-    // A trigger hidden since keeps its chip here, so the log doesn't lose it by being opened.
-    val chips = remember(triggers, log.trigger) { log.trigger?.takeIf { it !in triggers }?.let { triggers + it } ?: triggers }
-    val at = LogEdit.moved(log.at, minute, zone, now)
+    var minute by remember(itemKey) { mutableIntStateOf(time?.let { DayTimes.minuteOf(it.at, it.zone) } ?: 0) }
+    var picked by remember(itemKey) { mutableStateOf(trigger) }
+    // A trigger hidden since keeps its chip here, so the entry doesn't lose it by being opened.
+    val chips = remember(triggers, trigger) { trigger?.takeIf { it !in triggers }?.let { triggers + it } ?: triggers }
+    val at = time?.let { LogEdit.moved(it.at, minute, it.zone, it.now) ?: it.at }
     // On surface-high like the Logged card, so the trigger chips stand out from it.
-    ExDialogCard(
-        "$dayName, ${Fmt.time(log.at, zone, h24)}",
-        listOf(
-            DialogAction("Save", ButtonStyle.Primary) { onSave(at ?: log.at, trigger) },
-            DialogAction("Delete this one", ButtonStyle.Ghost, onClick = onDelete),
-        ),
-        modifier, color = c.surfaceHigh,
-    ) {
-        Overline("Time", Modifier.padding(top = ExSpace.sm))
-        TimeWheel(minute, { minute = it }, canSet = { LogEdit.moved(log.at, it, zone, now) != null }, h24 = h24)
+    ExDialogCard(null, listOf(DialogAction("Save", ButtonStyle.Primary) { onSave(at, picked) }), modifier, color = c.surfaceHigh) {
+        Row(Modifier.padding(bottom = ExSpace.xxs), verticalAlignment = Alignment.CenterVertically) {
+            Overline(heading, Modifier.weight(1f))
+            // Away from Save, so it isn't hit by mistake; it asks before deleting anyway.
+            ExIconButton(ExIcons.Trash, deleteLabel, onDelete, Modifier.offset(x = ExSpace.sm), filled = false, tint = c.inkSoft)
+        }
+        if (time != null) {
+            Overline("Time")
+            TimeWheel(minute, { minute = it }, canSet = { LogEdit.moved(time.at, it, time.zone, time.now) != null }, h24 = time.h24)
+        }
         Overline("Trigger", Modifier.padding(top = ExSpace.sm))
         TriggerChips(
-            chips, selected = trigger,
-            onPick = { t -> trigger = if (trigger == t) null else t },
-            onAdd = onAddTrigger?.let { add -> { name -> add(name) { trigger = it } } },
+            chips, selected = picked,
+            onPick = { t -> picked = if (picked == t) null else t },
+            onAdd = onAddTrigger?.let { add -> { name -> add(name) { picked = it } } },
         )
     }
 }
@@ -511,19 +532,19 @@ fun LogEditor(
 /** [LogEditor] as a modal. Tapping outside or Back closes it without saving. */
 @Composable
 fun LogEditDialog(
-    log: SmokeLog,
-    dayName: String,
-    zone: ZoneId,
-    now: Instant,
-    h24: Boolean,
+    heading: String,
+    itemKey: Any,
+    trigger: Trigger?,
     triggers: List<Trigger>,
-    onSave: (at: Instant, trigger: Trigger?) -> Unit,
+    onSave: (at: Instant?, trigger: Trigger?) -> Unit,
     onDelete: () -> Unit,
+    deleteLabel: String,
     onDismiss: () -> Unit,
+    time: EditTime? = null,
     onAddTrigger: ((name: String, then: (Trigger) -> Unit) -> Unit)? = null,
 ) {
     Dialog(onDismissRequest = onDismiss) {
         // Scrolls on a short screen or with the keyboard up for "Your own".
-        LogEditor(log, dayName, zone, now, h24, triggers, onSave, onDelete, Modifier.verticalScroll(rememberScrollState()), onAddTrigger)
+        LogEditor(heading, itemKey, trigger, triggers, onSave, onDelete, deleteLabel, Modifier.verticalScroll(rememberScrollState()), time, onAddTrigger)
     }
 }
