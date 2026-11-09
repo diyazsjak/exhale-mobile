@@ -5,6 +5,7 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
+import java.time.ZonedDateTime
 
 /** One thing on a day's list ([DayTimes.entries]), at the moment it happened. */
 sealed interface DayEntry {
@@ -64,9 +65,9 @@ data class DayTimes(
         const val LINE_START_MINUTE = 6 * 60
 
         /**
-         * [day] from [logs] (oldest first, as stored) and [urges] (any order). Only waves ridden out
-         * show. [now] makes today's running gap and leaves out anything after it. Runs every second
-         * for today, so it walks back from the newest log instead of going through the whole history.
+         * [day] from [logs] and [urges], both oldest first as stored. Only waves ridden out show.
+         * [now] makes today's running gap and leaves out anything after it. Runs every second for
+         * today, so it walks back from the newest ones instead of going through the whole history.
          */
         fun of(
             logs: List<SmokeLog>,
@@ -92,8 +93,12 @@ data class DayTimes(
                 DayEntry.Cigarette(log, number, allowance != null && number > allowance, before?.let { Duration.between(it, log.at) })
                     .also { before = log.at }
             }
-            val waves = urges
-                .filter { it.outcome == UrgeOutcome.SURVIVED && it.startedAt >= start && it.startedAt < end && it.startedAt <= now }
+            var u = urges.lastIndex
+            while (u >= 0 && (urges[u].startedAt >= end || urges[u].startedAt > now)) u--
+            val waveEnd = u
+            while (u >= 0 && urges[u].startedAt >= start) u--
+            val waves = urges.subList(u + 1, waveEnd + 1)
+                .filter { it.outcome == UrgeOutcome.SURVIVED }
                 .map { DayEntry.Wave(it) }
             val isToday = now >= start && now < end
             return DayTimes(
@@ -126,12 +131,15 @@ object LogEdit {
     /**
      * The moment a log at [original] moves to when set to [minuteOfDay]: on the same day, at the
      * start of that minute. Unchanged minutes keep [original] to the second. Null when that moment
-     * is after [now]: a log can't move into the future.
+     * is after [now] (a log can't move into the future) or doesn't exist (skipped when the clocks go
+     * forward). A time that happens twice (clocks going back) keeps the offset [original] had.
      */
     fun moved(original: Instant, minuteOfDay: Int, zone: ZoneId, now: Instant): Instant? {
-        if (DayTimes.minuteOf(original, zone) == minuteOfDay) return original
-        val day = original.atZone(zone).toLocalDate()
-        val at = day.atTime(minuteOfDay / 60, minuteOfDay % 60).atZone(zone).toInstant()
-        return at.takeIf { it <= now }
+        val was = original.atZone(zone)
+        if (was.hour * 60 + was.minute == minuteOfDay) return original
+        val local = was.toLocalDate().atTime(minuteOfDay / 60, minuteOfDay % 60)
+        val at = ZonedDateTime.ofLocal(local, zone, was.offset)
+        if (at.toLocalDateTime() != local) return null
+        return at.toInstant().takeIf { it <= now }
     }
 }

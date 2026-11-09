@@ -22,6 +22,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -62,6 +63,7 @@ import app.exhale.ui.screens.UiKitScreen
 import app.exhale.ui.screens.UrgeWaveScreen
 import app.exhale.ui.theme.Ex
 import app.exhale.ui.theme.ExColors
+import kotlinx.coroutines.launch
 import java.time.LocalDate
 
 internal enum class Tab(val route: String, val label: String, val icon: ImageVector) {
@@ -164,6 +166,7 @@ private fun MainNav(state: ExhaleState, logged: LoggedEvent?, vm: ExhaleViewMode
     var todayOpen by rememberSaveable { mutableStateOf(false) }
     // The tabs' scroll positions, hoisted so the app bar knows when content is under it.
     val rhythmScroll = rememberScrollState()
+    val scope = rememberCoroutineScope()
     val airScroll = rememberScrollState()
     val moneyScroll = rememberScrollState()
     val currentTab by rememberUpdatedState(tab)
@@ -236,6 +239,8 @@ private fun MainNav(state: ExhaleState, logged: LoggedEvent?, vm: ExhaleViewMode
                     onAddAndTag = vm::addAndTag,
                     onToday = {
                         rhythmDay = state.today
+                        // Today's list is near the top, where the clock was: start there, not where Rhythm was left.
+                        scope.launch { rhythmScroll.scrollTo(0) }
                         goToTab(Tab.RHYTHM)
                     },
                 )

@@ -118,7 +118,7 @@ fun DayTimeline(
 ) {
     val c = Ex.colors
     val rows = remember(times) { rowsOf(times) }
-    val timeWidth = if (h24) 52.dp else 76.dp
+    val timeWidth = if (h24) 44.dp else 68.dp
     Column(modifier.fillMaxWidth()) {
         rows.forEachIndexed { i, row ->
             val above = i > 0
@@ -204,7 +204,9 @@ private fun MarkRow(
             time,
             style = if (faintText) ExType.caption else ExType.numberSmall,
             color = if (faintText) faint else timeColor,
-            modifier = Modifier.padding(start = ExSpace.sm).width(timeWidth),
+            maxLines = 1, softWrap = false,
+            // At least the width of an English time, so labels line up; a longer AM/PM word just pushes the label.
+            modifier = Modifier.padding(start = ExSpace.sm, end = ExSpace.xs).widthIn(min = timeWidth),
         )
         Text(
             label, style = if (faintText) ExType.caption else ExType.bodySmall, color = if (faintText) faint else labelColor,
@@ -294,8 +296,9 @@ fun DayLine(
     val cigarettes = remember(times.entries) { times.cigarettes }
     val dots = remember(cigarettes, zone) { cigarettes.map { DayTimes.minuteOf(it.at, zone) to it.over } }
     val labels = remember(cigarettes, zone, h24) { cigarettes.map { Fmt.time(it.at, zone, h24) } }
-    val nowMinute = DayTimes.minuteOf(now, zone)
     val lastOnLine = dots.lastOrNull()?.first ?: start
+    // Never before the last dot, even when the clocks go back and the minute of day drops.
+    val nowMinute = DayTimes.minuteOf(now, zone).coerceAtLeast(lastOnLine)
     Row(
         modifier
             .fillMaxWidth()
@@ -355,7 +358,7 @@ fun TimeStepper(minuteOfDay: Int, onChange: (Int) -> Unit, canSet: (Int) -> Bool
     val hourText = if (h24) "%02d".format(hour) else "${if (hour % 12 == 0) 12 else hour % 12}"
     val half = LocalTime.of(hour, 0).format(DateTimeFormatter.ofPattern("a", Locale.getDefault()))
     Row(
-        modifier.fillMaxWidth().semantics { stateDescription = "%d:%02d".format(hour, minute) },
+        modifier.fillMaxWidth().semantics { stateDescription = "$hourText:%02d".format(minute) + if (h24) "" else " $half" },
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
     ) {

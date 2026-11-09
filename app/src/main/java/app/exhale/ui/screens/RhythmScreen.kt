@@ -347,7 +347,7 @@ private fun DayCard(times: DayTimes, today: LocalDate, zone: ZoneId, h24: Boolea
             Overline("${Fmt.dayName(times.day, today)}, one by one", Modifier.weight(1f))
             if (times.count > 0) Text("Tap one to change it", style = ExType.caption, color = c.inkFaint)
         }
-        if (times.entries.isEmpty() && times.running == null) {
+        if (times.isEmpty) {
             Text(if (isToday) "Nothing logged today." else "Nothing logged that day.", style = ExType.body, color = c.inkSoft)
         } else {
             DayTimeline(times, today, zone, h24, onEdit, Modifier.padding(top = ExSpace.xxs))

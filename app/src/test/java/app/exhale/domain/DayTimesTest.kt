@@ -9,7 +9,9 @@ import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
+import java.time.ZoneId
 import java.time.ZoneOffset
+import java.time.ZonedDateTime
 
 class DayTimesTest {
     private val zone = ZoneOffset.UTC
@@ -63,7 +65,7 @@ class DayTimesTest {
         val ridden = urge(sunday, 16, 12)
         val smoked = urge(sunday, 17, 0, UrgeOutcome.SMOKED)
         val otherDay = urge(monday, 9, 0)
-        val t = DayTimes.of(sundayLogs, listOf(otherDay, smoked, ridden), sunday, zone, allowance = 8, now = now)
+        val t = DayTimes.of(sundayLogs, listOf(ridden, smoked, otherDay), sunday, zone, allowance = 8, now = now)
         val entries = t.entries
         assertEquals(7, entries.size)
         assertEquals(DayEntry.Wave(ridden), entries[3])
@@ -158,6 +160,27 @@ class DayTimesTest {
         assertEquals(now, LogEdit.moved(original, 14 * 60 + 21, zone, now))
         assertNull(LogEdit.moved(original, 14 * 60 + 22, zone, now))
         assertFalse(LogEdit.moved(original, 13 * 60, zone, now) == null)
+    }
+
+    @Test fun moved_onTheAutumnChange_keepsTheHourTheLogWasIn() {
+        val berlin = ZoneId.of("Europe/Berlin")
+        // 25 Oct 2026: 03:00 CEST goes back to 02:00 CET, so 02:xx happens twice.
+        val day = LocalDate.parse("2026-10-25")
+        val second = ZonedDateTime.ofLocal(day.atTime(2, 40), berlin, ZoneOffset.ofHours(1)).toInstant()
+        val first = ZonedDateTime.ofLocal(day.atTime(2, 40), berlin, ZoneOffset.ofHours(2)).toInstant()
+        val later = day.atTime(23, 0).atZone(berlin).toInstant()
+        assertEquals(second.plusSeconds(5 * 60), LogEdit.moved(second, 2 * 60 + 45, berlin, later))
+        assertEquals(first.plusSeconds(5 * 60), LogEdit.moved(first, 2 * 60 + 45, berlin, later))
+    }
+
+    @Test fun moved_toATimeTheClocksSkipped_isNone() {
+        val berlin = ZoneId.of("Europe/Berlin")
+        // 29 Mar 2026: 02:00 CET jumps to 03:00 CEST, so 02:30 never happens.
+        val day = LocalDate.parse("2026-03-29")
+        val original = day.atTime(1, 30).atZone(berlin).toInstant()
+        val later = day.atTime(23, 0).atZone(berlin).toInstant()
+        assertNull(LogEdit.moved(original, 2 * 60 + 30, berlin, later))
+        assertEquals(day.atTime(3, 30).atZone(berlin).toInstant(), LogEdit.moved(original, 3 * 60 + 30, berlin, later))
     }
 
     @Test fun rhythm_pickedDay_carriesItsTimes() {

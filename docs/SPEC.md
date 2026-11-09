@@ -119,7 +119,7 @@ First launch shows **Onboarding** (§3.7). Regulate is no longer a tab: its coun
   (flare past the allowance), an oxygen stretch from the last one to now and a ring at now; then
   "Last 11:40" (12/24-hour per the phone), or "Nothing yet" in oxygen ink, and a chevron. No count:
   the badge above has it. Tapping it closes the Today popover, picks today on Rhythm and switches to
-  the Rhythm tab, where today's list (§3.4) shows. TalkBack reads "Today: 4, at 7:57, 9:31, 10:52 and
+  the Rhythm tab scrolled to the top, where today's list (§3.4) shows. TalkBack reads "Today: 4, at 7:57, 9:31, 10:52 and
   11:40" as one button.
 - Hero, one number that switches meaning: while waiting, time **until** the next one is earned
   ("58m · until your next one"); once earned, time **since** the last one ("2h 41m · since your last
@@ -481,7 +481,8 @@ the picked day's tally and its `times` (`DayTimes`, below). `topTrigger(hour)` i
 `showPlan` needs 7 covered days and something logged.
 
 ### A day, one by one — `DayTimes`, `LogEdit`
-- `DayTimes.of(logs, urges, day, zone, allowance, now)`: the day's cigarettes in time order, each with
+- `DayTimes.of(logs, urges, day, zone, allowance, now)` (both lists oldest first, as stored; it walks
+  back from the newest, since today's runs every second): the day's cigarettes in time order, each with
   its number, whether it is past `allowance` (never with no allowance, before the plan start) and the
   gap since the cigarette before (from the last one before the day for the first; none for the first
   log ever); craving waves ridden out (`SURVIVED`) that started on the day, by start; `previous`, the
@@ -493,7 +494,9 @@ the picked day's tally and its `times` (`DayTimes`, below). `topTrigger(hour)` i
 - `LogEdit`: `stepHour` moves the hour round the clock keeping the minutes; `stepMinute` moves the
   minutes round the hour keeping the hour. `moved(original, minuteOfDay, zone, now)` is the new moment:
   the same calendar day at the start of that minute (the original to the second when the minute is
-  unchanged), or none when that is after `now`.
+  unchanged), or none when that is after `now` or never happens (skipped when the clocks go forward);
+  a time that happens twice (clocks going back) keeps the offset the log had. The Ember row never
+  draws now before the last dot.
 - Storage: `LogDao.update(id, atMillis, trigger)`; deleting uses the same delete as Undo. No schema change.
 
 ### Triggers — `Triggers`
