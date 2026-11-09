@@ -83,6 +83,7 @@ import app.exhale.ui.Fmt
 import app.exhale.ui.LoggedEvent
 import app.exhale.ui.components.ButtonSize
 import app.exhale.ui.components.DayLine
+import app.exhale.ui.components.ExhaleText
 import app.exhale.ui.components.ButtonStyle
 import app.exhale.ui.components.ExButton
 import app.exhale.ui.components.ExCard
@@ -188,7 +189,7 @@ fun EmberScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(ExSpace.xxs),
                 ) {
-                    Text(big, style = ExType.display.copy(fontSize = 64.sp), color = c.ink, textAlign = TextAlign.Center)
+                    ExhaleText(big, ExType.display.copy(fontSize = 64.sp), c.ink)
                     Text(sub, style = ExType.titleItalic.copy(fontSize = 21.sp), color = c.inkSoft, textAlign = TextAlign.Center)
                 }
                 Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {

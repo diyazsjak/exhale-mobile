@@ -41,11 +41,18 @@ import app.exhale.ui.components.FloatingTabBar
 import app.exhale.ui.components.TabItem
 import app.exhale.ui.components.LogEditor
 import app.exhale.ui.components.EditTime
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import app.exhale.ui.screens.UiKitScreen
 import app.exhale.ui.screens.EmberOrbCanvas
 import androidx.compose.foundation.layout.size
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import app.exhale.ui.components.ExhaleText
+import app.exhale.ui.theme.ExType
 import app.exhale.domain.ThemeMode
 import app.exhale.domain.HomeStyle
 import app.exhale.ui.screens.GlowEdge
@@ -287,6 +294,25 @@ class ScreenshotTest {
     @Test fun glowWaitingDark() = shot("1i_glow_waiting", true, 0, bar = glowState(38), glow = true) { EmberScreen(glowState(38), null, {}, {}, { _, _ -> }, {}, {}) }
     @Test fun glowWaitingLight() = shot("1i_glow_waiting", false, 0, bar = glowState(38), glow = true) { EmberScreen(glowState(38), null, {}, {}, { _, _ -> }, {}, {}) }
     @Test fun glowLoggedDark() = shot("1j_glow_logged", true, 0, bar = glowState(4), glow = true) { EmberScreen(glowState(4), LoggedEvent(1, 5, 12), {}, {}, { _, _ -> }, {}, {}) }
+    // The hero mid-change, "1h 0m" breathing out into "59m": old digits drift up and blur, new ones settle in.
+    @Test fun heroTickDark() = heroTick(true)
+    @Test fun heroTickLight() = heroTick(false)
+    private fun heroTick(dark: Boolean) {
+        var text by mutableStateOf("1h 0m")
+        compose.mainClock.autoAdvance = false
+        compose.setContent {
+            ExhaleTheme(dark = dark) {
+                val c = Ex.colors
+                Box(Modifier.fillMaxWidth().background(c.bg).padding(vertical = 48.dp), contentAlignment = Alignment.Center) {
+                    ExhaleText(text, ExType.display.copy(fontSize = 88.sp), c.ink)
+                }
+            }
+        }
+        compose.mainClock.advanceTimeBy(500)
+        compose.runOnUiThread { text = "59m"; androidx.compose.runtime.snapshots.Snapshot.sendApplyNotifications() }
+        compose.mainClock.advanceTimeBy(260)
+        compose.onRoot().captureRoboImage("build/outputs/roborazzi/1o_hero_tick_${if (dark) "dark" else "light"}.png")
+    }
     // Mid-hold: the warm trail on the line and the glow gathering under the finger.
     @Test fun glowHoldingDark() = shot("1k_glow_holding", true, 0, bar = glowState(38), glow = true, holdMs = 900) { EmberScreen(glowState(38), null, {}, {}, { _, _ -> }, {}, {}) }
     @Test fun glowHoldingLight() = shot("1k_glow_holding", false, 0, bar = glowState(38), glow = true, holdMs = 900) { EmberScreen(glowState(38), null, {}, {}, { _, _ -> }, {}, {}) }

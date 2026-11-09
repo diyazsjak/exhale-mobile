@@ -32,6 +32,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import app.exhale.domain.ThemeMode
 import app.exhale.domain.Trigger
+import app.exhale.ui.components.ExhaleTextSample
 import app.exhale.ui.components.ActiveFilter
 import app.exhale.ui.components.BackHeader
 import app.exhale.ui.components.ButtonSize
@@ -130,6 +131,8 @@ fun UiKitScreen(
 
             Section("Type")
             TypeRow("display · Newsreader 52", ExType.display, "2h 41m")
+            ExhaleTextSample(ExType.display)
+            Footnote("ExhaleText: the heroes' number. Tap to step a minute; changed digits breathe out and the new ones settle in.")
             TypeRow("title · Newsreader 34", ExType.title, "When you light up")
             TypeRow("titleItalic", ExType.titleItalic, "since your last one")
             TypeRow("headline · Newsreader 24", ExType.headline, "Logged")

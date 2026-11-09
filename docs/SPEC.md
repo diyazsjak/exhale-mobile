@@ -125,6 +125,10 @@ First launch shows **Onboarding** (§3.7). Regulate is no longer a tab: its coun
 - Hero, one number that switches meaning: while waiting, time **until** the next one is earned
   ("58m · until your next one"); once earned, time **since** the last one ("2h 41m · since your last
   one · next one earned"). Before any log: "—" and "nothing logged yet".
+  When the number changes (each minute, or when the next one is earned), it breathes out
+  (`ExhaleText`): each changed character drifts up, swells and blurs away while the new one
+  settles in under it, right to left, in about 0.4 s. Unchanged characters hold still; a change of
+  length moves them all. Blur on Android 12+, fade and drift below. The first show does not animate.
 - **Orb** (`EmberOrb.kt`, concept "Gather" from the Ember Lab): a molten core coloured by `heat`
   with four droplets orbiting it. At rest the core pulses every 4 s and the drops drift in and out,
   sometimes touching the core and merging with a liquid bridge (blur + alpha threshold RenderEffect,
@@ -154,7 +158,7 @@ First launch shows **Onboarding** (§3.7). Regulate is no longer a tab: its coun
 The same tab without the orb (concept "Floor, edge glow" from the First Screen Lab). Everything else
 above stays: the Today badge and popover, the today row, the earned haptic, the Logged card, the
 craving button.
-- **Middle**: the same one number at 88sp with the same line under it, centred in a hold area that
+- **Middle**: the same one number at 88sp (breathing out on change, as above) with the same line under it, centred in a hold area that
   fills the space between the app bar and the countdown line. Hold anywhere in it to log.
 - **Countdown line** above the hint: a straight 3dp line that fills left to right, sky → oxygen, as
   the gap is earned, with "last one" and "next one earned" under its ends. Once earned it is a full

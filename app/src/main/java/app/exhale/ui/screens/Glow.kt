@@ -36,6 +36,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import app.exhale.ui.components.ExhaleText
 import app.exhale.ui.theme.Ex
 import app.exhale.ui.theme.ExSpace
 import app.exhale.ui.theme.ExType
@@ -98,7 +99,7 @@ internal fun GlowHero(
     ) {
         Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
             Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(ExSpace.xxs)) {
-                Text(big, style = ExType.display.copy(fontSize = 88.sp), color = c.ink, textAlign = TextAlign.Center, maxLines = 1)
+                ExhaleText(big, ExType.display.copy(fontSize = 88.sp), c.ink)
                 Text(sub, style = ExType.titleItalic.copy(fontSize = 21.sp), color = c.inkSoft, textAlign = TextAlign.Center)
             }
         }
