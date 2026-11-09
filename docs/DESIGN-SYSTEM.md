@@ -145,7 +145,7 @@ Trigger chips are Chips with the `flare` accent. Up to nine show; with eleven or
 
 ### InputDialog
 
-A dialog for typing something short, such as a new trigger's name. Like ChoiceDialog (a `headline` title, then Medium buttons stacked full width, the main one Primary, Cancel Ghost), with fields in between; it centres in the space above the keyboard so the field is never covered. A button can be disabled until the input is valid. Tapping outside or Back cancels. TextField's `autoFocus` brings the keyboard up with it, and `onDone` makes the keyboard's Done act.
+A dialog for typing something short, such as a new trigger's name. Like ChoiceDialog (a `headline` title, then Medium buttons stacked full width, the main one Primary, Cancel Ghost), with fields in between; the same modal over the system scrim, moving up for the keyboard so the field stays in view. A button can be disabled until the input is valid. Tapping outside or Back cancels. TextField's `autoFocus` brings the keyboard up with it, and `onDone` makes the keyboard's Done act.
 
 - Compose: `ExInputDialog("Your own trigger", onDismiss, listOf(DialogAction("Add", ButtonStyle.Primary, enabled = ok) { … }, DialogAction("Cancel", ButtonStyle.Ghost, onClick = onDismiss))) { ExTextField(…, autoFocus = true, onDone = add) }`.
 
