@@ -47,6 +47,9 @@ class ExhaleRepository(
 
     suspend fun undoLog(id: Long) = db.logs().delete(id)
 
+    /** Moves log [id] to [at] and sets its trigger (null clears it): the day list's edit. */
+    suspend fun editLog(id: Long, at: Instant, trigger: Trigger?) = db.logs().update(id, at.toEpochMilli(), trigger?.key)
+
     /** How many logs and cravings are tagged with [key]. */
     suspend fun uses(key: String): Int = db.logs().countTagged(key)
 

@@ -114,6 +114,13 @@ First launch shows **Onboarding** (§3.7). Regulate is no longer a tab: its coun
   nothing is borrowed: tomorrow starts at 10." at 9, and "4 over today. 2 of them are past your
   usual 10 and borrowed from tomorrow, so tomorrow starts at 8 instead of 10." at 12; the other
   lines say "anything past your usual 10" instead of "anything more/over".
+- **Today row** (`DayLine`), right under the app bar: today in one line, a 44dp `surface` pill. A
+  line from 6 am (or the hour of an earlier first one) to midnight with an ember dot per cigarette
+  (flare past the allowance), an oxygen stretch from the last one to now and a ring at now; then
+  "Last 11:40" (12/24-hour per the phone), or "Nothing yet" in oxygen ink, and a chevron. No count:
+  the badge above has it. Tapping it closes the Today popover, picks today on Rhythm and switches to
+  the Rhythm tab, where today's list (§3.4) shows. TalkBack reads "Today: 4, at 7:57, 9:31, 10:52 and
+  11:40" as one button.
 - Hero, one number that switches meaning: while waiting, time **until** the next one is earned
   ("58m · until your next one"); once earned, time **since** the last one ("2h 41m · since your last
   one · next one earned"). Before any log: "—" and "nothing logged yet".
@@ -144,7 +151,8 @@ First launch shows **Onboarding** (§3.7). Regulate is no longer a tab: its coun
 
 #### Glow home (Settings → Home screen → Glow) — `Glow.kt`
 The same tab without the orb (concept "Floor, edge glow" from the First Screen Lab). Everything else
-above stays: the Today badge and popover, the earned haptic, the Logged card, the craving button.
+above stays: the Today badge and popover, the today row, the earned haptic, the Logged card, the
+craving button.
 - **Middle**: the same one number at 88sp with the same line under it, centred in a hold area that
   fills the space between the app bar and the countdown line. Hold anywhere in it to log.
 - **Countdown line** above the hint: a straight 3dp line that fills left to right, sky → oxygen, as
@@ -187,13 +195,36 @@ Shows the last 30 days (today and the 29 before), or one picked day. Order:
   last 30 days", to return. The picked day is hoisted in `ExhaleNav` so History can set it.
 - **Filter**: All days / Weekdays / Weekends. While a day is picked it is replaced by an
   `ActiveFilter`: "Sunday · 6 of 8" or "Sunday · 10, 2 borrowed", with "Show last 30 days".
-- **Smoke Clock**: 24 hours, midnight at top, clockwise. Each hour's bar length and warmth is its
+- **On a picked day the Smoke Clock gives way to the day's list** (below). The clock is a pattern
+  over many days; one day reads better as a list.
+- **Smoke Clock** (last 30 days): 24 hours, midnight at top, clockwise. Each hour's bar length and warmth is its
   average a day (any smoking shows; the top quarter is flare). A **thin line** on each hour marks
   where it was in the 30 days before. The centre shows the busiest hour ("Busiest · 6 pm · 1.2 a
   day · Tap an hour"); tapping an hour shows it there instead ("8–9 am · 0.8 a day · Mostly coffee
   · 16 of 16 tagged", trigger once 3+ are tagged), with an ink outline and its thin line in full
   ink. Tap the centre or the same hour to clear. Labels follow the phone's 12/24-hour setting.
   Screen readers get a summary and Next/Previous/Clear hour actions.
+- **Day list** (`DayTimeline`, a picked day, in the clock's place): "Sunday, one by one" with "Tap one
+  to change it", then the day on a vertical oxygen line. It opens with the day before's last one,
+  faint ("9:49 PM · Saturday's last one"; "Yesterday's last one"; "Last one before: 12 Oct" when
+  older than a week). Each cigarette is a 44dp row: an ember dot (flare past the allowance), the exact
+  time, the trigger or "No trigger", and "3 of 8" (flare ink past the allowance; just the number
+  before the plan start). The line between rows is the gap, longer for longer gaps, labelled with
+  the time since the cigarette before ("3h 27m") just above each cigarette. Craving waves ridden out
+  sit on the line at their start as oxygen rings: "4:38 PM · Rode out a wave · Stress · 4 min".
+  Today ends with "Now · 2h 41m since the last one" (a filled oxygen dot). Under the list: "Longest gap
+  in the day: 4h 52m, 1:52 PM to 6:44 PM." (today: "Longest gap today: …, 11:40 AM to now."; the
+  night before the first one doesn't count). An empty day says "Nothing logged that day." /
+  "Nothing logged today." Switching between the clock and the list, or between days, cross-fades.
+- **Editing a cigarette**: tapping one opens a modal (`LogEditDialog`): "Sunday, 1:05 PM", a Time
+  stepper (hour and minutes, up/down, hold to repeat; hours round the clock, minutes round the hour;
+  12-hour phones get AM/PM), the trigger chips (the picked one again clears it; "Your own" adds one,
+  as on the Logged card; a hidden trigger the log has keeps its chip here), Save (Primary) and
+  "Delete this one" (Ghost). Rules in §4 LogEdit: the time stays on the log's day and never goes past
+  now. Save writes only what changed and closes; outside or Back closes without saving. Delete asks
+  "Delete the one at 1:05 PM?" / "It comes off Sunday's count. This can't be undone." with Delete
+  (Primary) and Keep it (Ghost). Counts, allowances, borrowing, gaps and every other screen follow
+  the edit at once. Only cigarettes are editable; waves aren't.
 - **Comparison card** (when the 30 days before hold at least 7 tracked days, not on a picked day):
   led by the **average** for the day filter: "Average · last 30 days" ("Average · weekdays, last 30
   days"; "Average · since you started" when tracking began inside the window), a big "9.3" and "a
@@ -213,7 +244,7 @@ Shows the last 30 days (today and the 29 before), or one picked day. Order:
   invitation to use "Help me wait" when there are none.
 - Everything on the screen follows the same period, day filter and picked day.
 - **Motion**: changes glide rather than jump (about 280 ms). Clock bars and thin lines move (0.36 s, fast start, soft stop) to their
-  new lengths; the clock centre, the filter bar and the comparison text cross-fade; lighting up the
+  new lengths; the clock centre, the filter bar, the comparison text and the clock/day list cross-fade; lighting up the
   lines fades; the comparison and plan cards fade and fold in or out.
 
 ### 3.5 Air — `AirScreen.kt`
@@ -351,7 +382,7 @@ Full-screen route from Rhythm's "All history ›" (back button, no tab bar).
   its count, tinted like the week strip; days before tracking began are empty rings; days before the
   plan start are neutral; future days show only their date and weeks still to come are left out.
 - Under each month: average a day, "N of M days within your allowance", and the longest gap.
-- Tapping a day opens Rhythm filtered to that day.
+- Tapping a day opens Rhythm filtered to that day, which lists it cigarette by cigarette (§3.4).
 
 ### 3.11 Triggers — `TriggerChips.kt`, `TriggerSettings.kt`
 People can name their own triggers and shape the list. Rules are in §4 Triggers.
@@ -446,8 +477,24 @@ reads through to it.
 picked day: the hourly averages, the 30 days before (only when they cover 7+ days, never on a picked
 day), covered days, whether tracking began inside the period ("since you started"), the period's
 logs, triggers and peaks, craving waves ridden out, days tracked and days until a comparison, and
-the picked day's tally. `topTrigger(hour)` is the busiest trigger at an hour (not on a picked day);
+the picked day's tally and its `times` (`DayTimes`, below). `topTrigger(hour)` is the busiest trigger at an hour (not on a picked day);
 `showPlan` needs 7 covered days and something logged.
+
+### A day, one by one — `DayTimes`, `LogEdit`
+- `DayTimes.of(logs, urges, day, zone, allowance, now)`: the day's cigarettes in time order, each with
+  its number, whether it is past `allowance` (never with no allowance, before the plan start) and the
+  gap since the cigarette before (from the last one before the day for the first; none for the first
+  log ever); craving waves ridden out (`SURVIVED`) that started on the day, by start; `previous`, the
+  last cigarette before the day; nothing after `now`. On today, `running` is the gap from the last
+  cigarette (any day) to now.
+- `longestGap`: the longest between two of the day's cigarettes, or (today) from the last one to now;
+  the night before the first one doesn't count. None with fewer than two moments.
+- `lineStart`: where the Ember row's line starts: 6 am, or the hour of an earlier first cigarette.
+- `LogEdit`: `stepHour` moves the hour round the clock keeping the minutes; `stepMinute` moves the
+  minutes round the hour keeping the hour. `moved(original, minuteOfDay, zone, now)` is the new moment:
+  the same calendar day at the start of that minute (the original to the second when the minute is
+  unchanged), or none when that is after `now`.
+- Storage: `LogDao.update(id, atMillis, trigger)`; deleting uses the same delete as Undo. No schema change.
 
 ### Triggers — `Triggers`
 - A `Trigger` is a key and a label. Built-ins (`BuiltInTrigger`: Coffee, Stress, After food, Drinks,

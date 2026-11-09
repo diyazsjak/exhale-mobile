@@ -54,6 +54,21 @@ class DatabaseTest {
         db.close()
     }
 
+    @Test fun update_movesALogAndSetsItsTrigger_andTheListStaysInTimeOrder() = runBlocking {
+        val db = ExhaleDatabase.create(context)
+        val a = db.logs().insert(SmokeLogEntity(atMillis = 1000, trigger = "COFFEE", fromUrge = false))
+        val b = db.logs().insert(SmokeLogEntity(atMillis = 2000, trigger = null, fromUrge = true))
+        db.logs().update(a, atMillis = 3000, trigger = null)
+        db.logs().update(b, atMillis = 2500, trigger = "STRESS")
+        val logs = db.logs().observeAll().first()
+        assertEquals(listOf(b, a), logs.map { it.id })
+        assertEquals(listOf(2500L, 3000L), logs.map { it.atMillis })
+        assertEquals(listOf("STRESS", null), logs.map { it.trigger })
+        // Where the log came from isn't part of the edit.
+        assertEquals(listOf(true, false), logs.map { it.fromUrge })
+        db.close()
+    }
+
     /** Creates exhale.db exactly as version 1 left it, from the exported schema. */
     private fun writeVersion1(fill: (SQLiteDatabase) -> Unit) {
         val schema = JSONObject(File("schemas/app.exhale.data.ExhaleDatabase/1.json").readText()).getJSONObject("database")

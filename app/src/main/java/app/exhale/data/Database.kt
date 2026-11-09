@@ -59,6 +59,9 @@ interface LogDao {
     @Query("UPDATE smoke_log SET trigger = :trigger WHERE id = :id")
     suspend fun setTrigger(id: Long, trigger: String?)
 
+    @Query("UPDATE smoke_log SET atMillis = :atMillis, trigger = :trigger WHERE id = :id")
+    suspend fun update(id: Long, atMillis: Long, trigger: String?)
+
     /** How many logs and cravings carry the trigger [key], resolvable or not. */
     @Query("SELECT (SELECT COUNT(*) FROM smoke_log WHERE `trigger` = :key) + (SELECT COUNT(*) FROM urge WHERE `trigger` = :key)")
     suspend fun countTagged(key: String): Int

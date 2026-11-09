@@ -1,0 +1,448 @@
+package app.exhale.ui.components
+
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import app.exhale.domain.DayEntry
+import app.exhale.domain.DayTimes
+import app.exhale.domain.LogEdit
+import app.exhale.domain.SmokeLog
+import app.exhale.domain.Trigger
+import app.exhale.ui.Fmt
+import app.exhale.ui.theme.Ex
+import app.exhale.ui.theme.ExRadius
+import app.exhale.ui.theme.ExSize
+import app.exhale.ui.theme.ExSpace
+import app.exhale.ui.theme.ExType
+import java.time.Duration
+import java.time.Instant
+import java.time.LocalDate
+import java.time.LocalTime
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.time.format.TextStyle
+import java.util.Locale
+import kotlin.math.ln
+
+/** Width of the line the day list hangs on. */
+private val RAIL = 20.dp
+
+/** What one row of a [DayTimeline] is. */
+private sealed interface TimelineRow {
+    data class Previous(val log: SmokeLog) : TimelineRow
+    data class Stretch(val length: Duration, val label: String?) : TimelineRow
+    data class Smoke(val entry: DayEntry.Cigarette) : TimelineRow
+    data class Wave(val entry: DayEntry.Wave) : TimelineRow
+    data class Now(val since: Duration) : TimelineRow
+}
+
+/** The rows of [times], top to bottom: the last one before, then each entry after its gap, then now (today). */
+private fun rowsOf(times: DayTimes): List<TimelineRow> {
+    val rows = mutableListOf<TimelineRow>()
+    var last: Instant? = times.previous?.at
+    if (times.entries.isNotEmpty() || times.running != null) times.previous?.let { rows += TimelineRow.Previous(it) }
+    for (e in times.entries) {
+        last?.let { rows += TimelineRow.Stretch(Duration.between(it, e.at), (e as? DayEntry.Cigarette)?.gapBefore?.let(Fmt::gap)) }
+        rows += when (e) {
+            is DayEntry.Cigarette -> TimelineRow.Smoke(e)
+            is DayEntry.Wave -> TimelineRow.Wave(e)
+        }
+        last = e.at
+    }
+    val running = times.running
+    if (running != null && last != null) {
+        rows += TimelineRow.Stretch(Duration.between(last, running.end), null)
+        rows += TimelineRow.Now(running.length)
+    }
+    return rows
+}
+
+/** The dot a row puts on the rail. */
+private enum class Mark { Previous, Smoke, Over, Wave, Now }
+
+/**
+ * One day, cigarette by cigarette (Rhythm on a picked day). Each cigarette is an ember dot (flare
+ * past the allowance) with its exact time, trigger and "3 of 8"; the oxygen line between dots is
+ * the gap, longer for longer gaps and labelled "3h 27m". Waves ridden out sit on the line as oxygen
+ * rings; today ends with "Now" and the running gap. The day before's last one opens the list, faint.
+ * Tapping a cigarette calls [onEdit]. Shows nothing for an empty day: the caller says so.
+ */
+@Composable
+fun DayTimeline(
+    times: DayTimes,
+    today: LocalDate,
+    zone: ZoneId,
+    h24: Boolean,
+    onEdit: ((SmokeLog) -> Unit)?,
+    modifier: Modifier = Modifier,
+) {
+    val c = Ex.colors
+    val rows = remember(times) { rowsOf(times) }
+    val timeWidth = if (h24) 52.dp else 76.dp
+    Column(modifier.fillMaxWidth()) {
+        rows.forEachIndexed { i, row ->
+            val above = i > 0
+            val below = i < rows.lastIndex
+            when (row) {
+                is TimelineRow.Previous -> MarkRow(
+                    Mark.Previous, above, below, timeWidth,
+                    time = Fmt.time(row.log.at, zone, h24), timeColor = c.inkFaint,
+                    label = previousLabel(row.log.at.atZone(zone).toLocalDate(), today), labelColor = c.inkFaint,
+                )
+                is TimelineRow.Stretch -> StretchRow(row.length, row.label, timeWidth)
+                is TimelineRow.Smoke -> {
+                    val e = row.entry
+                    val time = Fmt.time(e.at, zone, h24)
+                    val label = e.log.trigger?.label ?: "No trigger"
+                    val count = times.allowance?.let { "${e.number} of $it" } ?: "${e.number}"
+                    MarkRow(
+                        if (e.over) Mark.Over else Mark.Smoke, above, below, timeWidth,
+                        time = time, timeColor = c.ink,
+                        label = label, labelColor = if (e.log.trigger == null) c.inkFaint else c.ink,
+                        end = count, endColor = if (e.over) c.flareInk else c.inkFaint,
+                        onClick = onEdit?.let { { it(e.log) } },
+                        description = "$time, $label, $count" + (e.gapBefore?.let { ", ${Fmt.gap(it)} after the one before" } ?: ""),
+                    )
+                }
+                is TimelineRow.Wave -> {
+                    val u = row.entry.urge
+                    MarkRow(
+                        Mark.Wave, above, below, timeWidth,
+                        time = Fmt.time(u.startedAt, zone, h24), timeColor = c.oxyInk,
+                        label = "Rode out a wave" + (u.trigger?.let { " · ${it.label}" } ?: ""), labelColor = c.oxyInk,
+                        end = "${row.entry.length.toMinutes().coerceAtLeast(1)} min", endColor = c.inkFaint,
+                    )
+                }
+                is TimelineRow.Now -> MarkRow(
+                    Mark.Now, above, below, timeWidth,
+                    time = "Now", timeColor = c.oxyInk,
+                    label = "${Fmt.gap(row.since)} since the last one", labelColor = c.oxyInk,
+                )
+            }
+        }
+    }
+}
+
+/** "Yesterday's last one", "Saturday's last one" within the week, else "Last one before: 12 Oct". */
+private fun previousLabel(date: LocalDate, today: LocalDate): String = when {
+    date == today.minusDays(1) -> "Yesterday's last one"
+    !date.isBefore(today.minusDays(6)) -> "${date.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.getDefault())}'s last one"
+    else -> "Last one before: ${date.format(DateTimeFormatter.ofPattern("d MMM", Locale.getDefault()))}"
+}
+
+/** A row with a dot on the rail: time, label and an optional count at the end. Tappable with [onClick]. */
+@Composable
+private fun MarkRow(
+    mark: Mark,
+    above: Boolean,
+    below: Boolean,
+    timeWidth: Dp,
+    time: String,
+    timeColor: Color,
+    label: String,
+    labelColor: Color,
+    end: String? = null,
+    endColor: Color = Color.Unspecified,
+    onClick: (() -> Unit)? = null,
+    description: String? = null,
+) {
+    val faintText = mark == Mark.Previous
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .height(ExSize.touch)
+            .clip(ExRadius.sm)
+            .then(if (onClick != null) Modifier.clickable(role = Role.Button, onClickLabel = "Change or delete", onClick = onClick) else Modifier)
+            .then(if (description != null) Modifier.semantics(mergeDescendants = true) { contentDescription = description } else Modifier),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Rail(mark, above, below)
+        Text(
+            time,
+            style = if (faintText) ExType.caption else ExType.numberSmall,
+            color = timeColor,
+            modifier = Modifier.padding(start = ExSpace.sm).width(timeWidth),
+        )
+        Text(
+            label, style = if (faintText) ExType.caption else ExType.bodySmall, color = labelColor,
+            maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f),
+        )
+        if (end != null) Text(end, style = ExType.caption, color = endColor, modifier = Modifier.padding(start = ExSpace.xs, end = ExSpace.xxs))
+    }
+}
+
+/** The line between two rows; its length grows with [length] (log scale), labelled "3h 27m" before a cigarette. */
+@Composable
+private fun StretchRow(length: Duration, label: String?, timeWidth: Dp) {
+    val c = Ex.colors
+    val minutes = length.toMinutes().coerceAtLeast(0)
+    val h = (14 + 9 * ln(1.0 + minutes / 10.0)).coerceIn(18.0, 56.0).dp
+    Row(Modifier.fillMaxWidth().height(h), verticalAlignment = Alignment.CenterVertically) {
+        Rail(null, above = true, below = true)
+        if (label != null) {
+            Text(label, style = ExType.caption, color = c.oxyInk, modifier = Modifier.padding(start = ExSpace.sm).widthIn(min = timeWidth))
+        }
+    }
+}
+
+/** The rail cell of a row: the line above and below its centre, and its [mark] (none on a stretch). */
+@Composable
+private fun Rail(mark: Mark?, above: Boolean, below: Boolean) {
+    val c = Ex.colors
+    // Read before the draw lambda: colours never come from Ex.colors inside DrawScope.
+    val line = c.oxy.copy(alpha = 0.55f)
+    val ember = c.ember
+    val flare = c.flare
+    val oxy = c.oxy
+    val halo = c.tint(c.oxy)
+    val faint = c.inkFaint
+    val card = c.surface
+    Box(
+        Modifier.width(RAIL).fillMaxHeight().drawBehind {
+            val x = size.width / 2
+            val y = size.height / 2
+            val w = 3.dp.toPx()
+            if (mark == null) {
+                drawLine(line, Offset(x, 0f), Offset(x, size.height), w, StrokeCap.Butt)
+                return@drawBehind
+            }
+            if (above) drawLine(line, Offset(x, 0f), Offset(x, y), w, StrokeCap.Butt)
+            if (below) drawLine(line, Offset(x, y), Offset(x, size.height), w, StrokeCap.Butt)
+            drawMark(mark, Offset(x, y), ember, flare, oxy, halo, faint, card)
+        },
+    )
+}
+
+private fun DrawScope.drawMark(mark: Mark, at: Offset, ember: Color, flare: Color, oxy: Color, halo: Color, faint: Color, card: Color) {
+    when (mark) {
+        Mark.Smoke -> drawCircle(ember, 5.5.dp.toPx(), at)
+        Mark.Over -> drawCircle(flare, 5.5.dp.toPx(), at)
+        Mark.Wave -> {
+            drawCircle(card, 5.5.dp.toPx(), at)
+            drawCircle(oxy, 4.5.dp.toPx(), at, style = Stroke(2.dp.toPx()))
+        }
+        Mark.Now -> {
+            drawCircle(halo, 9.dp.toPx(), at)
+            drawCircle(oxy, 5.dp.toPx(), at)
+        }
+        Mark.Previous -> {
+            drawCircle(card, 4.5.dp.toPx(), at)
+            drawCircle(faint, 3.75.dp.toPx(), at, style = Stroke(1.5.dp.toPx()))
+        }
+    }
+}
+
+/**
+ * Today in one line, the row under the app bar on Ember. A line from 6 am (or an earlier first one)
+ * to midnight with an ember dot per cigarette (flare past the allowance), an oxygen stretch from the
+ * last one to now and a ring at now; then "Last 11:40", or "Nothing yet". Tapping opens today on Rhythm.
+ */
+@Composable
+fun DayLine(
+    times: DayTimes,
+    now: Instant,
+    zone: ZoneId,
+    h24: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val c = Ex.colors
+    val track = c.line
+    val ember = c.ember
+    val flare = c.flare
+    val oxy = c.oxy
+    val bg = c.surface
+    val start = times.lineStartMinute
+    val span = (24 * 60 - start).toFloat()
+    fun minuteOf(t: Instant) = LogEdit.minuteOf(t, zone)
+    val cigarettes = times.cigarettes
+    val dots = cigarettes.map { minuteOf(it.at) to it.over }
+    val nowMinute = minuteOf(now)
+    val lastOnLine = dots.lastOrNull()?.first ?: start
+    val labels = cigarettes.map { Fmt.time(it.at, zone, h24) }
+    Row(
+        modifier
+            .fillMaxWidth()
+            .height(ExSize.segment)
+            .clip(ExRadius.pill)
+            .background(bg)
+            .clickable(role = Role.Button, onClickLabel = "Show today on Rhythm", onClick = onClick)
+            .semantics(mergeDescendants = true) {
+                contentDescription = when (labels.size) {
+                    0 -> "Today: nothing logged"
+                    1 -> "Today: 1, at ${labels[0]}"
+                    else -> "Today: ${labels.size}, at ${labels.dropLast(1).joinToString(", ")} and ${labels.last()}"
+                }
+            }
+            .padding(start = ExSpace.md, end = ExSpace.sm),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(ExSpace.sm),
+    ) {
+        Canvas(Modifier.weight(1f).height(20.dp)) {
+            val y = size.height / 2
+            val r = 5.dp.toPx()
+            fun x(m: Int) = r + (size.width - 2 * r) * ((m - start) / span).coerceIn(0f, 1f)
+            drawLine(track, Offset(x(start), y), Offset(x(24 * 60), y), 2.dp.toPx(), StrokeCap.Round)
+            if (times.running != null) drawLine(oxy, Offset(x(lastOnLine), y), Offset(x(nowMinute), y), 2.dp.toPx(), StrokeCap.Round)
+            dots.forEach { (m, over) ->
+                drawCircle(bg, 5.5.dp.toPx(), Offset(x(m), y))
+                drawCircle(if (over) flare else ember, 4.dp.toPx(), Offset(x(m), y))
+            }
+            drawCircle(bg, r, Offset(x(nowMinute), y))
+            drawCircle(oxy, 4.dp.toPx(), Offset(x(nowMinute), y), style = Stroke(2.dp.toPx()))
+        }
+        if (cigarettes.isEmpty()) {
+            Text("Nothing yet", style = ExType.labelSmall, color = c.oxyInk)
+        } else {
+            Text(
+                buildAnnotatedString {
+                    withStyle(SpanStyle(color = c.inkSoft)) { append("Last ") }
+                    append(labels.last())
+                },
+                style = ExType.numberSmall.copy(fontSize = ExType.labelSmall.fontSize), color = c.ink, maxLines = 1,
+            )
+        }
+        Icon(ExIcons.Forward, null, Modifier.size(ExSize.iconSmall), tint = c.inkSoft)
+    }
+}
+
+/**
+ * A time of day as hour and minutes, each with an up and a down button that repeat while held:
+ * hours go round the clock, minutes round the hour. [canSet] says whether a time can be chosen
+ * (a log can't move into the future); a step that would land on one it can't is off.
+ */
+@Composable
+fun TimeStepper(minuteOfDay: Int, onChange: (Int) -> Unit, canSet: (Int) -> Boolean, h24: Boolean, modifier: Modifier = Modifier) {
+    val c = Ex.colors
+    val hour = minuteOfDay / 60
+    val minute = minuteOfDay % 60
+    val hourText = if (h24) "%02d".format(hour) else "${if (hour % 12 == 0) 12 else hour % 12}"
+    val half = LocalTime.of(hour, 0).format(DateTimeFormatter.ofPattern("a", Locale.getDefault()))
+    Row(
+        modifier.fillMaxWidth().semantics { stateDescription = "%d:%02d".format(hour, minute) },
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        TimePart(hourText, "hour", minuteOfDay, onChange, canSet, LogEdit::stepHour)
+        Text(":", style = ExType.numberLarge, color = c.inkSoft, modifier = Modifier.padding(horizontal = ExSpace.xxs))
+        TimePart("%02d".format(minute), "minute", minuteOfDay, onChange, canSet, LogEdit::stepMinute)
+        if (!h24) Text(half, style = ExType.label, color = c.inkSoft, modifier = Modifier.padding(start = ExSpace.xs))
+    }
+}
+
+/** One column of a [TimeStepper]: an up button, [text], a down button; [step] moves [minuteOfDay] by one [unit]. */
+@Composable
+private fun TimePart(text: String, unit: String, minuteOfDay: Int, onChange: (Int) -> Unit, canSet: (Int) -> Boolean, step: (Int, Int) -> Int) {
+    val c = Ex.colors
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        RepeatButton(ExIcons.Up, "One $unit later", canSet(step(minuteOfDay, 1)), { onChange(step(minuteOfDay, 1)) })
+        Text(text, style = ExType.numberLarge, color = c.ink, textAlign = TextAlign.Center, modifier = Modifier.widthIn(min = 64.dp))
+        RepeatButton(ExIcons.Down, "One $unit earlier", canSet(step(minuteOfDay, -1)), { onChange(step(minuteOfDay, -1)) })
+    }
+}
+
+/**
+ * Change one logged cigarette: its time (same day, never later than [now]) and its trigger (tap the
+ * picked one again to clear it; "Your own" names a new one with [onAddTrigger]). Save hands back the
+ * time and trigger (unchanged ones too). Delete hands over to the caller, which asks first. Shown in [LogEditDialog].
+ */
+@Composable
+fun LogEditor(
+    log: SmokeLog,
+    dayName: String,
+    zone: ZoneId,
+    now: Instant,
+    h24: Boolean,
+    triggers: List<Trigger>,
+    onSave: (at: Instant, trigger: Trigger?) -> Unit,
+    onDelete: () -> Unit,
+    modifier: Modifier = Modifier,
+    onAddTrigger: ((name: String, then: (Trigger) -> Unit) -> Unit)? = null,
+) {
+    val c = Ex.colors
+    var minute by remember(log.id) { mutableIntStateOf(LogEdit.minuteOf(log.at, zone)) }
+    var trigger by remember(log.id) { mutableStateOf(log.trigger) }
+    // A trigger hidden since keeps its chip here, so the log doesn't lose it by being opened.
+    val chips = remember(triggers, log.trigger) { log.trigger?.takeIf { it !in triggers }?.let { triggers + it } ?: triggers }
+    val at = LogEdit.moved(log.at, minute, zone, now)
+    // On surface-high like the Logged card, so the trigger chips stand out from it.
+    ExCard(modifier, color = c.surfaceHigh, padding = ExSpace.xl) {
+        Text("$dayName, ${Fmt.time(log.at, zone, h24)}", style = ExType.headline, color = c.ink)
+        Overline("Time", Modifier.padding(top = ExSpace.sm))
+        TimeStepper(minute, { minute = it }, canSet = { LogEdit.moved(log.at, it, zone, now) != null }, h24 = h24)
+        Overline("Trigger", Modifier.padding(top = ExSpace.sm))
+        TriggerChips(
+            chips, selected = trigger,
+            onPick = { t -> trigger = if (trigger == t) null else t },
+            onAdd = onAddTrigger?.let { add -> { name -> add(name) { trigger = it } } },
+        )
+        DialogActions(
+            listOf(
+                DialogAction("Save", ButtonStyle.Primary) { onSave(at ?: log.at, trigger) },
+                DialogAction("Delete this one", ButtonStyle.Ghost, onClick = onDelete),
+            ),
+        )
+    }
+}
+
+/** [LogEditor] as a modal. Tapping outside or Back closes it without saving. */
+@Composable
+fun LogEditDialog(
+    log: SmokeLog,
+    dayName: String,
+    zone: ZoneId,
+    now: Instant,
+    h24: Boolean,
+    triggers: List<Trigger>,
+    onSave: (at: Instant, trigger: Trigger?) -> Unit,
+    onDelete: () -> Unit,
+    onDismiss: () -> Unit,
+    onAddTrigger: ((name: String, then: (Trigger) -> Unit) -> Unit)? = null,
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        // Scrolls on a short screen or with the keyboard up for "Your own".
+        LogEditor(log, dayName, zone, now, h24, triggers, onSave, onDelete, Modifier.verticalScroll(rememberScrollState()), onAddTrigger)
+    }
+}

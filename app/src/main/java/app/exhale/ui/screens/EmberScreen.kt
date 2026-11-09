@@ -1,5 +1,6 @@
 package app.exhale.ui.screens
 
+import android.text.format.DateFormat
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
@@ -73,6 +74,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.sp
 import app.exhale.domain.HomeStyle
 import app.exhale.domain.Trigger
@@ -80,6 +82,7 @@ import app.exhale.ui.ExhaleState
 import app.exhale.ui.Fmt
 import app.exhale.ui.LoggedEvent
 import app.exhale.ui.components.ButtonSize
+import app.exhale.ui.components.DayLine
 import app.exhale.ui.components.ButtonStyle
 import app.exhale.ui.components.ExButton
 import app.exhale.ui.components.ExCard
@@ -93,6 +96,7 @@ import app.exhale.ui.theme.ExSize
 import app.exhale.ui.theme.ExSpace
 import app.exhale.ui.theme.ExType
 import kotlinx.coroutines.delay
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 @Composable
@@ -112,8 +116,12 @@ fun EmberScreen(
     onAddAndTag: (logId: Long, name: String, then: (Trigger) -> Unit) -> Unit = { _, _, _ -> },
     /** Screenshots: open the Logged card's "Your own" field with this text. */
     initialDraft: String? = null,
+    /** The today row under the app bar: opens Rhythm with today picked. */
+    onToday: () -> Unit = {},
 ) {
     val c = Ex.colors
+    val zone = ZoneId.systemDefault()
+    val h24 = DateFormat.is24HourFormat(LocalContext.current)
     val heat by animateFloatAsState(state.heat, tween(1200), label = "heat")
     val earned = state.earned
     // Countdown ring around the ember: how much of the gap to the next one is earned.
@@ -166,6 +174,8 @@ fun EmberScreen(
             // The Glow home's edge light is drawn behind the tabs and shows through.
             opaque = !glow,
         ) {
+            // Today in one line: when each one was, the last one's time, and the gap since. Opens today's list on Rhythm.
+            state.todayTimes?.let { DayLine(it, state.now, zone, h24, onClick = { onTodayOpen(false); onToday() }) }
             if (glow) {
                 GlowHero(
                     big, sub, heat = heat, progress = ring, onLog = onLog,

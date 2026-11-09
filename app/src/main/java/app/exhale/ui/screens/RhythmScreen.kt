@@ -3,6 +3,7 @@ package app.exhale.ui.screens
 import android.text.format.DateFormat
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearOutSlowInEasing
@@ -70,12 +71,19 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import app.exhale.domain.DayFilter
+import app.exhale.domain.DayTimes
+import app.exhale.domain.SmokeLog
 import app.exhale.domain.Rhythm
 import app.exhale.domain.TopTrigger
 import app.exhale.domain.BuiltInTrigger
 import app.exhale.domain.Trigger
 import app.exhale.domain.TriggerSummary
 import app.exhale.ui.ExhaleState
+import app.exhale.ui.Fmt
+import app.exhale.ui.components.DayTimeline
+import app.exhale.ui.components.DialogAction
+import app.exhale.ui.components.ExChoiceDialog
+import app.exhale.ui.components.LogEditDialog
 import app.exhale.ui.components.ActiveFilter
 import app.exhale.ui.components.ButtonSize
 import app.exhale.ui.components.ButtonStyle
@@ -89,8 +97,10 @@ import app.exhale.ui.components.SegmentedControl
 import app.exhale.ui.components.WeekStrip
 import app.exhale.ui.theme.Ex
 import app.exhale.ui.theme.ExRadius
+import app.exhale.ui.theme.ExSize
 import app.exhale.ui.theme.ExSpace
 import app.exhale.ui.theme.ExType
+import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -115,6 +125,11 @@ fun RhythmScreen(
     onDay: (LocalDate?) -> Unit = {},
     onHistory: () -> Unit = {},
     onUrge: () -> Unit = {},
+    /** The day list's edit: a log moves to a time and gets a trigger (null clears it). */
+    onEditLog: (id: Long, at: Instant, trigger: Trigger?) -> Unit = { _, _, _ -> },
+    onDeleteLog: (id: Long) -> Unit = {},
+    /** "Your own" in the edit dialog: adds a trigger by name, then hands it back. */
+    onAddTrigger: (name: String, then: (Trigger) -> Unit) -> Unit = { _, _ -> },
     initialHour: Int? = null,
     initialLines: Boolean = false,
     scrollState: ScrollState = rememberScrollState(),
@@ -127,6 +142,9 @@ fun RhythmScreen(
     var selected by remember(day) { mutableStateOf(initialHour) }
     var lines by remember(day) { mutableStateOf(initialLines) }
     var idea by remember { mutableIntStateOf(0) }
+    // The day list's edit dialog, and the question before a delete.
+    var editing by remember { mutableStateOf<SmokeLog?>(null) }
+    var deleting by remember { mutableStateOf<SmokeLog?>(null) }
 
     val dayFilter = DayFilter.entries[filter]
     val minute = state.now.epochSecond / 60
@@ -220,21 +238,33 @@ fun RhythmScreen(
             }
             else -> Centre(over = "", big = "—", small = "nothing logged", extra = "", extraFaint = true)
         }
-        SmokeClock(
-            hours = hours,
-            before = beforeHours,
-            selected = sel,
-            lines = lines,
-            h24 = h24,
-            centre = centre,
-            description = buildString {
-                append("Smoke clock. ")
-                if (peaks.isEmpty()) append("Nothing logged.") else append("Busiest around ${label(peaks[0])}. ")
-                if (sel != null) append("Showing ${hourRange(sel, h24)}: ${centre.big} ${centre.small}.")
-            },
-            onTap = { h -> selected = if (h == null || h == selected) null else h },
-            modifier = Modifier.padding(vertical = ExSpace.xxs),
-        )
+        // A picked day is a list of its cigarettes; the clock is for the last 30 days.
+        AnimatedContent(
+            view.times,
+            transitionSpec = { (fadeIn(tween(FADE_MS)) togetherWith fadeOut(tween(FADE_MS))).using(SizeTransform(clip = false)) },
+            contentKey = { it?.day },
+            label = "clock-or-day",
+        ) { times ->
+            if (times != null) {
+                DayCard(times, state.today, zone, h24, onEdit = { editing = it })
+            } else {
+                SmokeClock(
+                    hours = hours,
+                    before = beforeHours,
+                    selected = sel,
+                    lines = lines,
+                    h24 = h24,
+                    centre = centre,
+                    description = buildString {
+                        append("Smoke clock. ")
+                        if (peaks.isEmpty()) append("Nothing logged.") else append("Busiest around ${label(peaks[0])}. ")
+                        if (sel != null) append("Showing ${hourRange(sel, h24)}: ${centre.big} ${centre.small}.")
+                    },
+                    onTap = { h -> selected = if (h == null || h == selected) null else h },
+                    modifier = Modifier.padding(vertical = ExSpace.xxs),
+                )
+            }
+        }
 
         // Keep the last comparison so the card still has something to show while it fades out.
         val lastBefore = remember { mutableStateOf<FloatArray?>(null) }
@@ -280,6 +310,61 @@ fun RhythmScreen(
             survived = view.wavesRidden,
             span = if (day != null) "that day" else "$where in the last 30 days".trim(),
         )
+    }
+
+    editing?.let { log ->
+        val name = dayName(log.at.atZone(zone).toLocalDate(), state.today)
+        LogEditDialog(
+            log, name, zone, state.now, h24, state.shownTriggers,
+            onSave = { at, t ->
+                if (at != log.at || t != log.trigger) onEditLog(log.id, at, t)
+                editing = null
+            },
+            onDelete = { deleting = log; editing = null },
+            onDismiss = { editing = null },
+            onAddTrigger = onAddTrigger,
+        )
+    }
+    deleting?.let { log ->
+        val d = log.at.atZone(zone).toLocalDate()
+        ExChoiceDialog(
+            "Delete the one at ${Fmt.time(log.at, zone, h24)}?",
+            "It comes off ${if (d == state.today) "today's" else "${dayName(d, state.today)}'s"} count. This can't be undone.",
+            listOf(
+                DialogAction("Delete", ButtonStyle.Primary) { onDeleteLog(log.id); deleting = null },
+                DialogAction("Keep it", ButtonStyle.Ghost) { deleting = null },
+            ),
+            onDismiss = { deleting = null },
+        )
+    }
+}
+
+/**
+ * A picked day cigarette by cigarette ([DayTimeline]), in the clock's place: tap one to change or
+ * delete it. Under it, the day's longest gap.
+ */
+@Composable
+private fun DayCard(times: DayTimes, today: LocalDate, zone: ZoneId, h24: Boolean, onEdit: (SmokeLog) -> Unit) {
+    val c = Ex.colors
+    val isToday = times.day == today
+    ExCard(Modifier.padding(vertical = ExSpace.xxs)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Overline("${dayName(times.day, today)}, one by one", Modifier.weight(1f))
+            if (times.count > 0) Text("Tap one to change it", style = ExType.caption, color = c.inkFaint)
+        }
+        if (times.entries.isEmpty() && times.running == null) {
+            Text(if (isToday) "Nothing logged today." else "Nothing logged that day.", style = ExType.body, color = c.inkSoft)
+        } else {
+            DayTimeline(times, today, zone, h24, onEdit, Modifier.padding(top = ExSpace.xxs))
+        }
+        times.longestGap?.let { g ->
+            Box(Modifier.fillMaxWidth().padding(top = ExSpace.xxs).height(ExSize.hairline).background(c.line))
+            Text(
+                "Longest gap ${if (isToday) "today" else "in the day"}: ${Fmt.gap(g.length)}, " +
+                    "${Fmt.time(g.start, zone, h24)} to ${if (g.ongoing) "now" else Fmt.time(g.end, zone, h24)}.",
+                style = ExType.caption, color = c.inkSoft, modifier = Modifier.padding(top = ExSpace.xxs),
+            )
+        }
     }
 }
 

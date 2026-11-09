@@ -2,7 +2,9 @@ package app.exhale.ui
 
 import java.text.NumberFormat
 import java.time.Duration
+import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Currency
 import java.util.Locale
@@ -43,6 +45,10 @@ object Fmt {
         val s = d.seconds.coerceAtLeast(0)
         return "%02d:%02d:%02d".format(s / 3600, (s % 3600) / 60, s % 60)
     }
+
+    /** A time of day following the phone's 12/24-hour setting: "13:05" or "1:05 PM". */
+    fun time(at: Instant, zone: ZoneId, h24: Boolean): String =
+        at.atZone(zone).format(DateTimeFormatter.ofPattern(if (h24) "HH:mm" else "h:mm a", Locale.getDefault()))
 
     /** "4 September": a date within the year, e.g. when the plan started. */
     fun dayMonth(date: LocalDate): String = date.format(DateTimeFormatter.ofPattern("d MMMM", Locale.getDefault()))

@@ -9,6 +9,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performTouchInput
+import app.exhale.domain.DayTimes
 import app.exhale.domain.Money
 import app.exhale.domain.TodayPlan
 import app.exhale.domain.Recovery
@@ -38,6 +39,8 @@ import app.exhale.ui.components.ExAppBar
 import app.exhale.ui.components.ExIcons
 import app.exhale.ui.components.FloatingTabBar
 import app.exhale.ui.components.TabItem
+import app.exhale.ui.components.LogEditor
+import androidx.compose.foundation.layout.padding
 import app.exhale.ui.screens.UiKitScreen
 import app.exhale.ui.screens.EmberOrbCanvas
 import androidx.compose.foundation.layout.size
@@ -146,6 +149,7 @@ class ScreenshotTest {
             recovery = Recovery.summary(settings, logs, now, zone),
             dataStart = dataStart,
             week = weekDays(settings, logs, plan.date, zone, dataStart),
+            todayTimes = DayTimes.of(logs, urges, plan.date, zone, plan.allowance, now),
         )
     }
 
@@ -206,7 +210,15 @@ class ScreenshotTest {
     @Test fun emberLight() = shot("1_ember", false, 0) { EmberScreen(sampleState(), null, {}, {}, { _, _ -> }, {}, {}) }
     @Test fun emberWaitingDark() = shot("1c_ember_waiting", true, 0, bar = sampleState(38)) { EmberScreen(sampleState(38), null, {}, {}, { _, _ -> }, {}, {}) }
     @Test fun emberWaitingLight() = shot("1c_ember_waiting", false, 0, bar = sampleState(38)) { EmberScreen(sampleState(38), null, {}, {}, { _, _ -> }, {}, {}) }
-    @Test fun rhythmDayDark() = shot("4b_rhythm_day", true, 1, picked = true) { val st = longState(); RhythmScreen(st, day = st.today.minusDays(1)) }
+    // A picked day: the clock gives way to the day's list, waves ridden out included.
+    @Test fun rhythmDayDark() = shot("4b_rhythm_day", true, 1, picked = true) { val st = longState(); RhythmScreen(st, day = dayWithWave(st)) }
+    @Test fun rhythmDayLight() = shot("4b_rhythm_day", false, 1, picked = true) { val st = longState(); RhythmScreen(st, day = dayWithWave(st)) }
+    // Today, as the row on Ember opens it: the list ends with now and the running gap.
+    @Test fun rhythmTodayDark() = shot("4f_rhythm_today", true, 1, picked = true) { val st = sampleState(); RhythmScreen(st, day = st.today) }
+    @Test fun rhythmTodayLight() = shot("4f_rhythm_today", false, 1, picked = true) { val st = sampleState(); RhythmScreen(st, day = st.today) }
+    // The edit dialog's content (a dialog window never goes idle in the harness, so it's drawn in place over the dimmed screen).
+    @Test fun rhythmEditDark() = shot("4g_rhythm_edit", true) { EditShot() }
+    @Test fun rhythmEditLight() = shot("4g_rhythm_edit", false) { EditShot() }
     @Test fun rhythmHourDark() = shot("4c_rhythm_hour", true, 1) { RhythmScreen(longState(), initialHour = 8) }
     @Test fun rhythmLinesLight() = shot("4d_rhythm_lines", false, 1) { RhythmScreen(longState(), initialLines = true) }
     @Test fun rhythmNewDark() = shot("4e_rhythm_new", true, 1) {
@@ -215,6 +227,23 @@ class ScreenshotTest {
         val logs = st.logs.filter { !it.at.atZone(zone).toLocalDate().isBefore(start) }
         RhythmScreen(st.copy(logs = logs, dataStart = start, settings = st.settings.copy(planStart = start), week = weekDays(st.settings.copy(planStart = start), logs, st.today, zone, start)))
     }
+    /** The latest day in [st] with a craving wave ridden out, so the list shows one. */
+    private fun dayWithWave(st: ExhaleState) =
+        st.urges.filter { it.outcome == UrgeOutcome.SURVIVED }.maxOf { it.startedAt }.atZone(zone).toLocalDate()
+
+    @Composable
+    private fun EditShot() {
+        val st = sampleState()
+        Box(Modifier.fillMaxSize()) {
+            RhythmScreen(st, day = st.today)
+            Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.5f)))
+            LogEditor(
+                st.todayTimes!!.cigarettes[1].log, "Today", zone, now, h24 = false, triggers = st.shownTriggers,
+                onSave = { _, _ -> }, onDelete = {}, modifier = Modifier.align(Alignment.Center).padding(horizontal = 24.dp),
+            )
+        }
+    }
+
     @Test fun historyDark() = shot("10_history", true) { HistoryScreen(longState(), {}, {}) }
     @Test fun historyLight() = shot("10_history", false) { HistoryScreen(longState(), {}, {}) }
     private fun overState() = sampleState(38).let { it.copy(plan = it.plan.copy(count = 12, allowance = 8, borrowed = 2)) }
@@ -392,9 +421,16 @@ class ScreenshotTest {
     @Test fun orbDark() = shot("9_ember_orb", true) { OrbMoments() }
     @Test fun orbLight() = shot("9_ember_orb", false) { OrbMoments() }
 
+    // The kit is taller than the renderer draws (16,384 px), so it's two shots: the top and the end.
     @Config(qualifiers = "w411dp-h4600dp-xxhdpi")
     @Test fun uiKitDark() = shot("8_uikit", true) { UiKitScreen(ThemeMode.DARK, {}, {}) }
 
     @Config(qualifiers = "w411dp-h4600dp-xxhdpi")
     @Test fun uiKitLight() = shot("8_uikit", false) { UiKitScreen(ThemeMode.LIGHT, {}, {}) }
+
+    @Config(qualifiers = "w411dp-h4600dp-xxhdpi")
+    @Test fun uiKitEndDark() = shot("8b_uikit_end", true) { UiKitScreen(ThemeMode.DARK, {}, {}, initialScroll = Int.MAX_VALUE) }
+
+    @Config(qualifiers = "w411dp-h4600dp-xxhdpi")
+    @Test fun uiKitEndLight() = shot("8b_uikit_end", false) { UiKitScreen(ThemeMode.LIGHT, {}, {}, initialScroll = Int.MAX_VALUE) }
 }

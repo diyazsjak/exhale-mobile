@@ -7,6 +7,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import app.exhale.ExhaleApp
 import app.exhale.data.ExhaleRepository
+import app.exhale.domain.DayTimes
 import app.exhale.domain.History
 import app.exhale.domain.Milestones
 import app.exhale.domain.Money
@@ -61,6 +62,8 @@ data class ExhaleState(
     val dataStart: LocalDate? = null,
     /** The last 7 days, today last, for the week strip on Rhythm. */
     val week: List<DayDot> = emptyList(),
+    /** Today cigarette by cigarette, for the row under the app bar on Ember. */
+    val todayTimes: DayTimes? = null,
     /** The user's trigger list: shown ones in chip order, then hidden ones (Settings → Triggers). */
     val triggers: List<TriggerEntry> = Triggers.defaults,
     /** How many logs and cravings each trigger key tagged; only unused ones can be deleted. */
@@ -140,6 +143,7 @@ class ExhaleViewModel(private val repo: ExhaleRepository) : ViewModel() {
             recovery = Recovery.summary(s, logs, now, zone),
             dataStart = dataStart,
             week = weekDays(s, logs, plan.date, zone, dataStart),
+            todayTimes = DayTimes.of(logs, d.urges, plan.date, zone, plan.allowance, now),
             triggers = d.triggers,
             triggerUses = d.triggerUses,
         )
@@ -164,6 +168,17 @@ class ExhaleViewModel(private val repo: ExhaleRepository) : ViewModel() {
     }
 
     fun dismissLogged() { _lastLogged.value = null }
+
+    /** The day list's edit: [id] moves to [at] with [trigger] (null clears it). Takes the tag lock, like [tag]. */
+    fun editLog(id: Long, at: Instant, trigger: Trigger?) {
+        viewModelScope.launch { triggerLock.withLock { repo.editLog(id, at, trigger) } }
+    }
+
+    /** The day list's delete. A Logged card still showing this log closes. */
+    fun deleteLog(id: Long) {
+        viewModelScope.launch { repo.undoLog(id) }
+        if (_lastLogged.value?.logId == id) _lastLogged.value = null
+    }
 
     // --- Triggers. Each change is worked out on the saved list under a lock, so quick edits
     // (a drag, say) never build on a list the flow hasn't caught up with yet.

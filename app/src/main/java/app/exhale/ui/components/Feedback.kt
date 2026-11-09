@@ -152,7 +152,7 @@ fun ExInputDialog(title: String, onDismiss: () -> Unit, actions: List<DialogActi
 
 /** A dialog's choices, stacked full width as Medium buttons. */
 @Composable
-private fun DialogActions(actions: List<DialogAction>) {
+internal fun DialogActions(actions: List<DialogAction>) {
     Column(Modifier.padding(top = ExSpace.sm), verticalArrangement = Arrangement.spacedBy(ExSpace.xs)) {
         actions.forEach { ExButton(it.label, it.onClick, Modifier.fillMaxWidth(), style = it.style, size = ButtonSize.Medium, enabled = it.enabled) }
     }
