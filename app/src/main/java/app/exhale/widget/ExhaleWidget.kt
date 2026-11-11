@@ -32,6 +32,8 @@ import app.exhale.ui.theme.isDark
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.time.Instant
 import java.time.ZoneId
 
@@ -75,6 +77,9 @@ class ExhaleWideWidgetReceiver : ExhaleWidgetReceiver()
 
 /** Each widget's own tap state ([WidgetTap]), kept in Glance's per-widget preferences. */
 internal object WidgetState {
+    /** Taps and Undos run one at a time: each reads this state, acts, then writes it. */
+    val lock = Mutex()
+
     private val ARMED_UNTIL = longPreferencesKey("armed_until")
     private val LOGGED_ID = longPreferencesKey("logged_id")
     private val UNDO_UNTIL = longPreferencesKey("undo_until")
@@ -102,9 +107,15 @@ internal object WidgetState {
     }
 }
 
-/** A tap on the ring (2×2) or the ember button (4×1): the first arms, the second logs. */
+/**
+ * A tap on the ring (2×2) or the ember button (4×1): the first arms, the second logs. Taps are handled
+ * one at a time, so two quick taps on an armed widget can't both log.
+ */
 class WidgetTapAction : ActionCallback {
-    override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
+    override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) =
+        WidgetState.lock.withLock { tap(context, glanceId) }
+
+    private suspend fun tap(context: Context, glanceId: GlanceId) {
         val app = context.applicationContext as ExhaleApp
         val now = Instant.now()
         when (val r = Widget.onTap(WidgetState.read(context, glanceId), now)) {
@@ -117,6 +128,8 @@ class WidgetTapAction : ActionCallback {
             TapResult.Log -> {
                 val repo = app.repository
                 val goesOver = TodayPlan.of(repo.settings.first(), repo.logs.first(), now, ZoneId.systemDefault()).overAllowance
+                // Disarm first, so the insert's redraw doesn't still ask for a second tap.
+                WidgetState.write(context, glanceId, WidgetTap())
                 val id = repo.logCigarette(at = now)
                 // Same meaning as on Ember. Android may mute vibration for an app in the background.
                 Haptics(context, null).run { if (goesOver) loggedOver() else logged() }
@@ -130,11 +143,14 @@ class WidgetTapAction : ActionCallback {
     }
 }
 
-/** Undo for the widget's own last log. */
+/** Undo for the widget's own last log, only within its window: an Undo still drawn later does nothing. */
 class WidgetUndoAction : ActionCallback {
-    override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
+    override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) =
+        WidgetState.lock.withLock { undo(context, glanceId) }
+
+    private suspend fun undo(context: Context, glanceId: GlanceId) {
         val app = context.applicationContext as ExhaleApp
-        val logged = WidgetState.read(context, glanceId).loggedId
+        val logged = WidgetState.read(context, glanceId).takeIf { it.undoShown(Instant.now()) }?.loggedId
         WidgetState.write(context, glanceId, WidgetTap())
         WidgetRefresh.cancel(glanceId)
         // Deleting redraws every widget (ExhaleRepository.onWrite); with nothing to undo, redraw this one.

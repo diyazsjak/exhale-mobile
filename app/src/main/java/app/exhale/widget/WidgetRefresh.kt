@@ -76,7 +76,7 @@ class WidgetRefreshReceiver : BroadcastReceiver() {
         val done = goAsync()
         app.scope.launch {
             try {
-                WidgetRefresh.refreshAll(app)
+                runCatching { WidgetRefresh.refreshAll(app) }
             } finally {
                 done.finish()
             }

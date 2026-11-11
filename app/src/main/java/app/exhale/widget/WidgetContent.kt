@@ -66,7 +66,8 @@ private fun SquareLayout(m: WidgetModel, c: ExColors, zone: ZoneId, h24: Boolean
     val context = LocalContext.current
     val size = LocalSize.current
     val ring = minOf(size.width.value - 16f, size.height.value - 60f).coerceIn(64f, 132f)
-    val tappable = m.kind != WidgetKind.SETUP && m.kind != WidgetKind.LOGGED
+    // While Undo shows, a tap on the ring still goes to WidgetTapAction, which ignores it.
+    val tappable = m.kind != WidgetKind.SETUP
     Column(
         modifier = root(c, ExRadius.LG).padding(top = ExSpace.xs, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically,

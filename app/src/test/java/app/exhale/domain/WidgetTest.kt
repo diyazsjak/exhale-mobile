@@ -97,7 +97,9 @@ class WidgetTest {
     @Test fun armed_showsUntilTheWindowCloses() {
         val tap = WidgetTap(armedUntil = now.plusSeconds(4))
         val logs = listOf(log(now.minus(Duration.ofMinutes(40))))
-        assertEquals(WidgetKind.ARMED, model(logs, tap).kind)
+        val m = model(logs, tap)
+        assertEquals(WidgetKind.ARMED, m.kind)
+        assertEquals(now.plusSeconds(4), m.refreshAt)
         assertEquals(WidgetKind.WAITING, model(logs, tap, now.plusSeconds(4)).kind)
     }
 
@@ -109,10 +111,17 @@ class WidgetTest {
         assertEquals(now, m.loggedAt)
         assertEquals(0f, m.ringFill, 0f)
         assertEquals(1f, m.heat, 0f)
-        assertEquals(now.plus(Duration.ofMinutes(12)), m.refreshAt) // the first ring step
+        assertEquals(now.plusSeconds(8), m.refreshAt)
         val after = model(listOf(made), tap, now.plusSeconds(8))
         assertEquals(WidgetKind.WAITING, after.kind)
         assertNull(after.loggedAt)
+    }
+
+    @Test fun undo_isGoneOnceTheLogIs() {
+        val tap = WidgetTap(loggedId = 99, undoUntil = now.plusSeconds(8)) // undone or erased in the app
+        val m = model(listOf(log(now.minus(Duration.ofMinutes(40)))), tap)
+        assertEquals(WidgetKind.WAITING, m.kind)
+        assertNull(m.loggedAt)
     }
 
     @Test fun ringStep_roundsDown() {

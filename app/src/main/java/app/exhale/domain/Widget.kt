@@ -11,8 +11,7 @@ import kotlin.math.floor
  * A widget can't redraw every minute, so it shows clock times ("Next one at 3:13") rather than a
  * countdown, and its ring moves in [RING_STEPS] steps. [WidgetModel.refreshAt] says when the next
  * redraw is due. Launchers take the long-press on a widget, so logging is two taps instead of a hold:
- * the first arms it for [ARM_WINDOW], the second logs, and Undo shows for [UNDO_WINDOW]. The ends of
- * those windows are seconds away, so the widget redraws itself then (not through [WidgetModel.refreshAt]).
+ * the first arms it for [ARM_WINDOW], the second logs, and Undo shows for [UNDO_WINDOW].
  */
 object Widget {
     val ARM_WINDOW: Duration = Duration.ofSeconds(4)
@@ -39,7 +38,9 @@ object Widget {
         }
         val plan = TodayPlan.of(s, logs, now, zone)
         val armed = tap.armed(now)
-        val undo = tap.undoShown(now)
+        // Undo only while the log is still there: the app may have undone, moved or erased it.
+        val undone = logs.lastOrNull { it.id == tap.loggedId }?.takeIf { tap.undoShown(now) }
+        val undo = undone != null
         val kind = when {
             undo -> WidgetKind.LOGGED
             armed -> WidgetKind.ARMED
@@ -56,16 +57,17 @@ object Widget {
             ringFill = ringStep(plan.earnedFraction),
             nextAt = plan.nextAllowedAt,
             lastAt = plan.last?.at,
-            loggedAt = if (undo) logs.lastOrNull { it.id == tap.loggedId }?.at else null,
-            refreshAt = nextRefresh(plan, now, tomorrow),
+            loggedAt = undone?.at,
+            refreshAt = nextRefresh(plan, tap, now, tomorrow),
         )
     }
 
     /**
      * The earliest moment the widget looks different: the next ring step, the moment the next one is
-     * earned, or midnight (the count starts over).
+     * earned, the end of an armed or Undo window, or midnight (the count starts over). The app also
+     * redraws at the end of those windows itself; this is the fallback if its process is gone by then.
      */
-    private fun nextRefresh(plan: TodayPlan, now: Instant, midnight: Instant): Instant {
+    private fun nextRefresh(plan: TodayPlan, tap: WidgetTap, now: Instant, midnight: Instant): Instant {
         val times = mutableListOf(midnight)
         val last = plan.last?.at
         val next = plan.nextAllowedAt
@@ -77,6 +79,7 @@ object Widget {
             }
             times += next
         }
+        times += listOfNotNull(tap.armedUntil, tap.undoUntil)
         return times.filter { it.isAfter(now) }.min()
     }
 }
