@@ -186,12 +186,16 @@ class ExhaleTextTest {
 
     /** Where the light text is on the dark background, and how many pixels of it. */
     private fun ink(px: Pixels): Ink {
-        val box = Rect(px.width, px.height, 0, 0)
+        // Rect.union(x, y) can't grow right or bottom from the first point (it is if/else-if), so the
+        // bounds are kept by hand.
+        val box = Rect(px.width, px.height, -1, -1)
         var amount = 0
         for (i in px.argb.indices) {
             if (Color.red(px.argb[i]) > 128) {
                 amount++
-                box.union(i % px.width, i / px.width)
+                val x = i % px.width
+                val y = i / px.width
+                box.set(minOf(box.left, x), minOf(box.top, y), maxOf(box.right, x), maxOf(box.bottom, y))
             }
         }
         return Ink(box, amount)
@@ -207,7 +211,7 @@ class ExhaleTextTest {
     }
 
     /** Each piece as "old→new", "+new" (comes), "-old" (goes) or "=same", left to right. */
-    private fun changes(old: String?, text: String) = exhalePairs(old, text).map { p ->
+    private fun changes(old: String?, text: String, resized: Boolean = false) = exhalePairs(old, text, resized).map { p ->
         val n = p.to?.let { text.substring(it) }
         val o = p.from?.let { old?.substring(it) }
         when {
@@ -232,6 +236,12 @@ class ExhaleTextTest {
     @Test fun aShorterOrLongerText_onlyTheEndsComeAndGo() {
         assertEquals(listOf("-1", "-h ", "0→59", "=m"), changes("1h 0m", "59m"))
         assertEquals(listOf("+1", "+h ", "1→30", "=m"), changes("1m", "1h 30m"))
+    }
+
+    // One of the two had to shrink to fit and the other didn't: a piece with the same text is drawn at
+    // another size, so it can't hold still; everything breathes out and settles in.
+    @Test fun aTextAtAnotherSize_changesEveryPiece() {
+        assertEquals(listOf("+1", "+h ", "59→30", "m→m"), changes("59m", "1h 30m", resized = true))
     }
 
     @Test fun theFirstShow_changesNothing() {

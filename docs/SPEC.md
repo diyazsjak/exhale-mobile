@@ -131,7 +131,8 @@ First launch shows **Onboarding** (§3.7). Regulate is no longer a tab: its coun
   and units that didn't change hold still, gliding aside if the width changed ("1h 0m" → "59m":
   "1h" and "0" breathe out, "59" settles in, "m" glides). Blur on Android 12+, fade and drift below. The first show does not animate.
   It stays on one line; if it is wider than the screen (large font size, narrow phone) its type
-  shrinks to fit. A change that comes while one is still moving waits for it to finish, then goes
+  shrinks to fit (and if only one of the old and new times had to shrink, every piece breathes out
+  and in, since nothing can hold still at another size). A change that comes while one is still moving waits for it to finish, then goes
   to the newest time. The countdown is worked out with the time it is shown at, so right after a
   log it already reads the gap less that moment ("59m" of 60), one change per log.
 - **Orb** (`EmberOrb.kt`, concept "Gather" from the Ember Lab): a molten core coloured by `heat`

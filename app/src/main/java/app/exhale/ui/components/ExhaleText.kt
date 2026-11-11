@@ -128,15 +128,17 @@ internal class TokenPair(val to: IntRange?, val from: IntRange?, val changed: Bo
 
 /**
  * The pieces of [text] matched from the right with those of [old] (null on first show): a piece
- * changed if its text did; pieces only one side has come or go.
+ * changed if its text did; pieces only one side has come or go. If the two are drawn at different
+ * sizes ([resized]: one had to shrink to fit and the other didn't), every piece changed, since even
+ * a piece with the same text can't hold still at another size.
  */
-internal fun exhalePairs(old: String?, text: String): List<TokenPair> {
+internal fun exhalePairs(old: String?, text: String, resized: Boolean = false): List<TokenPair> {
     val now = exhaleTokens(text)
     val was = old?.let(::exhaleTokens).orEmpty()
     return (maxOf(now.size, was.size) - 1 downTo 0).map { fromRight ->
         val n = now.getOrNull(now.size - 1 - fromRight)
         val o = was.getOrNull(was.size - 1 - fromRight)
-        val changed = old != null && (n == null || o == null || text.substring(n) != old.substring(o))
+        val changed = old != null && (resized || n == null || o == null || text.substring(n) != old.substring(o))
         TokenPair(n, o, changed)
     }
 }
@@ -146,7 +148,8 @@ private fun ExhaleLines(change: TextChange, now: TextLayoutResult, before: TextL
     // Built once per change, not on every recomposition (the hero's screen recomposes every second).
     val pieces = remember(change, now, before) {
         val shift = before?.let { (now.size.width - it.size.width) / 2f } ?: 0f
-        exhalePairs(change.from, change.to).map { pair ->
+        val resized = before != null && before.layoutInput.style.fontSize != now.layoutInput.style.fontSize
+        exhalePairs(change.from, change.to, resized).map { pair ->
             val cell = pair.to?.let { Cell(now, it, 0f) }
             val old = pair.from?.let { r -> before?.let { Cell(it, r, shift) } }
             Piece(
