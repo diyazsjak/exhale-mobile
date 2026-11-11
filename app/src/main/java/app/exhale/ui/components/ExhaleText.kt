@@ -185,16 +185,14 @@ private class Cell(val line: TextLayoutResult, range: IntRange, val dx: Float) {
 @Composable
 private fun ExhalePiece(piece: Piece, change: TextChange, color: Color) {
     // Time into this piece's change, in ms; at TOTAL_MS it is at rest. Read only in layers, so frames don't recompose.
-    val t = remember { Animatable(TOTAL_MS.toFloat()) }
+    // Made with the change, so the change's first frame already draws its start (the old text as it
+    // was); starting it from the effect, which runs after that frame, flashed the new text for a frame.
+    val animates = piece.changed || piece.slideFrom != 0f
+    val t = remember(change) { Animatable(if (animates) 0f else TOTAL_MS.toFloat()) }
     LaunchedEffect(change) {
-        if (piece.changed || piece.slideFrom != 0f) {
-            t.snapTo(0f)
-            t.animateTo(TOTAL_MS.toFloat(), tween(TOTAL_MS, easing = LinearEasing))
-        } else {
-            t.snapTo(TOTAL_MS.toFloat())
-        }
+        if (animates) t.animateTo(TOTAL_MS.toFloat(), tween(TOTAL_MS, easing = LinearEasing))
     }
-    val outgoing by remember { derivedStateOf { t.value < OUT_MS } }
+    val outgoing by remember(t) { derivedStateOf { t.value < OUT_MS } }
     val cell = piece.cell
     val old = piece.old
     val em = (cell ?: old ?: return).line.layoutInput.style.fontSize

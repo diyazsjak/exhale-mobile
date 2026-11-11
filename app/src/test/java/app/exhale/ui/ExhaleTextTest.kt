@@ -1,5 +1,12 @@
 package app.exhale.ui
 
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.Rect
+import android.graphics.Color
+import androidx.compose.foundation.background
+import androidx.compose.runtime.snapshots.Snapshot
+import androidx.compose.ui.test.onRoot
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.CompositionLocalProvider
@@ -7,6 +14,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.getBoundsInRoot
@@ -18,6 +26,11 @@ import androidx.compose.ui.unit.sp
 import app.exhale.ui.components.ExhaleText
 import app.exhale.ui.components.exhalePairs
 import app.exhale.ui.components.exhaleTokens
+import com.github.takahirom.roborazzi.RoborazziOptions
+import com.github.takahirom.roborazzi.RoborazziTaskType
+import com.github.takahirom.roborazzi.captureRoboImage
+import java.io.File
+import kotlin.math.abs
 import org.junit.Assert.assertEquals
 import app.exhale.ui.theme.Ex
 import app.exhale.ui.theme.ExType
@@ -77,6 +90,56 @@ class ExhaleTextTest {
             compose.waitForIdle()
             compose.onNodeWithContentDescription(next).assertExists()
         }
+    }
+
+    // The change's first frame is its start: the old text where it was, nothing of the new one yet.
+    // (The clock used to start a frame late, so the first frame drew the new "1h 30m" whole, or no
+    // number at all, before the animation began.) Compared by where the ink is and how much of it,
+    // since the old text, kept centred, may land half a pixel off when the width changes.
+    @Test fun theFirstFrameOfAChange_looksLikeTheFrameBefore() {
+        var text by mutableStateOf("25m")
+        compose.mainClock.autoAdvance = false
+        compose.setContent {
+            ExhaleTheme(dark = true) {
+                Box(Modifier.width(411.dp).background(Ex.colors.bg), contentAlignment = Alignment.Center) {
+                    ExhaleText(text, ExType.display.copy(fontSize = 88.sp), Ex.colors.ink)
+                }
+            }
+        }
+        compose.mainClock.advanceTimeBy(500)
+        val before = ink(frame("before"))
+        compose.runOnUiThread { text = "1h 30m"; Snapshot.sendApplyNotifications() }
+        compose.mainClock.advanceTimeByFrame()
+        val first = ink(frame("first"))
+        assertTrue("ink at ${first.box}, was at ${before.box}", abs(first.box.left - before.box.left) <= 2 && abs(first.box.right - before.box.right) <= 2)
+        assertTrue("ink ${first.amount}, was ${before.amount}", abs(first.amount - before.amount) <= before.amount / 20)
+        // And it moves on from there to the new text, which is wider.
+        compose.mainClock.advanceTimeBy(1_000)
+        val end = ink(frame("end"))
+        assertTrue("ink at ${end.box}, was at ${before.box}", end.box.width() > before.box.width() + 50)
+    }
+
+    private class Ink(val box: Rect, val amount: Int)
+
+    /** Where the light text is on the dark background, and how many pixels of it. */
+    private fun ink(bmp: Bitmap): Ink {
+        val box = Rect(bmp.width, bmp.height, 0, 0)
+        var amount = 0
+        for (y in 0 until bmp.height) for (x in 0 until bmp.width) {
+            if (Color.red(bmp.getPixel(x, y)) > 128) {
+                amount++
+                box.union(x, y)
+            }
+        }
+        return Ink(box, amount)
+    }
+
+    /** The screen as drawn now, through Roborazzi (works with the clock paused, mid-animation). */
+    private fun frame(name: String): Bitmap {
+        val file = File("build/outputs/roborazzi/test_exhale_first_frame_$name.png")
+        // Record, so the image is written in a plain test run too (not only when recording screenshots).
+        compose.onRoot().captureRoboImage(file.path, RoborazziOptions(taskType = RoborazziTaskType.Record))
+        return BitmapFactory.decodeFile(file.path)
     }
 
     /** Each piece as "old→new", "+new" (comes), "-old" (goes) or "=same", left to right. */
