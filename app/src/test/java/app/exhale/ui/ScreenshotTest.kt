@@ -2,6 +2,7 @@ package app.exhale.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -10,6 +11,7 @@ import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performTouchInput
 import app.exhale.domain.DayTimes
+import app.exhale.domain.LogEdit
 import app.exhale.domain.Money
 import app.exhale.domain.TodayPlan
 import app.exhale.domain.Recovery
@@ -41,6 +43,8 @@ import app.exhale.ui.components.FloatingTabBar
 import app.exhale.ui.components.TabItem
 import app.exhale.ui.components.LogEditor
 import app.exhale.ui.components.EditTime
+import app.exhale.ui.components.DialogAction
+import app.exhale.ui.components.ButtonStyle
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import app.exhale.ui.screens.UiKitScreen
@@ -68,6 +72,7 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import java.time.Duration
 import java.time.Instant
+import java.time.LocalDate
 import java.time.ZoneId
 import kotlin.random.Random
 
@@ -230,6 +235,11 @@ class ScreenshotTest {
     // A wave ridden out: no time wheel (when and how long stay), just its trigger and delete.
     @Test fun rhythmEditWaveDark() = shot("4h_rhythm_edit_wave", true) { EditWaveShot() }
     @Test fun rhythmEditWaveLight() = shot("4h_rhythm_edit_wave", false) { EditWaveShot() }
+    // Scrolled to the end of the day list, where "Add one you forgot" is.
+    @Test fun rhythmDayEndDark() = shot("4j_rhythm_day_end", true, 1, picked = true) { val st = longState(); RhythmScreen(st, day = dayWithWave(st), scrollState = rememberScrollState(900)) }
+    @Test fun rhythmDayEndLight() = shot("4j_rhythm_day_end", false, 1, picked = true) { val st = longState(); RhythmScreen(st, day = dayWithWave(st), scrollState = rememberScrollState(900)) }
+    @Test fun rhythmAddDark() = shot("4i_rhythm_add", true) { AddShot() }
+    @Test fun rhythmAddLight() = shot("4i_rhythm_add", false) { AddShot() }
     @Test fun rhythmHourDark() = shot("4c_rhythm_hour", true, 1) { RhythmScreen(longState(), initialHour = 8) }
     @Test fun rhythmLinesLight() = shot("4d_rhythm_lines", false, 1) { RhythmScreen(longState(), initialLines = true) }
     @Test fun rhythmNewDark() = shot("4e_rhythm_new", true, 1) {
@@ -242,17 +252,37 @@ class ScreenshotTest {
     private fun dayWithWave(st: ExhaleState) =
         st.urges.filter { it.outcome == UrgeOutcome.SURVIVED }.maxOf { it.startedAt }.atZone(zone).toLocalDate()
 
+    /** Rhythm on [day] under a scrim, with the day list's dialog ([dialog], given its centred modifier) over it. */
+    @Composable
+    private fun DialogOverRhythm(st: ExhaleState, day: LocalDate, dialog: @Composable (Modifier) -> Unit) {
+        Box(Modifier.fillMaxSize()) {
+            RhythmScreen(st, day = day)
+            Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.5f)))
+            dialog(Modifier.align(Alignment.Center).padding(horizontal = 24.dp))
+        }
+    }
+
     @Composable
     private fun EditShot() {
         val st = sampleState()
-        Box(Modifier.fillMaxSize()) {
-            RhythmScreen(st, day = st.today)
-            Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.5f)))
-            val e = st.todayTimes!!.cigarettes[1]
+        val e = st.todayTimes!!.cigarettes[1]
+        DialogOverRhythm(st, st.today) { m ->
             LogEditor(
-                "Today · 2 of ${st.allowance}", e.log.id, e.log.trigger, st.shownTriggers, onSave = { _, _ -> }, onDelete = {},
-                deleteLabel = "Delete this one", modifier = Modifier.align(Alignment.Center).padding(horizontal = 24.dp),
-                time = EditTime(e.at, zone, now, h24 = false),
+                "Today · 2 of ${st.allowance}", e.log.id, e.log.trigger, st.shownTriggers, onSave = { _, _ -> },
+                delete = DialogAction("Delete this one", ButtonStyle.Ghost) {}, modifier = m, time = EditTime(e.at, zone, now, h24 = false),
+            )
+        }
+    }
+
+    /** "Add one you forgot" on an earlier day: no trash button, the wheel at noon, Add. */
+    @Composable
+    private fun AddShot() {
+        val st = longState()
+        val day = dayWithWave(st)
+        DialogOverRhythm(st, day) { m ->
+            LogEditor(
+                "${Fmt.dayName(day, st.today)} · one you forgot", "add", null, st.shownTriggers, onSave = { _, _ -> }, delete = null,
+                modifier = m, time = EditTime(LogEdit.forgottenStart(day, zone, now), zone, now, h24 = false), saveLabel = "Add",
             )
         }
     }
@@ -263,13 +293,8 @@ class ScreenshotTest {
         val day = dayWithWave(st)
         val wave = st.urges.last { it.outcome == UrgeOutcome.SURVIVED }
         val heading = "${Fmt.dayName(day, st.today)} · wave at ${Fmt.time(wave.startedAt, zone, false)}, ${Fmt.waveLength(java.time.Duration.between(wave.startedAt, wave.endedAt))}"
-        Box(Modifier.fillMaxSize()) {
-            RhythmScreen(st, day = day)
-            Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.5f)))
-            LogEditor(
-                heading, wave.id, wave.trigger, st.shownTriggers, onSave = { _, _ -> }, onDelete = {},
-                deleteLabel = "Delete this wave", modifier = Modifier.align(Alignment.Center).padding(horizontal = 24.dp),
-            )
+        DialogOverRhythm(st, day) { m ->
+            LogEditor(heading, wave.id, wave.trigger, st.shownTriggers, onSave = { _, _ -> }, delete = DialogAction("Delete this wave", ButtonStyle.Ghost) {}, modifier = m)
         }
     }
 

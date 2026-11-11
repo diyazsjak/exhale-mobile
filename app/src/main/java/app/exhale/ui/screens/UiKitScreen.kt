@@ -301,8 +301,8 @@ fun UiKitScreen(
             TimeWheel(minuteOfDay, { minuteOfDay = it }, canSet = { true }, h24 = true)
             val log = sample.cigarettes[1]
             LogEditor(
-                "Today · 2 of 3", log.log.id, log.log.trigger, Trigger.BUILT_IN, onSave = { _, _ -> }, onDelete = {},
-                deleteLabel = "Delete this one", time = EditTime(log.at, zone, now, h24 = true),
+                "Today · 2 of 3", log.log.id, log.log.trigger, Trigger.BUILT_IN, onSave = { _, _ -> },
+                delete = DialogAction("Delete this one", ButtonStyle.Ghost) {}, time = EditTime(log.at, zone, now, h24 = true),
             )
             Footnote("Log editor: the dialog behind a tap on the day timeline.")
 

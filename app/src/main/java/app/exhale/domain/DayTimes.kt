@@ -6,6 +6,7 @@ import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
 import java.time.ZonedDateTime
+import java.time.temporal.ChronoUnit
 
 /** One thing on a day's list ([DayTimes.entries]), at the moment it happened. */
 sealed interface DayEntry {
@@ -120,8 +121,16 @@ data class DayTimes(
     }
 }
 
-/** Rules for changing a logged cigarette's time (the edit dialog on Rhythm's day list). */
+/** Rules for changing a logged cigarette's time, or adding one the user forgot (Rhythm's day list). */
 object LogEdit {
+    /**
+     * Where the Time wheel starts when adding one the user forgot on [day]: now (to the minute) on
+     * today, noon on an earlier day. From there [moved] keeps it on [day] and never past [now].
+     */
+    fun forgottenStart(day: LocalDate, zone: ZoneId, now: Instant): Instant =
+        if (day == now.atZone(zone).toLocalDate()) now.truncatedTo(ChronoUnit.MINUTES)
+        else day.atTime(12, 0).atZone(zone).toInstant()
+
     /** [minuteOfDay] with its hour moved by [delta], round the clock; the minutes stay. */
     fun stepHour(minuteOfDay: Int, delta: Int): Int = Math.floorMod(minuteOfDay / 60 + delta, 24) * 60 + minuteOfDay % 60
 

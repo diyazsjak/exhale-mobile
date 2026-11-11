@@ -42,8 +42,9 @@ class ExhaleRepository(
 
     suspend fun saveSettings(s: UserSettings) = settingsStore.save(s)
 
-    suspend fun logCigarette(trigger: Trigger? = null, fromUrge: Boolean = false): Long =
-        db.logs().insert(SmokeLog(0, Instant.now(), trigger, fromUrge).toEntity())
+    /** A cigarette now, or at [at] for one the user forgot (the day list's "Add one you forgot"). */
+    suspend fun logCigarette(trigger: Trigger? = null, fromUrge: Boolean = false, at: Instant = Instant.now()): Long =
+        db.logs().insert(SmokeLog(0, at, trigger, fromUrge).toEntity())
 
     suspend fun undoLog(id: Long) = db.logs().delete(id)
 

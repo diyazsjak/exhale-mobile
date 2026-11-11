@@ -226,7 +226,8 @@ Shows the last 30 days (today and the 29 before), or one picked day. Order:
   Today ends with "Now · 2h 41m since the last one" (a filled oxygen dot). Under the list: "Longest gap
   in the day: 4h 52m, 1:52 PM to 6:44 PM." (today: "Longest gap today: …, 11:40 AM to now."; the
   night before the first one doesn't count). An empty day says "Nothing logged that day." /
-  "Nothing logged today." Switching between the clock and the list, or between days, cross-fades.
+  "Nothing logged today." The card ends with **Add one you forgot** (Ghost, Medium, plus icon), on an
+  empty day too. Switching between the clock and the list, or between days, cross-fades.
 - **Editing a cigarette**: tapping one opens a modal (`LogEditDialog`). Its header is an overline,
   "Sunday · 3 of 8" (just the number before the plan start), with a trash button at the right; then a Time
   wheel (hour and minutes as spinner wheels, the neighbours cut to half and fading: drag up or tap the
@@ -241,6 +242,13 @@ Shows the last 30 days (today and the 29 before), or one picked day. Order:
   was and how long stay as they were. Header "Sunday · wave at 4:38 PM, 4 min" with the trash
   button, the trigger chips and Save. Delete asks "Delete the wave at 4:38 PM?" / "It comes off
   Sunday's waves ridden out. This can't be undone." Rhythm's waves card follows at once.
+- **Adding one you forgot**: "Add one you forgot" opens the same modal: header "Sunday · one you
+  forgot" with no trash button, the Time wheel (starting at noon on an earlier day, at now today;
+  the same rules as an edit: it stays on the picked day and never goes past now), the trigger chips
+  with nothing picked, and **Add** (Primary). Add writes a cigarette at that minute and closes;
+  outside or Back closes without adding. Only tracked days can be picked, so nothing lands before
+  tracking began. No Logged card and no haptic: it's a correction, not one smoked now. Counts,
+  allowances, borrowing, gaps and every other screen follow at once, as after an edit.
 - **Comparison card** (when the 30 days before hold at least 7 tracked days, not on a picked day):
   led by the **average** for the day filter: "Average · last 30 days" ("Average · weekdays, last 30
   days"; "Average · since you started" when tracking began inside the window), a big "9.3" and "a
@@ -507,13 +515,17 @@ the picked day's tally and its `times` (`DayTimes`, below). `topTrigger(hour)` i
 - `longestGap`: the longest between two of the day's cigarettes, or (today) from the last one to now;
   the night before the first one doesn't count. None with fewer than two moments.
 - `lineStart`: where the Ember row's line starts: 6 am, or the hour of an earlier first cigarette.
+- `LogEdit.forgottenStart(day, zone, now)`: where the wheel starts when adding one the user forgot:
+  now (to the minute) on today, noon on an earlier day. `moved` then keeps it on that day and not
+  past now, as for an edit.
 - `LogEdit`: `stepHour` moves the hour round the clock keeping the minutes; `stepMinute` moves the
   minutes round the hour keeping the hour. `moved(original, minuteOfDay, zone, now)` is the new moment:
   the same calendar day at the start of that minute (the original to the second when the minute is
   unchanged), or none when that is after `now` or never happens (skipped when the clocks go forward);
   a time that happens twice (clocks going back) keeps the offset the log had. The Ember row never
   draws now before the last dot.
-- Storage: `LogDao.update(id, atMillis, trigger)`; deleting uses the same delete as Undo. No schema change.
+- Storage: `LogDao.update(id, atMillis, trigger)`; deleting uses the same delete as Undo; adding
+  one you forgot uses the same insert as a log, at the chosen time (`ExhaleRepository.logCigarette(at = …)`). No schema change.
 
 ### Triggers — `Triggers`
 - A `Trigger` is a key and a label. Built-ins (`BuiltInTrigger`: Coffee, Stress, After food, Drinks,

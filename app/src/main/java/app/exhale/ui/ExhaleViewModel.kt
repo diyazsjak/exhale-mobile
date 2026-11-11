@@ -187,6 +187,14 @@ class ExhaleViewModel(private val repo: ExhaleRepository) : ViewModel() {
     }
 
     /**
+     * The day list's "Add one you forgot": a cigarette at [at] with [trigger] (or none). No Logged
+     * card and no haptic: it's a correction, not one smoked now. Takes the tag lock, like [editLog].
+     */
+    fun addLog(at: Instant, trigger: Trigger?) {
+        viewModelScope.launch { triggerLock.withLock { repo.logCigarette(trigger, at = at) } }
+    }
+
+    /**
      * The day list's edit of a craving wave: only its trigger (null clears it); when and how long
      * it was stay. A save that changes nothing writes nothing. Takes the tag lock, like [tag].
      */

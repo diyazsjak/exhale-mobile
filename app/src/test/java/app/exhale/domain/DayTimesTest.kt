@@ -183,6 +183,29 @@ class DayTimesTest {
         assertEquals(day.atTime(3, 30).atZone(berlin).toInstant(), LogEdit.moved(original, 3 * 60 + 30, berlin, later))
     }
 
+    @Test fun forgottenStart_isNowOnToday_toTheMinute() {
+        val later = now.plusSeconds(37)
+        assertEquals(now, LogEdit.forgottenStart(monday, zone, later))
+    }
+
+    @Test fun forgottenStart_isNoonOnAnEarlierDay() {
+        assertEquals(sunday.atTime(12, 0).toInstant(zone), LogEdit.forgottenStart(sunday, zone, now))
+    }
+
+    @Test fun forgotten_today_canBeEarlierButNeverLater() {
+        val later = now.plusSeconds(37)
+        val start = LogEdit.forgottenStart(monday, zone, later)
+        assertEquals(monday.atTime(9, 15).toInstant(zone), LogEdit.moved(start, 9 * 60 + 15, zone, later))
+        assertNull(LogEdit.moved(start, 14 * 60 + 22, zone, later))
+    }
+
+    @Test fun forgottenStart_inAnotherZone_isThatZonesNoonAndDay() {
+        val tokyo = ZoneId.of("Asia/Tokyo")
+        // 14:21 UTC on Monday is 23:21 Monday in Tokyo, so Monday is today there and Sunday is not.
+        assertEquals(now, LogEdit.forgottenStart(monday, tokyo, now))
+        assertEquals(sunday.atTime(12, 0).atZone(tokyo).toInstant(), LogEdit.forgottenStart(sunday, tokyo, now))
+    }
+
     @Test fun rhythm_pickedDay_carriesItsTimes() {
         val s = UserSettings(onboarded = true, startAllowance = 10, planStart = sunday.minusDays(10))
         val logs = listOf(saturdayLast) + sundayLogs

@@ -497,9 +497,10 @@ data class EditTime(val at: Instant, val zone: ZoneId, val now: Instant, val h24
 /**
  * Change one thing on the day list: its trigger (tap the picked one again to clear it; "Your own"
  * names a new one with [onAddTrigger]) and, with [time], when it was (a cigarette; a wave keeps its
- * time). [heading] is an overline ("Today · 2 of 10") beside a trash button for [onDelete], which
- * asks first. Save hands back the time ([EditTime.at] when unchanged, null without [time]) and the
+ * time). [heading] is an overline ("Today · 2 of 10") beside a trash button for [delete] (its
+ * label is the button's description; its style isn't used), which asks first. Save hands back the time ([EditTime.at] when unchanged, null without [time]) and the
  * trigger, changed or not (the ViewModel skips a save that changes nothing). Shown in [LogEditDialog].
+ * Adding one the user forgot uses it too: no [delete] (no trash button) and [saveLabel] "Add".
  */
 @Composable
 fun LogEditor(
@@ -508,11 +509,11 @@ fun LogEditor(
     trigger: Trigger?,
     triggers: List<Trigger>,
     onSave: (at: Instant?, trigger: Trigger?) -> Unit,
-    onDelete: () -> Unit,
-    deleteLabel: String,
+    delete: DialogAction?,
     modifier: Modifier = Modifier,
     time: EditTime? = null,
     onAddTrigger: ((name: String, then: (Trigger) -> Unit) -> Unit)? = null,
+    saveLabel: String = "Save",
 ) {
     val c = Ex.colors
     var minute by remember(itemKey) { mutableIntStateOf(time?.let { DayTimes.minuteOf(it.at, it.zone) } ?: 0) }
@@ -521,11 +522,11 @@ fun LogEditor(
     val chips = remember(triggers, trigger) { trigger?.takeIf { it !in triggers }?.let { triggers + it } ?: triggers }
     val at = time?.let { LogEdit.moved(it.at, minute, it.zone, it.now) ?: it.at }
     // On surface-high like the Logged card, so the trigger chips stand out from it.
-    ExDialogCard(null, listOf(DialogAction("Save", ButtonStyle.Primary) { onSave(at, picked) }), modifier, color = c.surfaceHigh) {
+    ExDialogCard(null, listOf(DialogAction(saveLabel, ButtonStyle.Primary) { onSave(at, picked) }), modifier, color = c.surfaceHigh) {
         Row(Modifier.padding(bottom = ExSpace.xxs), verticalAlignment = Alignment.CenterVertically) {
             Overline(heading, Modifier.weight(1f))
             // Away from Save, so it isn't hit by mistake; it asks before deleting anyway.
-            ExIconButton(ExIcons.Trash, deleteLabel, onDelete, Modifier.offset(x = ExSpace.sm), filled = false, tint = c.inkSoft)
+            if (delete != null) ExIconButton(ExIcons.Trash, delete.label, delete.onClick, Modifier.offset(x = ExSpace.sm), filled = false, tint = c.inkSoft)
         }
         if (time != null) {
             Overline("Time")
@@ -548,14 +549,14 @@ fun LogEditDialog(
     trigger: Trigger?,
     triggers: List<Trigger>,
     onSave: (at: Instant?, trigger: Trigger?) -> Unit,
-    onDelete: () -> Unit,
-    deleteLabel: String,
+    delete: DialogAction?,
     onDismiss: () -> Unit,
     time: EditTime? = null,
     onAddTrigger: ((name: String, then: (Trigger) -> Unit) -> Unit)? = null,
+    saveLabel: String = "Save",
 ) {
     Dialog(onDismissRequest = onDismiss) {
         // Scrolls on a short screen or with the keyboard up for "Your own".
-        LogEditor(heading, itemKey, trigger, triggers, onSave, onDelete, deleteLabel, Modifier.verticalScroll(rememberScrollState()), time, onAddTrigger)
+        LogEditor(heading, itemKey, trigger, triggers, onSave, delete, Modifier.verticalScroll(rememberScrollState()), time, onAddTrigger, saveLabel)
     }
 }

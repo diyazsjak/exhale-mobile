@@ -73,6 +73,7 @@ import androidx.compose.ui.unit.dp
 import app.exhale.domain.DayEntry
 import app.exhale.domain.DayFilter
 import app.exhale.domain.DayTimes
+import app.exhale.domain.LogEdit
 import app.exhale.domain.Rhythm
 import app.exhale.domain.TopTrigger
 import app.exhale.domain.BuiltInTrigger
@@ -90,6 +91,7 @@ import app.exhale.ui.components.ButtonSize
 import app.exhale.ui.components.ButtonStyle
 import app.exhale.ui.components.ExButton
 import app.exhale.ui.components.ExCard
+import app.exhale.ui.components.ExIcons
 import app.exhale.ui.components.ExLink
 import app.exhale.ui.components.ExScreen
 import app.exhale.ui.components.Overline
@@ -126,6 +128,8 @@ fun RhythmScreen(
     /** The day list's edit: a log moves to a time and gets a trigger (null clears it). */
     onEditLog: (id: Long, at: Instant, trigger: Trigger?) -> Unit = { _, _, _ -> },
     onDeleteLog: (id: Long) -> Unit = {},
+    /** "Add one you forgot" on the day list: a cigarette at a time on the picked day, with a trigger or none. */
+    onAddLog: (at: Instant, trigger: Trigger?) -> Unit = { _, _ -> },
     /** A wave ridden out on the day list: only its trigger changes (null clears it), or it's deleted. */
     onTagUrge: (id: Long, trigger: Trigger?) -> Unit = { _, _ -> },
     onDeleteUrge: (id: Long) -> Unit = {},
@@ -144,7 +148,7 @@ fun RhythmScreen(
     var lines by remember(day) { mutableStateOf(initialLines) }
     var idea by remember { mutableIntStateOf(0) }
     // The day list's edit dialog, and the question before a delete.
-    var editing by remember { mutableStateOf<DayEntry?>(null) }
+    var editing by remember { mutableStateOf<DayEdit?>(null) }
     var deleting by remember { mutableStateOf<DayEntry?>(null) }
 
     val dayFilter = DayFilter.entries[filter]
@@ -261,7 +265,7 @@ fun RhythmScreen(
             label = "clock-or-day",
         ) { shown ->
             if (shown is DayTimes) {
-                DayCard(shown, state.today, zone, h24, onEdit = { editing = it })
+                DayCard(shown, state.today, zone, h24, onEdit = { editing = DayEdit.Change(it) }, onAdd = { editing = DayEdit.Add(shown.day) })
             } else {
                 val k = shown as ClockShown
                 SmokeClock(
@@ -326,35 +330,43 @@ fun RhythmScreen(
 
     // To the minute, as the edit works: the dialog then redraws once a minute, not every second.
     val nowMinute = Instant.ofEpochSecond(minute * 60)
-    editing?.let { entry ->
-        val day = Fmt.dayName(entry.at.atZone(zone).toLocalDate(), state.today)
-        val time = remember(entry.at, zone, nowMinute, h24) { EditTime(entry.at, zone, nowMinute, h24) }
+    editing?.let { edit ->
+        val entry = (edit as? DayEdit.Change)?.entry
+        val at = entry?.at ?: LogEdit.forgottenStart((edit as DayEdit.Add).day, zone, nowMinute)
+        val day = Fmt.dayName(at.atZone(zone).toLocalDate(), state.today)
+        val time = remember(at, zone, nowMinute, h24) { EditTime(at, zone, nowMinute, h24) }
         val heading: String
         val itemKey: Any
         val trigger: Trigger?
-        val deleteLabel: String
         val save: (Instant?, Trigger?) -> Unit
-        when (entry) {
-            is DayEntry.Cigarette -> {
+        val deleteLabel = when (entry) { is DayEntry.Cigarette -> "Delete this one"; is DayEntry.Wave -> "Delete this wave"; null -> null }
+        when {
+            entry is DayEntry.Cigarette -> {
                 heading = "$day · " + (view.times?.allowance?.let { "${entry.number} of $it" } ?: "${entry.number}")
-                itemKey = entry.log.id; trigger = entry.log.trigger; deleteLabel = "Delete this one"
+                itemKey = entry.log.id; trigger = entry.log.trigger
                 save = { at, t -> onEditLog(entry.log.id, at ?: entry.at, t) }
             }
             // A wave ridden out keeps when it was and how long; only its trigger changes.
-            is DayEntry.Wave -> {
+            entry is DayEntry.Wave -> {
                 heading = "$day · wave at ${Fmt.time(entry.at, zone, h24)}, ${Fmt.waveLength(entry.length)}"
-                itemKey = "wave" to entry.urge.id; trigger = entry.urge.trigger; deleteLabel = "Delete this wave"
+                itemKey = "wave" to entry.urge.id; trigger = entry.urge.trigger
                 save = { _, t -> onTagUrge(entry.urge.id, t) }
+            }
+            // One the user forgot: a new cigarette on the picked day, nothing to delete yet.
+            else -> {
+                heading = "$day · one you forgot"
+                itemKey = edit; trigger = null
+                save = { at, t -> onAddLog(requireNotNull(at), t) }
             }
         }
         LogEditDialog(
             heading = heading, itemKey = itemKey, trigger = trigger, triggers = state.shownTriggers,
             onSave = { at, t -> save(at, t); editing = null },
-            onDelete = { deleting = entry; editing = null },
-            deleteLabel = deleteLabel,
+            delete = deleteLabel?.let { DialogAction(it, ButtonStyle.Ghost) { deleting = entry; editing = null } },
             onDismiss = { editing = null },
-            time = time.takeIf { entry is DayEntry.Cigarette },
+            time = time.takeIf { entry !is DayEntry.Wave },
             onAddTrigger = onAddTrigger,
+            saveLabel = if (entry == null) "Add" else "Save",
         )
     }
     deleting?.let { entry ->
@@ -377,12 +389,18 @@ fun RhythmScreen(
     }
 }
 
+/** What the day list's dialog is for: changing something on the list, or adding one the user forgot. */
+private sealed interface DayEdit {
+    data class Change(val entry: DayEntry) : DayEdit
+    data class Add(val day: LocalDate) : DayEdit
+}
+
 /**
  * A picked day cigarette by cigarette ([DayTimeline]), in the clock's place: tap one to change or
- * delete it. Under it, the day's longest gap.
+ * delete it. Under it, the day's longest gap and "Add one you forgot".
  */
 @Composable
-private fun DayCard(times: DayTimes, today: LocalDate, zone: ZoneId, h24: Boolean, onEdit: (DayEntry) -> Unit) {
+private fun DayCard(times: DayTimes, today: LocalDate, zone: ZoneId, h24: Boolean, onEdit: (DayEntry) -> Unit, onAdd: () -> Unit) {
     val c = Ex.colors
     val isToday = times.day == today
     ExCard(Modifier.padding(vertical = ExSpace.xxs)) {
@@ -403,6 +421,8 @@ private fun DayCard(times: DayTimes, today: LocalDate, zone: ZoneId, h24: Boolea
                 style = ExType.caption, color = c.inkSoft, modifier = Modifier.padding(top = ExSpace.xxs),
             )
         }
+        // Low key: a correction now and then, not something to do every time.
+        ExButton("Add one you forgot", onAdd, Modifier.fillMaxWidth(), style = ButtonStyle.Ghost, size = ButtonSize.Medium, icon = ExIcons.Plus)
     }
 }
 
