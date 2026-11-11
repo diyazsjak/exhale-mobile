@@ -55,6 +55,8 @@ import kotlin.math.roundToInt
  */
 private class TextChange(val from: String?, val to: String) {
     val t = Animatable(if (from != null) 0f else TOTAL_MS.toFloat())
+    /** Flips once per change, so waiting for it doesn't recompose on every frame of it. */
+    val atRest by derivedStateOf { t.value >= TOTAL_MS }
 }
 
 /** A changed number's animation, in ms: the old one breathes out over OUT_MS; the new one settles in after IN_DELAY_MS. */
@@ -78,12 +80,10 @@ private const val TOTAL_MS = IN_DELAY_MS + IN_MS
 @Composable
 fun ExhaleText(text: String, style: TextStyle, color: Color, modifier: Modifier = Modifier) {
     var change by remember { mutableStateOf(TextChange(null, text)) }
-    val current = change
-    // Flips once per change, so waiting doesn't recompose on every frame of it.
-    val atRest by remember(current) { derivedStateOf { current.t.value >= TOTAL_MS } }
-    if (current.to != text && atRest) change = TextChange(current.to, text)
+    if (change.to != text && change.atRest) change = TextChange(change.to, text)
     val shown = change
-    LaunchedEffect(shown) { shown.t.animateTo(TOTAL_MS.toFloat(), tween(TOTAL_MS, easing = LinearEasing)) }
+    // A first show is already at rest: nothing to run.
+    LaunchedEffect(shown) { if (!shown.atRest) shown.t.animateTo(TOTAL_MS.toFloat(), tween(TOTAL_MS, easing = LinearEasing)) }
     BoxWithConstraints(modifier) {
         // A new measurer comes with a new density, font scale or layout direction, so those re-measure too.
         val measurer = rememberTextMeasurer()
@@ -143,18 +143,16 @@ internal fun exhalePairs(old: String?, text: String): List<TokenPair> {
 
 @Composable
 private fun ExhaleLines(change: TextChange, now: TextLayoutResult, before: TextLayoutResult?, color: Color, description: String) {
-    val from = change.from
     // Built once per change, not on every recomposition (the hero's screen recomposes every second).
     val pieces = remember(change, now, before) {
         val shift = before?.let { (now.size.width - it.size.width) / 2f } ?: 0f
-        exhalePairs(from, change.to).map { pair ->
+        exhalePairs(change.from, change.to).map { pair ->
             val cell = pair.to?.let { Cell(now, it, 0f) }
-            val old = if (before != null && from != null && pair.from != null) Cell(before, pair.from, shift) else null
-            // The old piece breathes out only if it changed and has something to show (not a space).
-            val leaving = old != null && pair.changed && from!!.substring(pair.from!!).isNotBlank()
+            val old = pair.from?.let { r -> before?.let { Cell(it, r, shift) } }
             Piece(
                 cell = cell,
-                old = if (leaving) old else null,
+                // The old piece breathes out only if it changed.
+                old = if (pair.changed) old else null,
                 changed = pair.changed,
                 // A piece that stayed the same glides from where it was, if the text's width changed.
                 slideFrom = if (!pair.changed && cell != null && old != null) old.boxStart - cell.boxStart else 0f,
@@ -206,7 +204,7 @@ private fun ExhalePiece(piece: Piece, t: Animatable<Float, *>, color: Color) {
     val em = (cell ?: old ?: return).line.layoutInput.style.fontSize
     if (old != null && outgoing) {
         Slice(old, color) {
-            val k = FastOutSlowInEasing.transform((t.value / OUT_MS).coerceIn(0f, 1f))
+            val k = ease(t.value, 0, OUT_MS)
             alpha = 1f - k
             translationY = -0.4f * em.toPx() * k
             scaleX = 1f + 0.1f * k; scaleY = scaleX
@@ -215,16 +213,19 @@ private fun ExhalePiece(piece: Piece, t: Animatable<Float, *>, color: Color) {
     }
     if (cell != null) Slice(cell, color) {
         if (piece.changed) {
-            val k = FastOutSlowInEasing.transform(((t.value - IN_DELAY_MS) / IN_MS).coerceIn(0f, 1f))
+            val k = ease(t.value, IN_DELAY_MS, IN_MS)
             alpha = k
             translationY = 0.12f * em.toPx() * (1f - k)
             scaleX = 0.94f + 0.06f * k; scaleY = scaleX
             renderEffect = blur(6.dp.toPx() * (1f - k))
         } else if (piece.slideFrom != 0f) {
-            translationX = piece.slideFrom * (1f - FastOutSlowInEasing.transform(t.value / TOTAL_MS))
+            translationX = piece.slideFrom * (1f - ease(t.value, 0, TOTAL_MS))
         }
     }
 }
+
+/** How far through a step of [durMs] that starts [startMs] into the change a clock at [t] ms is, eased (0 to 1). */
+private fun ease(t: Float, startMs: Int, durMs: Int) = FastOutSlowInEasing.transform(((t - startMs) / durMs).coerceIn(0f, 1f))
 
 /** A blur of [r] px, or none when it would not show (or before Android 12, which can't). */
 private fun blur(r: Float) = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && r > 0.5f) BlurEffect(r, r, TileMode.Decal) else null

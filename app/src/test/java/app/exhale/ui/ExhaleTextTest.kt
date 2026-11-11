@@ -1,43 +1,40 @@
 package app.exhale.ui
 
-import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.graphics.Rect
 import android.graphics.Color
+import android.graphics.Rect
 import androidx.compose.foundation.background
-import androidx.compose.runtime.snapshots.Snapshot
-import androidx.compose.ui.test.onRoot
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.getBoundsInRoot
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.exhale.ui.components.ExhaleText
 import app.exhale.ui.components.exhalePairs
 import app.exhale.ui.components.exhaleTokens
-import com.github.takahirom.roborazzi.RoborazziOptions
-import com.github.takahirom.roborazzi.RoborazziTaskType
-import com.github.takahirom.roborazzi.captureRoboImage
-import java.io.File
-import kotlin.math.abs
-import org.junit.Assert.assertEquals
 import app.exhale.ui.theme.Ex
 import app.exhale.ui.theme.ExType
 import app.exhale.ui.theme.ExhaleTheme
+import com.github.takahirom.roborazzi.RoborazziOptions
+import com.github.takahirom.roborazzi.RoborazziTaskType
+import com.github.takahirom.roborazzi.captureRoboImage
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -45,6 +42,8 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
+import java.io.File
+import kotlin.math.abs
 
 /** The hero number fits the screen and follows the font size. */
 @RunWith(RobolectricTestRunner::class)
@@ -161,19 +160,23 @@ class ExhaleTextTest {
         assertTrue("top ink ${shownTop.box}, bottom ${shownBottom.box}", shownTop.box.width() < shownBottom.box.width() - 50)
     }
 
-    /** The top and bottom halves of [bmp] (each [HALF_DP] tall). */
-    private fun halves(bmp: Bitmap): Pair<Bitmap, Bitmap> {
-        val h = bmp.height / 2
-        return Bitmap.createBitmap(bmp, 0, 0, bmp.width, h) to Bitmap.createBitmap(bmp, 0, h, bmp.width, h)
+    /** A frame's pixels, read out of the bitmap once (one native call, not one per pixel). */
+    private class Pixels(val width: Int, val height: Int, val argb: IntArray)
+
+    /** The top and bottom halves of [px] (each [HALF_DP] tall). */
+    private fun halves(px: Pixels): Pair<Pixels, Pixels> {
+        val h = px.height / 2
+        val n = px.width * h
+        return Pixels(px.width, h, px.argb.copyOfRange(0, n)) to Pixels(px.width, h, px.argb.copyOfRange(n, 2 * n))
     }
 
     /** Alike, give or take the blur's rounding (a few levels in its faint halo, which can differ by where on screen it is). */
-    private fun assertHalvesAlike(bmp: Bitmap) {
-        val (a, b) = halves(bmp)
+    private fun assertHalvesAlike(px: Pixels) {
+        val (a, b) = halves(px)
         var most = 0
-        for (y in 0 until a.height) for (x in 0 until a.width) {
-            val p = a.getPixel(x, y)
-            val q = b.getPixel(x, y)
+        for (i in a.argb.indices) {
+            val p = a.argb[i]
+            val q = b.argb[i]
             most = maxOf(most, abs(Color.red(p) - Color.red(q)), abs(Color.green(p) - Color.green(q)), abs(Color.blue(p) - Color.blue(q)))
         }
         assertTrue("the halves differ by up to $most levels", most <= 8)
@@ -182,30 +185,31 @@ class ExhaleTextTest {
     private class Ink(val box: Rect, val amount: Int)
 
     /** Where the light text is on the dark background, and how many pixels of it. */
-    private fun ink(bmp: Bitmap): Ink {
-        val box = Rect(bmp.width, bmp.height, 0, 0)
+    private fun ink(px: Pixels): Ink {
+        val box = Rect(px.width, px.height, 0, 0)
         var amount = 0
-        for (y in 0 until bmp.height) for (x in 0 until bmp.width) {
-            if (Color.red(bmp.getPixel(x, y)) > 128) {
+        for (i in px.argb.indices) {
+            if (Color.red(px.argb[i]) > 128) {
                 amount++
-                box.union(x, y)
+                box.union(i % px.width, i / px.width)
             }
         }
         return Ink(box, amount)
     }
 
     /** The screen as drawn now, through Roborazzi (works with the clock paused, mid-animation). */
-    private fun frame(name: String): Bitmap {
+    private fun frame(name: String): Pixels {
         val file = File("build/outputs/roborazzi/test_exhale_first_frame_$name.png")
         // Record, so the image is written in a plain test run too (not only when recording screenshots).
         compose.onRoot().captureRoboImage(file.path, RoborazziOptions(taskType = RoborazziTaskType.Record))
-        return BitmapFactory.decodeFile(file.path)
+        val bmp = BitmapFactory.decodeFile(file.path)
+        return Pixels(bmp.width, bmp.height, IntArray(bmp.width * bmp.height).also { bmp.getPixels(it, 0, bmp.width, 0, 0, bmp.width, bmp.height) })
     }
 
     /** Each piece as "old→new", "+new" (comes), "-old" (goes) or "=same", left to right. */
     private fun changes(old: String?, text: String) = exhalePairs(old, text).map { p ->
         val n = p.to?.let { text.substring(it) }
-        val o = p.from?.let { old!!.substring(it) }
+        val o = p.from?.let { old?.substring(it) }
         when {
             !p.changed -> "=$n"
             n == null -> "-$o"

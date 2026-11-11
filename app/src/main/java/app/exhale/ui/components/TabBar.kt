@@ -63,7 +63,6 @@ fun FloatingTabBar(items: List<TabItem>, selected: Int, onSelect: (Int) -> Unit,
     val c = Ex.colors
     // Content scrolls underneath the solid bar. A soft scrim darkens it gradually from
     // SCRIM_REACH above the bar down to the screen edge so the bar always stands out.
-    val pill = c.chromeSelected
     val scrim = if (c.isDark) Color.Black.copy(alpha = 0.4f) else c.ink.copy(alpha = 0.12f)
     Box(modifier.fillMaxWidth()) {
         Box(
@@ -132,9 +131,10 @@ fun FloatingTabBar(items: List<TabItem>, selected: Int, onSelect: (Int) -> Unit,
                                     scaleX = s
                                     scaleY = s
                                     alpha = shown.coerceIn(0f, 1f)
+                                    shape = ExRadius.pill
+                                    clip = true
                                 }
-                                .clip(ExRadius.pill)
-                                .background(pill)
+                                .background(c.chromeSelected)
                         )
                         Icon(item.icon, null, Modifier.size(ExSize.icon), tint = fg)
                     }
