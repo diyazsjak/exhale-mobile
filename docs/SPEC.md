@@ -361,6 +361,19 @@ Edits everything set during onboarding; keeps the original plan start. Sections,
   day." for Hold steady), plus "That start is above your usual 16." when the start is above Before Exhale.
 - **Triggers**, one card: **Your triggers** with how many are shown ("9 shown") and their names on a
   second line cut short with "…", opening the Triggers screen (§3.11).
+- **Reminders**, one card of three switches (`SwitchRow`), all off at first; each applies and saves the
+  moment it's tapped (§3.9 says what they send):
+  - **Before your busy hours**: "15 minutes before 8 am and 6 pm, the hours you smoke most." (the busy hours
+    in the phone's 12/24-hour form, earliest first), or "… Starts once Exhale has a week of your days." until
+    `Reminders.busyHours` has one, or "… Starts once you've logged some." with a week and nothing logged.
+  - **Recovery milestones**: "The first time you reach each one on Air, from 12 hours on."
+  - **New plan weeks**: "When a new week lowers your allowance." On Hold steady or once the plan is at 0
+    it adds "Yours holds steady, so none will come." / "Yours is at zero, so none will come."
+  - Turning one on when Android doesn't let Exhale post asks for the notification permission (Android 13+)
+    and turns it on only once granted. A switch shows on only while Android allows notifications. When
+    Android says no or won't ask, and whenever a reminder is on but notifications are blocked, a line under
+    the card says "Android isn't letting Exhale send notifications, so none will come." with a link,
+    "Open Android settings" (Exhale's notification settings). It's checked again when Settings resumes.
 - **Money**, one card: **A pack** ("20 for 10.00 $") and **Saving for** (the amount on the right, the
   goal name on a second line that is cut short when long, so the amount always shows whole). Each opens
   its own screen.
@@ -425,7 +438,27 @@ data?") with the safe choice as a Ghost button; neither uses a warm colour.
     them from `app/build/outputs/roborazzi/` when the widget's look changes.
   - The round button and the Undo pill are drawn as bitmaps, so they are round before Android 12 too; the card's
     own corners come from Glance (Android 12+) and the launcher.
-- Planned: Wear OS tile, smart nudges (see §6).
+- **Reminders** — `notify/` (on/off in Settings → Reminders, §3.8; rules in §4 Reminders). Three kinds, one
+  Android channel each so they can also be muted there, one notification per kind (a newer one replaces it):
+  - **Before your busy hours** ("Before your busy hours" channel, default importance): "Your busy hour starts
+    soon" / "A craving peaks and fades in about 4 minutes. Ride it out here if one comes." Tapping opens Urge Wave.
+  - **Recovery milestones** (default importance): "12 hours · Carbon monoxide back to normal" / "The first time
+    you've reached this one. Air shows what comes next." Tapping opens Air.
+  - **New plan weeks** (low importance: silent, no pop-up): "This week: 9 a day" / "One fewer than last week."
+    ("3 fewer than last week.", or at 0 "Your plan reaches zero. Urge Wave is here when a craving comes.").
+    Tapping opens Ember.
+  - Like the widget, they never say "cigarette" or "smoke" (lock screens), and they're marked private, so a lock
+    screen set to hide contents shows only that Exhale has one. No action buttons: logging stays a hold in the app.
+  - Sound and vibration are the phone's; Exhale's haptic patterns keep their meanings in the app. There are no
+    quiet hours in Exhale: the phone's Do Not Disturb and Bedtime modes do that, and busy-hour nudges come at
+    the user's own waking hours anyway.
+  - **Alarms** (`ReminderScheduler`): one inexact alarm per kind that is on (`setAndAllowWhileIdle`, so no
+    exact-alarm permission and it still goes off in Doze), set for the next reminder. They are set again after
+    every log or settings change (`ExhaleRepository.onWrite`), when Exhale opens, after a restart or an update,
+    and when the clock or time zone changes; turning a kind off cancels its alarm. Each run posts what's due
+    (see `ReminderKind.late` and `shouldPost`) and remembers the last one handled per kind (`ReminderStore`,
+    DataStore `reminders`), posted or skipped, so none comes twice.
+- Planned: Wear OS tile (see §6).
 
 ### 3.10 History — `HistoryScreen.kt`
 Full-screen route from Rhythm's "All history ›" (back button, no tab bar).
@@ -608,6 +641,22 @@ is −1 a week, which the history follows) whose plan started 59 days ago, 60 da
 hour-of-day weights and triggers, and 0–2 urges a day (4 min, trigger Stress). Nothing after `now`.
 Loading it keeps the current Appearance and Home screen.
 
+### Reminders — `Reminders`
+- `next(kind, settings, logs, now, after, zone)`: the first reminder of a kind after `after`; none before
+  onboarding.
+  - **Busy hour**: `BUSY_LEAD` (15 min) before each hour of `busyHours`, the soonest after `after` (a nudge for
+    midnight falls on the day before). `busyHours(...)`: `Stats.peaks` of `Stats.hourly` over the last 30 days
+    (`Rhythm.WINDOW`), so at most two a day; null until those days cover 7 (`Rhythm.MIN_DAYS`).
+  - **Milestone**: from 12 hours on (`FIRST_MILESTONE`; 20 minutes comes after nearly every cigarette), at the
+    last cigarette + the milestone's time, only for milestones no gap between two cigarettes has reached yet
+    (the first time ever), and only those still ahead of `after`.
+  - **Plan week**: midnight on the first day of the next plan week after `after` whose base allowance is lower
+    than the day before (`perDay`, `before`). None on Hold steady or once the plan is at 0.
+- `shouldPost(reminder, logs, urges, now)`: from its time until its kind's `late` has passed (busy hour 15 min,
+  so never once the hour has begun; milestone 12 h; plan week 24 h). A busy-hour nudge is also skipped if a
+  cigarette was logged or a craving wave started in the 30 minutes before (`BUSY_QUIET`).
+- The words (`title`, `text`) are part of each `Reminder`, so tests check them.
+
 ### Milestones — `Milestones`
 WHO timeline; lower bound of each range unlocks it. `clearFraction` = progress to 12 h, min 0.05.
 - `next(since)`: the first milestone not reached; null with no logs or once all are. `reached(since)`
@@ -644,12 +693,13 @@ app/src/main/java/app/exhale/
     screens/              One file per screen; stateless, take ExhaleState + callbacks
   tile/LogTileService.kt  Quick-settings tile
   widget/                 Glance home-screen widget: layouts, the ring bitmap, tap/undo actions, redraws
+  notify/                 Reminders: channels and posting (ReminderNotifier), alarms and their receiver (ReminderScheduler)
 ```
 
 - **Single source of state**: `ExhaleViewModel.state: StateFlow<ExhaleState>`. Screens are stateless
   except for local UI state (toggles, animation). Derive numbers in the ViewModel or `domain/`, not in screens,
   unless purely presentational.
-- **Local only**: Room DB `exhale.db`, DataStore `settings`. No network permission. `allowBackup=false`.
+- **Local only**: Room DB `exhale.db`, DataStore `settings` (and `reminders`, which reminders were handled). No network permission. `allowBackup=false`.
 - **Schema changes**: bump `@Database(version)`, add a Migration, commit the exported schema in `app/schemas/`.
 - minSdk 26, target/compile 36, Kotlin 2.2, Compose BOM, Material 3, Navigation Compose, KSP for Room.
 
@@ -675,7 +725,7 @@ Every change to `domain/` needs a unit test. Every new screen needs a screenshot
 **Now (prototype, v0.1)** — everything above, local data only.
 
 **Next**
-- Notifications: "next one earned" (opt-in) and nudges before the user's own hot hours (max 2/day).
+- Notifications: "next one earned" (opt-in). (Busy-hour nudges, milestones and plan weeks are in: §3.9.)
 - AGSL `RuntimeShader` orb and particle field on API 33+, current Canvas versions as fallback.
 - Accelerometer drift on the Air particles; flip-face-down mode for Urge Wave.
 - CSV export; biometric app lock; discreet icon/notification option.

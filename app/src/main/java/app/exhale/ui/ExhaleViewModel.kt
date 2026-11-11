@@ -15,6 +15,8 @@ import app.exhale.domain.MoneySummary
 import app.exhale.domain.PlanOutlook
 import app.exhale.domain.Recovery
 import app.exhale.domain.RecoverySummary
+import app.exhale.domain.ReminderKind
+import app.exhale.domain.Reminders
 import app.exhale.domain.SmokeLog
 import app.exhale.domain.Stats
 import app.exhale.domain.HomeStyle
@@ -68,6 +70,8 @@ data class ExhaleState(
     val triggers: List<TriggerEntry> = Triggers.defaults,
     /** How many logs and cravings each trigger key tagged; only unused ones can be deleted. */
     val triggerUses: Map<String, Int> = emptyMap(),
+    /** The busy hours the reminders nudge before ([Reminders.busyHours]); null until there's a week to go on. */
+    val busyHours: List<Int>? = null,
 ) {
     /** The triggers offered as chips, in order ([Triggers.shown]). */
     val shownTriggers: List<Trigger> get() = Triggers.shown(triggers)
@@ -117,6 +121,9 @@ class ExhaleViewModel(private val repo: ExhaleRepository) : ViewModel() {
         val triggers: List<TriggerEntry>,
     ) {
         val triggerUses = Triggers.uses(logs, urges)
+
+        // Only Settings shows it, and it moves with the data, not the second: worked out once per change.
+        val busyHours = Reminders.busyHours(settings, logs, Instant.now(), ZoneId.systemDefault())
     }
 
     private val stored = combine(repo.settings, repo.logs, repo.urges, repo.triggers, ::Stored)
@@ -153,6 +160,7 @@ class ExhaleViewModel(private val repo: ExhaleRepository) : ViewModel() {
             todayTimes = DayTimes.of(logs, d.urges, plan.date, zone, plan.allowance, now),
             triggers = d.triggers,
             triggerUses = d.triggerUses,
+            busyHours = d.busyHours,
         )
     }
 
@@ -276,6 +284,7 @@ class ExhaleViewModel(private val repo: ExhaleRepository) : ViewModel() {
 
     fun setTheme(mode: ThemeMode) { saveSettings(state.value.settings.copy(theme = mode)) }
     fun setHome(style: HomeStyle) { saveSettings(state.value.settings.copy(home = style)) }
+    fun setReminder(kind: ReminderKind, on: Boolean) { saveSettings(state.value.settings.withReminder(kind, on)) }
 
     /** The user opened today's "borrowed from yesterday" note: hide the badge dot until next time. */
     fun markBorrowNoticeSeen() {

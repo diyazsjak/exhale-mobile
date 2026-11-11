@@ -1,6 +1,8 @@
 package app.exhale.ui.components
 
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Indication
 import androidx.compose.foundation.background
@@ -25,6 +27,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Icon
@@ -62,6 +65,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.exhale.ui.theme.Ex
@@ -397,5 +401,66 @@ fun FieldNote(text: String, modifier: Modifier = Modifier) {
     Row(modifier.padding(horizontal = ExSpace.xxs), horizontalArrangement = Arrangement.spacedBy(ExSpace.xs)) {
         Box(Modifier.padding(top = 7.dp).size(6.dp).clip(ExRadius.pill).background(c.sky))
         Text(text, style = ExType.caption, color = c.ink)
+    }
+}
+
+/**
+ * An on/off switch: a [ExSize.switchWidth] × [ExSize.switchHeight] pill with a round thumb that
+ * slides across on a spring. Off: `surfaceHigh` track, smaller `inkSoft` thumb on the left. On:
+ * `primary` track (inverted ink, like the Primary button), `onPrimary` thumb on the right. Neutral on
+ * purpose: on or off isn't smoke or recovery, so no accent. With [onChange] null it only draws, for a
+ * row that takes the tap itself ([SwitchRow]).
+ */
+@Composable
+fun ExSwitch(checked: Boolean, onChange: ((Boolean) -> Unit)?, modifier: Modifier = Modifier) {
+    val c = Ex.colors
+    val inset = 4.dp
+    val thumb by animateDpAsState(if (checked) 24.dp else 18.dp, spring(dampingRatio = 0.8f, stiffness = 500f), label = "switch-thumb-size")
+    val x by animateDpAsState(
+        if (checked) ExSize.switchWidth - inset - 24.dp else inset + 3.dp,
+        spring(dampingRatio = 0.8f, stiffness = 500f),
+        label = "switch-thumb",
+    )
+    val track by animateColorAsState(if (checked) c.primary else c.surfaceHigh, tween(160), label = "switch-track")
+    val dot by animateColorAsState(if (checked) c.onPrimary else c.inkSoft, tween(160), label = "switch-dot")
+    val toggle = if (onChange == null) Modifier else Modifier.toggleable(checked, role = Role.Switch, onValueChange = onChange)
+    // A 44dp touch area around the 32dp track when it takes taps itself.
+    Box(modifier.then(toggle).heightIn(min = if (onChange == null) 0.dp else ExSize.touch), contentAlignment = Alignment.Center) {
+        Box(
+            Modifier
+                .width(ExSize.switchWidth)
+                .height(ExSize.switchHeight)
+                .clip(ExRadius.pill)
+                .background(track),
+            contentAlignment = Alignment.CenterStart,
+        ) {
+            Box(Modifier.offset(x = x).size(thumb).clip(ExRadius.pill).background(dot))
+        }
+    }
+}
+
+/**
+ * A row in a list card that turns something on or off: `body` label, an optional `caption` line
+ * under it (it wraps, unlike [ListRow]'s), and an [ExSwitch] on the right. The whole row takes the
+ * tap and reads to screen readers as one switch.
+ */
+@Composable
+fun SwitchRow(label: String, checked: Boolean, onChange: (Boolean) -> Unit, modifier: Modifier = Modifier, sub: String? = null) {
+    val c = Ex.colors
+    Row(
+        modifier
+            .fillMaxWidth()
+            .clip(ExRadius.sm)
+            .toggleable(checked, role = Role.Switch, onValueChange = onChange)
+            .heightIn(min = ExSize.row)
+            .padding(horizontal = 4.dp, vertical = if (sub != null) 8.dp else 0.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(ExSpace.sm),
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(label, style = ExType.body, color = c.ink)
+            if (sub != null) Text(sub, style = ExType.caption, color = c.inkSoft)
+        }
+        ExSwitch(checked, onChange = null, Modifier.clearAndSetSemantics {})
     }
 }

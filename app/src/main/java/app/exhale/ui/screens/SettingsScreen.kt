@@ -26,6 +26,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import android.text.format.DateFormat
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -45,6 +47,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import app.exhale.domain.PlanMath
+import app.exhale.domain.ReminderKind
 import app.exhale.domain.SettingsInput
 import app.exhale.domain.SettingsInput.Field
 import app.exhale.domain.TaperType
@@ -63,6 +66,7 @@ import app.exhale.ui.components.ExButton
 import app.exhale.ui.components.ExCard
 import app.exhale.ui.components.ExChip
 import app.exhale.ui.components.ExChoiceDialog
+import app.exhale.ui.components.ExLink
 import app.exhale.ui.components.ExScreen
 import app.exhale.ui.components.ExTextField
 import app.exhale.ui.components.ExToast
@@ -74,6 +78,7 @@ import app.exhale.ui.components.OptionCard
 import app.exhale.ui.components.Overline
 import app.exhale.ui.components.ScreenTitle
 import app.exhale.ui.components.SegmentedControl
+import app.exhale.ui.components.SwitchRow
 import app.exhale.ui.components.rememberToastState
 import app.exhale.ui.theme.Ex
 import app.exhale.ui.theme.ExSpace
@@ -86,6 +91,19 @@ enum class SettingsPage { TAPER, PACK, GOAL, TRIGGERS, TRIGGER;
     /** How deep the page sits: Settings is 0, Triggers 1, one trigger 2. Going deeper slides in from the right. */
     val depth: Int get() = if (this == TRIGGER) 2 else 1
 }
+
+/**
+ * Settings → Reminders. [allowed]: Android lets Exhale post notifications. [refused]: the user just
+ * tried to turn one on and Android said no, or wouldn't ask. [onChange] turns a reminder on or off
+ * (asking for the permission first when needed); [onOpenSettings] opens Android's notification
+ * settings for Exhale.
+ */
+class ReminderControls(
+    val allowed: Boolean = true,
+    val refused: Boolean = false,
+    val onChange: (ReminderKind, Boolean) -> Unit = { _, _ -> },
+    val onOpenSettings: () -> Unit = {},
+)
 
 /** Rows that exist only in debug builds: the live component catalogue and demo data. */
 class PrototypeTools(val onDesignSystem: () -> Unit, val onDemo: () -> Unit)
@@ -122,6 +140,9 @@ fun SettingsScreen(
     triggerActions: TriggerActions = TriggerActions(),
     /** With [initialPage] TRIGGER: the trigger to open, null to add one. */
     initialTriggerKey: String? = null,
+    reminders: ReminderControls = ReminderControls(),
+    /** The busy hours the nudges come before; null until there's a week to go on. */
+    busyHours: List<Int>? = null,
 ) {
     var baseline by rememberSaveable { mutableIntStateOf(current.baselinePerDay) }
     var allowance by rememberSaveable { mutableIntStateOf(initialAllowance) }
@@ -165,7 +186,8 @@ fun SettingsScreen(
             when (p) {
                 null -> SettingsMain(
                     current, today, baseline, { baseline = it }, baselineChanged, allowance, { allowance = it }, allowanceChanged,
-                    dirty, mainScroll, onTheme, onHome, { page = it }, Triggers.shown(triggers), { ask = Ask.ERASE }, prototypeTools?.let { t -> PrototypeTools(t.onDesignSystem) { ask = Ask.DEMO } },
+                    dirty, mainScroll, onTheme, onHome, { page = it }, Triggers.shown(triggers), reminders, busyHours,
+                    { ask = Ask.ERASE }, prototypeTools?.let { t -> PrototypeTools(t.onDesignSystem) { ask = Ask.DEMO } },
                     onBack = { if (dirty) ask = Ask.UNSAVED else onClose() },
                     onSaveCounts = { saveCounts(); toast.show("Saved") },
                 )
@@ -239,6 +261,8 @@ private fun SettingsMain(
     onHome: (HomeStyle) -> Unit,
     onOpen: (SettingsPage) -> Unit,
     shownTriggers: List<Trigger>,
+    reminders: ReminderControls,
+    busyHours: List<Int>?,
     onErase: () -> Unit,
     tools: PrototypeTools?,
     onBack: () -> Unit,
@@ -280,6 +304,9 @@ private fun SettingsMain(
                     sub = shownTriggers.joinToString(", ") { it.label }.ifEmpty { "None shown" },
                 )
             }
+
+            Overline("Reminders", Modifier.paddingTop())
+            Reminders(current, today, reminders, busyHours)
 
             Overline("Money", Modifier.paddingTop())
             ExCard(padding = ExSpace.sm) {
@@ -328,6 +355,46 @@ private fun SettingsMain(
 @Composable
 private fun CardWithCaption(content: @Composable ColumnScope.() -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(6.dp), content = content)
+}
+
+/**
+ * The three reminders as switches, each saying when it comes. A switch shows on only while the
+ * reminder is on and Android lets Exhale post; when it doesn't, a line under the card says so and
+ * links to Android's settings.
+ */
+@Composable
+private fun Reminders(current: UserSettings, today: LocalDate, controls: ReminderControls, busyHours: List<Int>?) {
+    val c = Ex.colors
+    val h24 = DateFormat.is24HourFormat(LocalContext.current)
+    fun on(kind: ReminderKind) = controls.allowed && kind in current.reminders
+    CardWithCaption {
+        ExCard(padding = ExSpace.sm) {
+            SwitchRow(
+                "Before your busy hours", on(ReminderKind.BUSY_HOUR), { controls.onChange(ReminderKind.BUSY_HOUR, it) },
+                sub = when {
+                    busyHours == null -> "15 minutes before the hours you smoke most. Starts once Exhale has a week of your days."
+                    busyHours.isEmpty() -> "15 minutes before the hours you smoke most. Starts once you've logged some."
+                    else -> "15 minutes before " + busyHours.sorted().joinToString(" and ") { Fmt.hour(it, h24) } + ", the hours you smoke most."
+                },
+            )
+            SwitchRow(
+                "Recovery milestones", on(ReminderKind.MILESTONE), { controls.onChange(ReminderKind.MILESTONE, it) },
+                sub = "The first time you reach each one on Air, from 12 hours on.",
+            )
+            SwitchRow(
+                "New plan weeks", on(ReminderKind.PLAN_WEEK), { controls.onChange(ReminderKind.PLAN_WEEK, it) },
+                sub = when {
+                    current.taper == TaperType.HOLD -> "When a new week lowers your allowance. Yours holds steady, so none will come."
+                    PlanMath.baseAllowance(current, today) == 0 -> "When a new week lowers your allowance. Yours is at zero, so none will come."
+                    else -> "When a new week lowers your allowance."
+                },
+            )
+        }
+        if (!controls.allowed && (controls.refused || current.reminders.isNotEmpty())) {
+            Footnote("Android isn't letting Exhale send notifications, so none will come.", color = c.inkSoft)
+            ExLink("Open Android settings", controls.onOpenSettings)
+        }
+    }
 }
 
 /** "This week 11 a day, next week 10." for the plan as counted on screen, saved or not. */

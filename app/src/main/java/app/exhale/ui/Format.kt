@@ -50,6 +50,15 @@ object Fmt {
         return "%02d:%02d:%02d".format(s / 3600, (s % 3600) / 60, s % 60)
     }
 
+    /** An hour of the day following the phone's 12/24-hour setting: "13:00" or "1 pm". */
+    fun hour(h: Int, h24: Boolean): String = when {
+        h24 -> "%02d:00".format(h)
+        h == 0 -> "12 am"
+        h < 12 -> "$h am"
+        h == 12 -> "12 pm"
+        else -> "${h - 12} pm"
+    }
+
     /** A time of day following the phone's 12/24-hour setting: "13:05" or "1:05 PM". */
     fun time(at: Instant, zone: ZoneId, h24: Boolean): String = at.atZone(zone).format(clockFormat(h24))
 

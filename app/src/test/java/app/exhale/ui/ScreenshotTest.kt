@@ -62,6 +62,8 @@ import app.exhale.ui.screens.OnboardingScreen
 import app.exhale.ui.screens.RhythmScreen
 import app.exhale.ui.screens.PrototypeTools
 import app.exhale.ui.screens.SettingsPage
+import app.exhale.ui.screens.ReminderControls
+import app.exhale.domain.ReminderKind
 import app.exhale.ui.screens.SettingsScreen
 import app.exhale.ui.components.ExToastState
 import app.exhale.ui.screens.UrgeWaveScreen
@@ -523,10 +525,15 @@ class ScreenshotTest {
         tools: Boolean = false,
         toast: String? = null,
         triggerKey: String? = null,
+        reminders: Set<ReminderKind> = emptySet(),
+        controls: ReminderControls = ReminderControls(),
+        busyHours: List<Int>? = null,
     ) {
         val st = sampleState()
         SettingsScreen(
-            st.settings, st.today, {}, {}, {}, {},
+            st.settings.copy(reminders = reminders), st.today, {}, {}, {}, {},
+            reminders = controls,
+            busyHours = busyHours,
             prototypeTools = if (tools) PrototypeTools({}, {}) else null,
             initialScroll = scroll,
             initialPage = page,
@@ -553,6 +560,20 @@ class ScreenshotTest {
         return sampleState(minutesSinceLast).copy(triggers = list)
     }
 
+    // Reminders: two on, the busy hours known.
+    @Test fun settingsRemindersDark() = shot("7l_settings_reminders", true) {
+        Settings(scroll = 640, reminders = setOf(ReminderKind.BUSY_HOUR, ReminderKind.MILESTONE), busyHours = listOf(18, 8))
+    }
+    @Test fun settingsRemindersLight() = shot("7l_settings_reminders", false) {
+        Settings(scroll = 640, reminders = setOf(ReminderKind.BUSY_HOUR, ReminderKind.MILESTONE), busyHours = listOf(18, 8))
+    }
+    // Android said no: every switch off, a line and a link to its settings.
+    @Test fun settingsRemindersBlockedDark() = shot("7m_settings_reminders_blocked", true) {
+        Settings(scroll = 640, reminders = setOf(ReminderKind.MILESTONE), controls = ReminderControls(allowed = false, refused = true))
+    }
+    @Test fun settingsRemindersBlockedLight() = shot("7m_settings_reminders_blocked", false) {
+        Settings(scroll = 640, reminders = setOf(ReminderKind.MILESTONE), controls = ReminderControls(allowed = false, refused = true))
+    }
     @Test fun settingsTriggersDark() = shot("7h_settings_triggers", true) { Settings(page = SettingsPage.TRIGGERS) }
     @Test fun settingsTriggersLight() = shot("7h_settings_triggers", false) { Settings(page = SettingsPage.TRIGGERS) }
     @Test fun settingsTriggerOwnDark() = shot("7i_settings_trigger", true) { Settings(page = SettingsPage.TRIGGER, triggerKey = "custom:bus") }

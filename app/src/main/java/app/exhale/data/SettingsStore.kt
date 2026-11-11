@@ -7,8 +7,10 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import app.exhale.domain.HomeStyle
+import app.exhale.domain.ReminderKind
 import app.exhale.domain.TaperType
 import app.exhale.domain.ThemeMode
 import app.exhale.domain.UserSettings
@@ -35,6 +37,7 @@ class SettingsStore(private val context: Context) {
         val theme = stringPreferencesKey("theme")
         val home = stringPreferencesKey("home")
         val borrowSeen = longPreferencesKey("borrow_notice_seen_day")
+        val reminders = stringSetPreferencesKey("reminders")
     }
 
     val settings: Flow<UserSettings> = context.dataStore.data.map { it.toSettings() }
@@ -55,6 +58,7 @@ class SettingsStore(private val context: Context) {
             p[K.theme] = s.theme.name
             p[K.home] = s.home.name
             p[K.borrowSeen] = s.borrowNoticeSeenDay
+            p[K.reminders] = s.reminders.map { it.name }.toSet()
         }
     }
 
@@ -79,6 +83,7 @@ class SettingsStore(private val context: Context) {
             theme = enumOrNull<ThemeMode>(this[K.theme]) ?: d.theme,
             home = enumOrNull<HomeStyle>(this[K.home]) ?: d.home,
             borrowNoticeSeenDay = this[K.borrowSeen] ?: d.borrowNoticeSeenDay,
+            reminders = this[K.reminders]?.mapNotNull { enumOrNull<ReminderKind>(it) }?.toSet() ?: d.reminders,
         )
     }
 }

@@ -595,14 +595,7 @@ private fun ifAt(t: Trigger, hour: String): String? = when (t.builtIn) {
     null -> "If it's ${t.inSentence} at $hour,"
 }
 
-/** "13:00" or "1 pm", following the phone's 12/24-hour setting. */
-private fun hourLabel(h: Int, h24: Boolean): String = when {
-    h24 -> "%02d:00".format(h)
-    h == 0 -> "12 am"
-    h < 12 -> "$h am"
-    h == 12 -> "12 pm"
-    else -> "${h - 12} pm"
-}
+private fun hourLabel(h: Int, h24: Boolean): String = Fmt.hour(h, h24)
 
 /** "8–9 am", "11 am–12 pm", "08:00–09:00". */
 private fun hourRange(h: Int, h24: Boolean): String {

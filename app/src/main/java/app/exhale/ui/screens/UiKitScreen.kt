@@ -73,6 +73,8 @@ import app.exhale.ui.components.MonthCalendar
 import app.exhale.ui.components.OptionCard
 import app.exhale.ui.components.Overline
 import app.exhale.ui.components.SegmentedControl
+import app.exhale.ui.components.SwitchRow
+import app.exhale.ui.components.ExSwitch
 import app.exhale.ui.components.Stat
 import app.exhale.ui.components.StepProgress
 import app.exhale.ui.components.Stepper
@@ -196,6 +198,17 @@ fun UiKitScreen(
             ExCard(padding = ExSpace.sm) {
                 ListRow("List row", {}, value = "Value"); ListRow("Another row", {})
                 ListRow("Two lines", {}, value = "1,250,000 ₸", sub = "A long name is cut short so the number stays whole")
+            }
+            var on by remember { mutableStateOf(true) }
+            var second by remember { mutableStateOf(false) }
+            ExCard(padding = ExSpace.sm) {
+                SwitchRow("Switch row", on, { on = it })
+                SwitchRow("With a caption", second, { second = it }, sub = "The caption wraps when it's long, and the whole row takes the tap.")
+            }
+            var bare by remember { mutableStateOf(false) }
+            Row(horizontalArrangement = Arrangement.spacedBy(ExSpace.md), verticalAlignment = Alignment.CenterVertically) {
+                ExSwitch(bare, { bare = it })
+                ExSwitch(!bare, { bare = !it })
             }
             Footnote("Footnote: a caption under a card, lined up with its rows.")
             var rows by remember { mutableStateOf(listOf("Coffee", "Phone calls", "Stress")) }

@@ -1,5 +1,8 @@
 package app.exhale.ui
 
+import android.Manifest
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -33,6 +36,8 @@ import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
@@ -41,7 +46,9 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import app.exhale.domain.HomeStyle
 import app.exhale.BuildConfig
+import app.exhale.domain.ReminderKind
 import app.exhale.domain.UrgeOutcome
+import app.exhale.notify.ReminderNotifier
 import app.exhale.ui.components.ExAppBar
 import app.exhale.ui.components.ExIcons
 import app.exhale.ui.components.FloatingTabBar
@@ -55,6 +62,7 @@ import app.exhale.ui.screens.HistoryScreen
 import app.exhale.ui.screens.MoneyScreen
 import app.exhale.ui.screens.OnboardingScreen
 import app.exhale.ui.screens.PrototypeTools
+import app.exhale.ui.screens.ReminderControls
 import app.exhale.ui.screens.RhythmScreen
 import app.exhale.ui.screens.SettingsScreen
 import app.exhale.ui.screens.TriggerActions
@@ -79,6 +87,9 @@ internal enum class Tab(val route: String, val label: String, val icon: ImageVec
         MONEY -> c.sun
     }
 }
+
+/** A screen a tapped reminder opens: Urge Wave, Air or Ember. */
+enum class OpenTarget { WAVE, AIR, EMBER }
 
 /** What the app bar's leading shows: one per tab, and Rhythm's changes while a day is [picked]. */
 internal data class LeadingKey(val tab: Tab, val picked: Boolean = false)
@@ -130,21 +141,26 @@ private const val SETTINGS = "settings"
 private const val UIKIT = "uikit"
 private const val HISTORY = "history"
 
+/** [open]: a screen a tapped reminder asked for; [onOpened] once it's been gone to (or can't be, before onboarding). */
 @Composable
-fun ExhaleRoot(vm: ExhaleViewModel) {
+fun ExhaleRoot(vm: ExhaleViewModel, open: OpenTarget? = null, onOpened: () -> Unit = {}) {
     val state by vm.state.collectAsStateWithLifecycle()
     val logged by vm.lastLogged.collectAsStateWithLifecycle()
     Box(Modifier.fillMaxSize().background(Ex.colors.bg)) {
         when {
             !state.loaded -> Unit
-            !state.settings.onboarded -> OnboardingScreen(onFinish = { vm.saveSettings(it.copy(theme = state.settings.theme)) })
-            else -> MainNav(state, logged, vm)
+            !state.settings.onboarded -> {
+                // Reminders are only sent once onboarded; one tapped after an erase has nowhere to go.
+                LaunchedEffect(open) { if (open != null) onOpened() }
+                OnboardingScreen(onFinish = { vm.saveSettings(it.copy(theme = state.settings.theme)) })
+            }
+            else -> MainNav(state, logged, vm, open, onOpened)
         }
     }
 }
 
 @Composable
-private fun MainNav(state: ExhaleState, logged: LoggedEvent?, vm: ExhaleViewModel) {
+private fun MainNav(state: ExhaleState, logged: LoggedEvent?, vm: ExhaleViewModel, open: OpenTarget?, onOpened: () -> Unit) {
     val c = Ex.colors
     val nav = rememberNavController()
     val triggerActions = remember(vm) {
@@ -160,6 +176,17 @@ private fun MainNav(state: ExhaleState, logged: LoggedEvent?, vm: ExhaleViewMode
     }
     val entry by nav.currentBackStackEntryAsState()
     val tab = Tab.entries.firstOrNull { it.route == entry?.destination?.route }
+    // A tapped reminder: a busy-hour nudge opens Urge Wave over where the user was (unless it's open
+    // already), the others switch to their tab.
+    LaunchedEffect(open) {
+        when (open) {
+            OpenTarget.WAVE -> if (nav.currentDestination?.route != WAVE) nav.navigate(WAVE)
+            OpenTarget.AIR -> goToTab(Tab.AIR)
+            OpenTarget.EMBER -> goToTab(Tab.EMBER)
+            null -> return@LaunchedEffect
+        }
+        onOpened()
+    }
     // The day Rhythm is showing. Hoisted so History can open a day there.
     var rhythmDay by rememberSaveable { mutableStateOf<LocalDate?>(null) }
     // Ember's Today popover opens from the badge in the shared app bar. It closes when leaving Ember.
@@ -281,6 +308,8 @@ private fun MainNav(state: ExhaleState, logged: LoggedEvent?, vm: ExhaleViewMode
             }
             composable(SETTINGS) {
                 SettingsScreen(
+                    reminders = reminderControls(vm),
+                    busyHours = state.busyHours,
                     current = state.settings,
                     today = state.today,
                     onSave = vm::saveSettings,
@@ -341,4 +370,41 @@ private fun MainNav(state: ExhaleState, logged: LoggedEvent?, vm: ExhaleViewMode
             }
         }
     }
+}
+
+/**
+ * Settings → Reminders' switches, with Android's side of it: turning one on when Exhale may not
+ * post notifications asks for the permission (Android 13+) and turns it on only once granted. When
+ * Android won't ask (refused before, or notifications blocked in its settings), Settings says so and
+ * links there. Whether Exhale may post is checked again each time the screen resumes.
+ */
+@Composable
+private fun reminderControls(vm: ExhaleViewModel): ReminderControls {
+    val context = LocalContext.current
+    var allowed by remember { mutableStateOf(ReminderNotifier.allowed(context)) }
+    var refused by rememberSaveable { mutableStateOf(false) }
+    var asking by rememberSaveable { mutableStateOf<ReminderKind?>(null) }
+    LifecycleResumeEffect(Unit) {
+        allowed = ReminderNotifier.allowed(context)
+        if (allowed) refused = false
+        onPauseOrDispose {}
+    }
+    val ask = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        allowed = ReminderNotifier.allowed(context)
+        val kind = asking
+        asking = null
+        if (granted && kind != null) vm.setReminder(kind, true) else refused = true
+    }
+    return ReminderControls(
+        allowed = allowed,
+        refused = refused,
+        onChange = { kind, on ->
+            when {
+                !on || allowed -> vm.setReminder(kind, on)
+                ReminderNotifier.canAsk(context) -> { asking = kind; ask.launch(Manifest.permission.POST_NOTIFICATIONS) }
+                else -> refused = true
+            }
+        },
+        onOpenSettings = { context.startActivity(ReminderNotifier.settingsIntent(context)) },
+    )
 }

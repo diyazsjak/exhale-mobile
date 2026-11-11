@@ -34,7 +34,7 @@ Neutrals carry the UI; accents carry meaning.
 
 - 4px spacing scale; screens use a 20px side gutter (`space-lg`) and 16px between blocks (`space-md`).
 - Radii: `radius-pill` for anything tappable that is a single line (buttons, chips, badges, tab bar, segmented control), `radius-md` for inputs and option cards, `radius-lg` for cards, `radius-xs` (6) for small drawn objects such as Money's pack icons.
-- Sizes: `button-large` 60, `button-medium` 48, `icon-button` 48, `chip` 40, `tab-bar` 68, `row` 52 (list rows), `icon` 24, `icon-small` 16 and `wheel` 80 (a TimeWheel column). Touch targets are never under `touch` (44); segmented tracks are `segment` (44) tall.
+- Sizes: `button-large` 60, `button-medium` 48, `icon-button` 48, `chip` 40, `tab-bar` 68, `row` 52 (list rows), `icon` 24, `icon-small` 16, `wheel` 80 (a TimeWheel column) and `switch-width` 52 × `switch-height` 32 (a Switch track). Touch targets are never under `touch` (44); segmented tracks are `segment` (44) tall.
 - Strokes: `hairline` (1) for `line` borders, `ring` (1.5) for selection and focus rings.
 - Elevation: flat. The only shadow is a soft one on the floating tab bar in light. Dark uses tone and a `line` outline instead of shadows.
 
@@ -70,7 +70,7 @@ Plain, short, second person. A cigarette is information: "Logged. 8 of 12 today.
 
 ## Components
 
-Button, IconButton, Link, Chip, Badge, Card, OptionCard, TextField, FieldNote, Footnote, Stepper, CounterRow, TimeWheel, SegmentedControl, ActiveFilter, StepProgress, GradientRing, WeekStrip, MonthCalendar, LegendItem, DayTimeline, DayLine, ListRow, HandleRow, ReorderColumn, TriggerChips, ExhaleText, Dialog, ChoiceDialog, LogEditor, Toast, FloatingTabBar and AppBar. Each card below has guidelines and a live web rendition styled by `components/bundle.css`. In the app they are Compose functions in `ui/components/` (`ExButton`, `ExIconButton`, `ExLink`, `ExChip`, `ExBadge`, `ExCard`, `OptionCard`, `ExTextField`, `FieldNote`, `Footnote`, `Stepper`, `CounterRow`, `TimeWheel`, `SegmentedControl`, `ActiveFilter`, `StepProgress`, `GradientRing`, `WeekStrip`, `MonthCalendar`, `LegendItem`, `DayTimeline`, `DayLine`, `ListRow`, `HandleRow`, `ReorderColumn`, `TriggerChips`, `ExhaleText`, `ExDialog`, `ExChoiceDialog`, `LogEditor`/`LogEditDialog`, `ExToast`, `FloatingTabBar`, `ExAppBar`). Every screen sits in `ExScreen`, which applies `bg`, the status-bar inset, the gutter and the tab-bar clearance. The app also has a live catalogue in debug builds: Settings → Prototype tools → Design system.
+Button, IconButton, Link, Chip, Badge, Card, OptionCard, TextField, FieldNote, Footnote, Stepper, CounterRow, TimeWheel, SegmentedControl, ActiveFilter, Switch, StepProgress, GradientRing, WeekStrip, MonthCalendar, LegendItem, DayTimeline, DayLine, ListRow, HandleRow, ReorderColumn, TriggerChips, ExhaleText, Dialog, ChoiceDialog, LogEditor, Toast, FloatingTabBar and AppBar. Each card below has guidelines and a live web rendition styled by `components/bundle.css`. In the app they are Compose functions in `ui/components/` (`ExButton`, `ExIconButton`, `ExLink`, `ExChip`, `ExBadge`, `ExCard`, `OptionCard`, `ExTextField`, `FieldNote`, `Footnote`, `Stepper`, `CounterRow`, `TimeWheel`, `SegmentedControl`, `ActiveFilter`, `ExSwitch`/`SwitchRow`, `StepProgress`, `GradientRing`, `WeekStrip`, `MonthCalendar`, `LegendItem`, `DayTimeline`, `DayLine`, `ListRow`, `HandleRow`, `ReorderColumn`, `TriggerChips`, `ExhaleText`, `ExDialog`, `ExChoiceDialog`, `LogEditor`/`LogEditDialog`, `ExToast`, `FloatingTabBar`, `ExAppBar`). Every screen sits in `ExScreen`, which applies `bg`, the status-bar inset, the gutter and the tab-bar clearance. The app also has a live catalogue in debug builds: Settings → Prototype tools → Design system.
 
 ## Colour tokens
 
@@ -241,6 +241,14 @@ Same 44px track as the segmented control. The filter is named in `label-small`/`
 
 - Compose: `ActiveFilter(text, action = "Back to 30 days", onAction)`.
 
+### Switch
+
+Turns one thing on or off at once, such as each reminder in Settings → Reminders.
+
+A 52×32 pill (`switch-width` × `switch-height`) with a round thumb that slides across on a spring (the segmented thumb's). Off: `surface-high` track and an 18px `ink-soft` thumb on the left. On: `primary` track (inverted ink, like the Primary button) and a 24px `on-primary` thumb on the right; the colours ease over 160ms. Neutral on purpose: on or off is neither smoke nor recovery, so no accent. In a list it sits in a **SwitchRow**: like ListRow (52px minimum, `body` label, inside a `surface` card with `space-sm` padding) with an optional `caption`/`ink-soft` line under the label that wraps rather than being cut short, and the switch on the right. The whole row takes the tap and reads to screen readers as one switch. No haptic: none of the patterns means "switched".
+
+- Compose: `SwitchRow("Recovery milestones", on, { on = it }, sub = "The first time you reach each one on Air")`; on its own `ExSwitch(on, { on = it })` (44px touch area).
+
 ### StepProgress
 
 Segmented progress bar for multi-step flows; filled segments are one neutral colour.
@@ -362,4 +370,4 @@ Drawn over the screens (not inside them), so it stays put while pages slide. Lea
 
 - The web previews are static HTML/CSS renditions written by hand from the Compose components; they are not generated from the Kotlin code.
 - Animated and chart components (the Ember orb, the Urge Wave, the particle field, the Smoke Clock, Air's recovery sky, gap chart and timeline) are screen-specific and are not in this kit.
-- Link, ActiveFilter, MonthCalendar, LegendItem, DayTimeline, DayLine, TimeWheel, LogEditor, Dialog, ChoiceDialog, Toast, CounterRow, FieldNote, Footnote, AppBar, the Tonal button, the outlined card, the two-line ListRow and the capped and suffixed text fields are in the in-app catalogue but have no web preview yet.
+- Link, ActiveFilter, MonthCalendar, LegendItem, DayTimeline, DayLine, TimeWheel, LogEditor, Dialog, ChoiceDialog, Toast, CounterRow, Switch and SwitchRow, FieldNote, Footnote, AppBar, the Tonal button, the outlined card, the two-line ListRow and the capped and suffixed text fields are in the in-app catalogue but have no web preview yet.

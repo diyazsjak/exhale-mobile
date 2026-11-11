@@ -95,11 +95,16 @@ data class UserSettings(
     val home: HomeStyle = HomeStyle.EMBER,
     /** Epoch day on which the user opened the "borrowed from yesterday" note; hides the badge dot. */
     val borrowNoticeSeenDay: Long = -1,
+    /** The notifications the user turned on (Settings → Reminders). None at first. */
+    val reminders: Set<ReminderKind> = emptySet(),
 ) {
     val pricePerCigMinor: Double get() = packPriceMinor.toDouble() / cigsPerPack.coerceAtLeast(1)
 
     /** Whether the user has opened the "borrowed from yesterday" note on [day]. */
     fun borrowNoticeSeenOn(day: LocalDate): Boolean = borrowNoticeSeenDay == day.toEpochDay()
+
+    /** These settings with reminder [kind] turned [on] or off. */
+    fun withReminder(kind: ReminderKind, on: Boolean): UserSettings = copy(reminders = if (on) reminders + kind else reminders - kind)
 
     /** These settings once the user has opened the borrowed note on [day]. */
     fun withBorrowNoticeSeen(day: LocalDate): UserSettings = copy(borrowNoticeSeenDay = day.toEpochDay())

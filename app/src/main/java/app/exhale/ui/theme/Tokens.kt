@@ -53,6 +53,10 @@ object ExSize {
     /** Stroke of selection and focus rings. */
     val ring = 1.5.dp
 
+    /** An ExSwitch's track: a pill this wide and [switchHeight] tall. */
+    val switchWidth = 52.dp
+    val switchHeight = 32.dp
+
     /** Width of a TimeWheel column. */
     val wheel = 80.dp
 

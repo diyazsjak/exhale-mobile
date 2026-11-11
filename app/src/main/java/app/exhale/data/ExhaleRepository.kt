@@ -19,7 +19,8 @@ import java.time.ZoneId
 
 /**
  * Single entry point to local data. Everything stays on device.
- * [onWrite] runs after every write the home-screen widget shows (logs and settings), so it can redraw.
+ * [onWrite] runs after every write the home-screen widget and the reminders depend on (logs and settings),
+ * so the widget can redraw and the reminder alarms move.
  */
 class ExhaleRepository(
     private val db: ExhaleDatabase,
