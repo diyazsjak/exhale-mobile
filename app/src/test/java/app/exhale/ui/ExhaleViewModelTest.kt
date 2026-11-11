@@ -2,6 +2,10 @@ package app.exhale.ui
 
 import android.content.Context
 import android.os.Looper
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.ViewModelStore
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import androidx.test.core.app.ApplicationProvider
 import app.exhale.data.ExhaleDatabase
 import app.exhale.data.ExhaleRepository
@@ -33,7 +37,10 @@ class ExhaleViewModelTest {
     // before the log, it showed "1h 0m" until the next tick, so the hero changed twice in a row.
     @Test fun rightAfterALog_theCountdownIsAlreadyUnderTheWholeGap() {
         val db = ExhaleDatabase.create(context)
-        val vm = ExhaleViewModel(ExhaleRepository(db, SettingsStore(context)))
+        val repo = ExhaleRepository(db, SettingsStore(context))
+        // Held in a store, so clearing it at the end stops its tick and flows before the database closes.
+        val store = ViewModelStore()
+        val vm = ViewModelProvider.create(store, viewModelFactory { initializer { ExhaleViewModel(repo) } })[ExhaleViewModel::class]
         val states = mutableListOf<ExhaleState>()
         val scope = CoroutineScope(Dispatchers.Main)
         scope.launch { vm.state.collect { states += it } }
@@ -49,6 +56,7 @@ class ExhaleViewModelTest {
             assertEquals(Fmt.gap(gap.minusSeconds(1)), Fmt.gap(first.remainingToNext))
         } finally {
             scope.cancel()
+            store.clear()
             db.close()
         }
     }
