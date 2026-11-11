@@ -16,6 +16,9 @@ enum class ReminderKind(
     /** A recovery milestone reached for the first time. Still true until the next cigarette. */
     MILESTONE(Duration.ofHours(12)),
 
+    /** What's kept covers the savings goal, the first time. True all that day. */
+    GOAL(Duration.ofHours(24)),
+
     /** A new plan week that lowers the allowance. Posted at midnight; true all that day. */
     PLAN_WEEK(Duration.ofHours(24)),
 }
@@ -44,6 +47,13 @@ sealed interface Reminder {
         override val text get() = "The first time you've reached this one. Air shows what comes next."
     }
 
+    /** What's kept covers the goal called [goalName], first at [at]. Opens Money. */
+    data class GoalReached(override val at: Instant, val goalName: String) : Reminder {
+        override val kind get() = ReminderKind.GOAL
+        override val title get() = "You've kept enough for $goalName"
+        override val text get() = "What you didn't spend since you started covers it. Go get it."
+    }
+
     /** A plan week starting at [at] with [perDay] a day, down from [before]. Opens Ember. */
     data class PlanWeek(override val at: Instant, val perDay: Int, val before: Int) : Reminder {
         override val kind get() = ReminderKind.PLAN_WEEK
@@ -64,6 +74,8 @@ sealed interface Reminder {
  *   when a cigarette was logged or a craving wave started in the [BUSY_QUIET] before it.
  * - **Milestones**: each one from 12 hours on ([FIRST_MILESTONE]), the first time a gap reaches it.
  *   20 minutes comes after nearly every cigarette, so it never notifies.
+ * - **Goal**: the first moment what's kept covers the savings goal ([Money.goalReachedAt]). Once it
+ *   has, dipping under and back doesn't count again; a new, bigger goal does.
  * - **Plan weeks**: midnight on the first day of a plan week whose base allowance is lower than the
  *   day before. Never on Hold steady, and never again once the plan is at 0.
  */
@@ -87,6 +99,7 @@ object Reminders {
         return when (kind) {
             ReminderKind.BUSY_HOUR -> nextBusyHour(s, logs, now, after, zone)
             ReminderKind.MILESTONE -> nextMilestone(logs, after)
+            ReminderKind.GOAL -> Money.goalReachedAt(s, logs, zone)?.takeIf { it.isAfter(after) }?.let { Reminder.GoalReached(it, s.goalName) }
             ReminderKind.PLAN_WEEK -> nextPlanWeek(s, after, zone)
         }
     }

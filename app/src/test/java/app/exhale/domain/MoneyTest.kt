@@ -8,6 +8,7 @@ import org.junit.Test
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
+import java.time.temporal.ChronoUnit
 
 class MoneyTest {
     private val zone = ZoneOffset.UTC
@@ -79,5 +80,37 @@ class MoneyTest {
         assertEquals(4L * 50, Money.keptFollowingPlan(s, days = 1))
         // A start above the baseline keeps nothing, never less.
         assertEquals(0L, Money.keptFollowingPlan(s.copy(startAllowance = 30, taper = TaperType.HOLD), days = 28))
+    }
+
+    private fun kept(logs: List<SmokeLog>, t: Instant) = Money.summary(settings, logs, t, zone).keptMinor
+
+    @Test fun goalReachedAt_isTheFirstMomentKeptCoversTheGoal() {
+        // 599.00 at 0.50 each is 1,198 not smoked: 66.6 days at 18 a day with none smoked.
+        val none = Money.goalReachedAt(settings, emptyList(), zone)!!
+        assertTrue(kept(emptyList(), none) >= 59900)
+        assertTrue(kept(emptyList(), none.minusSeconds(60)) < 59900)
+        assertEquals(at(66), none.truncatedTo(ChronoUnit.DAYS))
+        // At 10 a day for 40 days, then none: later, and still the first moment.
+        val logs = daily(10, 40)
+        val some = Money.goalReachedAt(settings, logs, zone)!!
+        assertTrue(some.isAfter(none))
+        assertTrue(kept(logs, some) >= 59900)
+        assertTrue(kept(logs, some.minusSeconds(60)) < 59900)
+    }
+
+    @Test fun goalReachedAt_aLogBeforeMovesItLaterOneAfterDoesNot() {
+        val reached = Money.goalReachedAt(settings, emptyList(), zone)!!
+        // One before: a cigarette's worth later, 1/18 of a day.
+        val before = listOf(SmokeLog(1, at(10), null, false))
+        assertEquals(reached.plusMillis(86_400_000L / 18), Money.goalReachedAt(settings, before, zone))
+        // One just after: kept dips under for a while, but it was reached.
+        val after = listOf(SmokeLog(1, reached.plusSeconds(60), null, false))
+        assertEquals(reached, Money.goalReachedAt(settings, after, zone))
+        assertTrue(kept(after, reached.plusSeconds(120)) < 59900)
+    }
+
+    @Test fun goalReachedAt_noneWithoutAGoalOrABaseline() {
+        assertNull(Money.goalReachedAt(settings.copy(goalMinor = 0), emptyList(), zone))
+        assertNull(Money.goalReachedAt(settings.copy(baselinePerDay = 0), emptyList(), zone))
     }
 }

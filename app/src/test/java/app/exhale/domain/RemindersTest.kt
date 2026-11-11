@@ -107,6 +107,20 @@ class RemindersTest {
         assertNull(next(ReminderKind.MILESTONE, emptyList()))
     }
 
+    // --- Goal
+
+    @Test fun goal_whenKeptFirstCoversIt() {
+        val s = settings.copy(baselinePerDay = 15, goalName = "New headphones", goalMinor = 20000)
+        val reached = Money.goalReachedAt(s, emptyList(), zone)!!
+        val r = next(ReminderKind.GOAL, emptyList(), s = s, after = reached.minusSeconds(1)) as Reminder.GoalReached
+        assertEquals(reached, r.at)
+        assertEquals("You've kept enough for New headphones", r.title)
+        // Once it's behind `after`, no more: dipping under and back doesn't count again.
+        assertNull(next(ReminderKind.GOAL, emptyList(), s = s, after = reached))
+        // A bigger goal is a new one.
+        assertTrue(next(ReminderKind.GOAL, emptyList(), s = s.copy(goalMinor = 90000), after = reached)!!.at.isAfter(reached))
+    }
+
     // --- Plan weeks
 
     @Test fun planWeek_atMidnightWhenTheAllowanceDrops() {
@@ -151,6 +165,7 @@ class RemindersTest {
     @Test fun lateness_perKind() {
         assertEquals(Duration.ofMinutes(15), ReminderKind.BUSY_HOUR.late)
         assertEquals(Duration.ofHours(12), ReminderKind.MILESTONE.late)
+        assertEquals(Duration.ofHours(24), ReminderKind.GOAL.late)
         assertEquals(Duration.ofHours(24), ReminderKind.PLAN_WEEK.late)
     }
 

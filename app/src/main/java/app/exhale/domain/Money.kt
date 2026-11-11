@@ -81,6 +81,31 @@ object Money {
     }
 
     /**
+     * The first moment what's kept since the plan start covers the goal ([MoneySummary.keptMinor] ≥
+     * [UserSettings.goalMinor]), counting [logs] as they are and none after the last one. In the past
+     * once reached, even if it has dipped under since; null with no goal, no price or a baseline of 0.
+     * Between two logs, what's kept grows by one cigarette every 1/baseline of a day.
+     */
+    fun goalReachedAt(s: UserSettings, logs: List<SmokeLog>, zone: ZoneId): Instant? {
+        val price = s.pricePerCigMinor
+        if (s.goalMinor <= 0 || price <= 0.0 || s.baselinePerDay <= 0) return null
+        // The fewest cigarettes not smoked whose price covers the goal, rounded as the summary rounds.
+        var need = ceil(s.goalMinor / price).toLong()
+        while (need > 0 && ((need - 1) * price).toLong() >= s.goalMinor) need--
+        while ((need * price).toLong() < s.goalMinor) need++
+        val start = s.planStart.atStartOfDay(zone).toInstant()
+        val smoked = logs.map { it.at }.filter { it >= start }.sorted()
+        // With j smoked so far, `need` not smoked is reached at start + (need + j) / baseline days. The
+        // first j whose moment comes before the (j + 1)th cigarette is the answer.
+        for (j in 0..smoked.size) {
+            // A millisecond over, so rounding can't leave it a hair short of a whole cigarette.
+            val at = start.plusMillis(ceil((need + j) * DAY_MS / s.baselinePerDay).toLong() + 1)
+            if (j == smoked.size || !at.isAfter(smoked[j])) return at
+        }
+        return null
+    }
+
+    /**
      * Money kept over the plan's first [days] if exactly the allowance is smoked each day: the
      * estimate Onboarding shows before anything is logged.
      */
@@ -89,5 +114,7 @@ object Money {
             (s.baselinePerDay - PlanMath.baseAllowance(s, s.planStart.plusDays(d.toLong()))).coerceAtLeast(0) * s.pricePerCigMinor
         }.toLong()
 
-    private fun daysBetween(from: Instant, to: Instant): Double = Duration.between(from, to).toMillis() / 86_400_000.0
+    private const val DAY_MS = 86_400_000.0
+
+    private fun daysBetween(from: Instant, to: Instant): Double = Duration.between(from, to).toMillis() / DAY_MS
 }

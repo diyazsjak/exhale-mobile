@@ -88,8 +88,8 @@ internal enum class Tab(val route: String, val label: String, val icon: ImageVec
     }
 }
 
-/** A screen a tapped reminder opens: Urge Wave, Air or Ember. */
-enum class OpenTarget { WAVE, AIR, EMBER }
+/** A screen a tapped reminder opens: Urge Wave, Air, Money or Ember. */
+enum class OpenTarget { WAVE, AIR, MONEY, EMBER }
 
 /** What the app bar's leading shows: one per tab, and Rhythm's changes while a day is [picked]. */
 internal data class LeadingKey(val tab: Tab, val picked: Boolean = false)
@@ -182,6 +182,7 @@ private fun MainNav(state: ExhaleState, logged: LoggedEvent?, vm: ExhaleViewMode
         when (open) {
             OpenTarget.WAVE -> if (nav.currentDestination?.route != WAVE) nav.navigate(WAVE)
             OpenTarget.AIR -> goToTab(Tab.AIR)
+            OpenTarget.MONEY -> goToTab(Tab.MONEY)
             OpenTarget.EMBER -> goToTab(Tab.EMBER)
             null -> return@LaunchedEffect
         }
@@ -310,6 +311,7 @@ private fun MainNav(state: ExhaleState, logged: LoggedEvent?, vm: ExhaleViewMode
                 SettingsScreen(
                     reminders = reminderControls(vm),
                     busyHours = state.busyHours,
+                    goalReached = state.money?.goalLeftMinor == 0L,
                     current = state.settings,
                     today = state.today,
                     onSave = vm::saveSettings,

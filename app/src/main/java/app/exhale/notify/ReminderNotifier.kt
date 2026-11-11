@@ -30,13 +30,15 @@ object ReminderNotifier {
     private fun channelId(kind: ReminderKind) = when (kind) {
         ReminderKind.BUSY_HOUR -> "busy_hours"
         ReminderKind.MILESTONE -> "milestones"
+        ReminderKind.GOAL -> "savings_goal"
         ReminderKind.PLAN_WEEK -> "plan_weeks"
     }
 
-    /** Where tapping it goes: a busy-hour nudge to Urge Wave, a milestone to Air, a plan week to Ember. */
+    /** Where tapping it goes: a busy-hour nudge to Urge Wave, a milestone to Air, the goal to Money, a plan week to Ember. */
     fun target(kind: ReminderKind) = when (kind) {
         ReminderKind.BUSY_HOUR -> OpenTarget.WAVE
         ReminderKind.MILESTONE -> OpenTarget.AIR
+        ReminderKind.GOAL -> OpenTarget.MONEY
         ReminderKind.PLAN_WEEK -> OpenTarget.EMBER
     }
 
@@ -61,6 +63,8 @@ object ReminderNotifier {
                     .apply { description = "A nudge 15 minutes before the hours you usually smoke most." },
                 NotificationChannel(channelId(ReminderKind.MILESTONE), "Recovery milestones", NotificationManager.IMPORTANCE_DEFAULT)
                     .apply { description = "The first time you reach each milestone on Air." },
+                NotificationChannel(channelId(ReminderKind.GOAL), "Savings goal", NotificationManager.IMPORTANCE_DEFAULT)
+                    .apply { description = "When what you've kept covers what you're saving for." },
                 // Quiet: it says what the day's plan is, nothing needs doing at that moment.
                 NotificationChannel(channelId(ReminderKind.PLAN_WEEK), "New plan weeks", NotificationManager.IMPORTANCE_LOW)
                     .apply { description = "When a new week of your plan lowers the allowance." },
@@ -74,11 +78,12 @@ object ReminderNotifier {
         if (!allowed(context)) return
         ensureChannels(context)
         // Accents tint the small icon: craving (flare) before a busy hour, recovery (oxygen) for a
-        // milestone, in between (sky) for the plan. Ink tones, so they read on a light shade too.
+        // milestone, money (sun) for the goal, in between (sky) for the plan. Ink tones, so they read on a light shade too.
         val c = exColors(dark = false)
         val accent = when (r.kind) {
             ReminderKind.BUSY_HOUR -> c.flareInk
             ReminderKind.MILESTONE -> c.oxyInk
+            ReminderKind.GOAL -> c.sunInk
             ReminderKind.PLAN_WEEK -> c.skyInk
         }
         val open = Intent(context, MainActivity::class.java)

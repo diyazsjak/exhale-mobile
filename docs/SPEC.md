@@ -361,12 +361,14 @@ Edits everything set during onboarding; keeps the original plan start. Sections,
   day." for Hold steady), plus "That start is above your usual 16." when the start is above Before Exhale.
 - **Triggers**, one card: **Your triggers** with how many are shown ("9 shown") and their names on a
   second line cut short with "…", opening the Triggers screen (§3.11).
-- **Reminders**, one card of three switches (`SwitchRow`), all off at first; each applies and saves the
+- **Reminders**, one card of four switches (`SwitchRow`), all off at first; each applies and saves the
   moment it's tapped (§3.9 says what they send):
   - **Before your busy hours**: "15 minutes before 8 am and 6 pm, the hours you smoke most." (the busy hours
     in the phone's 12/24-hour form, earliest first), or "… Starts once Exhale has a week of your days." until
     `Reminders.busyHours` has one, or "… Starts once you've logged some." with a week and nothing logged.
   - **Recovery milestones**: "The first time you reach each one on Air, from 12 hours on."
+  - **Savings goal**: "When what you've kept covers New headphones." (the goal's name), adding "It already
+    does, so a bigger goal would be next." once it has.
   - **New plan weeks**: "When a new week lowers your allowance." On Hold steady or once the plan is at 0
     it adds "Yours holds steady, so none will come." / "Yours is at zero, so none will come."
   - Turning one on when Android doesn't let Exhale post asks for the notification permission (Android 13+)
@@ -438,12 +440,14 @@ data?") with the safe choice as a Ghost button; neither uses a warm colour.
     them from `app/build/outputs/roborazzi/` when the widget's look changes.
   - The round button and the Undo pill are drawn as bitmaps, so they are round before Android 12 too; the card's
     own corners come from Glance (Android 12+) and the launcher.
-- **Reminders** — `notify/` (on/off in Settings → Reminders, §3.8; rules in §4 Reminders). Three kinds, one
+- **Reminders** — `notify/` (on/off in Settings → Reminders, §3.8; rules in §4 Reminders). Four kinds, one
   Android channel each so they can also be muted there, one notification per kind (a newer one replaces it):
   - **Before your busy hours** ("Before your busy hours" channel, default importance): "Your busy hour starts
     soon" / "A craving peaks and fades in about 4 minutes. Ride it out here if one comes." Tapping opens Urge Wave.
   - **Recovery milestones** (default importance): "12 hours · Carbon monoxide back to normal" / "The first time
     you've reached this one. Air shows what comes next." Tapping opens Air.
+  - **Savings goal** (default importance): "You've kept enough for New headphones" / "What you didn't spend
+    since you started covers it. Go get it." Tapping opens Money.
   - **New plan weeks** (low importance: silent, no pop-up): "This week: 9 a day" / "One fewer than last week."
     ("3 fewer than last week.", or at 0 "Your plan reaches zero. Urge Wave is here when a craving comes.").
     Tapping opens Ember.
@@ -550,6 +554,7 @@ reads through to it.
   7 and 30 days (null until the plan is older than the window), the weekly pace (last 7 days, else
   the average week so far once a day in), packs and remainder, goal left, progress and weeks to it
   (`ceil(left / weekly)`, 0 once reached, null at a pace of 0). Projections are `weekly × days / 7`.
+- `goalReachedAt(s, logs, zone)`: the first moment what's kept covers the goal (see §4 Reminders, Goal).
 - `keptFollowingPlan(s, days)`: what the first `days` of the plan keep if exactly the base allowance is
   smoked each day (Onboarding's "first 4 weeks" line).
 
@@ -650,10 +655,14 @@ Loading it keeps the current Appearance and Home screen.
   - **Milestone**: from 12 hours on (`FIRST_MILESTONE`; 20 minutes comes after nearly every cigarette), at the
     last cigarette + the milestone's time, only for milestones no gap between two cigarettes has reached yet
     (the first time ever), and only those still ahead of `after`.
+  - **Goal**: `Money.goalReachedAt`, the first moment what's kept since the plan start covers the goal, counting
+    the logs so far and none after (between two logs, one more cigarette is kept every 1/baseline of a day; a
+    log moves it later). It stays the first moment even if a log dips what's kept under the goal again, so it
+    notifies once per goal; a new, bigger goal notifies when it's reached. None without a goal or baseline.
   - **Plan week**: midnight on the first day of the next plan week after `after` whose base allowance is lower
     than the day before (`perDay`, `before`). None on Hold steady or once the plan is at 0.
 - `shouldPost(reminder, logs, urges, now)`: from its time until its kind's `late` has passed (busy hour 15 min,
-  so never once the hour has begun; milestone 12 h; plan week 24 h). A busy-hour nudge is also skipped if a
+  so never once the hour has begun; milestone 12 h; goal and plan week 24 h). A busy-hour nudge is also skipped if a
   cigarette was logged or a craving wave started in the 30 minutes before (`BUSY_QUIET`).
 - The words (`title`, `text`) are part of each `Reminder`, so tests check them.
 
@@ -725,7 +734,7 @@ Every change to `domain/` needs a unit test. Every new screen needs a screenshot
 **Now (prototype, v0.1)** — everything above, local data only.
 
 **Next**
-- Notifications: "next one earned" (opt-in). (Busy-hour nudges, milestones and plan weeks are in: §3.9.)
+- Notifications: "next one earned" (opt-in). (Busy-hour nudges, milestones, the savings goal and plan weeks are in: §3.9.)
 - AGSL `RuntimeShader` orb and particle field on API 33+, current Canvas versions as fallback.
 - Accelerometer drift on the Air particles; flip-face-down mode for Urge Wave.
 - CSV export; biometric app lock; discreet icon/notification option.

@@ -143,6 +143,8 @@ fun SettingsScreen(
     reminders: ReminderControls = ReminderControls(),
     /** The busy hours the nudges come before; null until there's a week to go on. */
     busyHours: List<Int>? = null,
+    /** What's kept already covers the goal. */
+    goalReached: Boolean = false,
 ) {
     var baseline by rememberSaveable { mutableIntStateOf(current.baselinePerDay) }
     var allowance by rememberSaveable { mutableIntStateOf(initialAllowance) }
@@ -186,7 +188,7 @@ fun SettingsScreen(
             when (p) {
                 null -> SettingsMain(
                     current, today, baseline, { baseline = it }, baselineChanged, allowance, { allowance = it }, allowanceChanged,
-                    dirty, mainScroll, onTheme, onHome, { page = it }, Triggers.shown(triggers), reminders, busyHours,
+                    dirty, mainScroll, onTheme, onHome, { page = it }, Triggers.shown(triggers), reminders, busyHours, goalReached,
                     { ask = Ask.ERASE }, prototypeTools?.let { t -> PrototypeTools(t.onDesignSystem) { ask = Ask.DEMO } },
                     onBack = { if (dirty) ask = Ask.UNSAVED else onClose() },
                     onSaveCounts = { saveCounts(); toast.show("Saved") },
@@ -263,6 +265,7 @@ private fun SettingsMain(
     shownTriggers: List<Trigger>,
     reminders: ReminderControls,
     busyHours: List<Int>?,
+    goalReached: Boolean,
     onErase: () -> Unit,
     tools: PrototypeTools?,
     onBack: () -> Unit,
@@ -306,7 +309,7 @@ private fun SettingsMain(
             }
 
             Overline("Reminders", Modifier.paddingTop())
-            Reminders(current, today, reminders, busyHours)
+            Reminders(current, today, reminders, busyHours, goalReached)
 
             Overline("Money", Modifier.paddingTop())
             ExCard(padding = ExSpace.sm) {
@@ -358,12 +361,12 @@ private fun CardWithCaption(content: @Composable ColumnScope.() -> Unit) {
 }
 
 /**
- * The three reminders as switches, each saying when it comes. A switch shows on only while the
+ * The four reminders as switches, each saying when it comes. A switch shows on only while the
  * reminder is on and Android lets Exhale post; when it doesn't, a line under the card says so and
  * links to Android's settings.
  */
 @Composable
-private fun Reminders(current: UserSettings, today: LocalDate, controls: ReminderControls, busyHours: List<Int>?) {
+private fun Reminders(current: UserSettings, today: LocalDate, controls: ReminderControls, busyHours: List<Int>?, goalReached: Boolean) {
     val c = Ex.colors
     val h24 = DateFormat.is24HourFormat(LocalContext.current)
     fun on(kind: ReminderKind) = controls.allowed && kind in current.reminders
@@ -380,6 +383,11 @@ private fun Reminders(current: UserSettings, today: LocalDate, controls: Reminde
             SwitchRow(
                 "Recovery milestones", on(ReminderKind.MILESTONE), { controls.onChange(ReminderKind.MILESTONE, it) },
                 sub = "The first time you reach each one on Air, from 12 hours on.",
+            )
+            SwitchRow(
+                "Savings goal", on(ReminderKind.GOAL), { controls.onChange(ReminderKind.GOAL, it) },
+                sub = "When what you've kept covers ${current.goalName}." +
+                    if (goalReached) " It already does, so a bigger goal would be next." else "",
             )
             SwitchRow(
                 "New plan weeks", on(ReminderKind.PLAN_WEEK), { controls.onChange(ReminderKind.PLAN_WEEK, it) },
