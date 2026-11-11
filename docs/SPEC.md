@@ -420,6 +420,11 @@ data?") with the safe choice as a Ghost button; neither uses a warm colour.
   - **Theme**: the app's setting (Settings → Appearance); "System" is read when it is drawn, so after the phone
     switches theme it catches up at the next redraw.
   - **Privacy**: a home screen is seen by others, so the widget never says "cigarette": only counts and times.
+  - **Picker preview**: each entry shows the widget waiting for the next one (`res/drawable-nodpi/widget_preview*.png`,
+    dark versions in `drawable-night-nodpi`), rendered from the widget code by `ScreenshotTest.widgetPreview*`; copy
+    them from `app/build/outputs/roborazzi/` when the widget's look changes.
+  - The round button and the Undo pill are drawn as bitmaps, so they are round before Android 12 too; the card's
+    own corners come from Glance (Android 12+) and the launcher.
 - Planned: Wear OS tile, smart nudges (see §6).
 
 ### 3.10 History — `HistoryScreen.kt`

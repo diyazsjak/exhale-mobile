@@ -47,6 +47,9 @@ import java.time.ZoneId
  * ones (the 4×1) a row: a small ring, the count and line, and the ember button. Tapping the ring or
  * the button arms, a second tap logs; anywhere else opens Exhale.
  *
+ * The round button and the Undo pill are drawn as bitmaps ([WidgetArt.pill]): Glance only rounds
+ * corners on Android 12+. The card itself relies on the launcher's clip there.
+ *
  * Glance has its own text and colour types, so this reads [ExColors] values directly and takes text
  * sizes from `ExType`. Fonts are the system's: only the count, drawn in [WidgetArt], is in Newsreader.
  */
@@ -126,8 +129,7 @@ private fun WideLayout(m: WidgetModel, c: ExColors, zone: ZoneId, h24: Boolean) 
                 val armed = m.kind == WidgetKind.ARMED
                 Box(
                     modifier = GlanceModifier.size(button.dp)
-                        .background(if (armed) c.ember else c.surfaceHigh)
-                        .cornerRadius(button.dp / 2)
+                        .background(ImageProvider(WidgetArt.pill(context, if (armed) c.ember else c.surfaceHigh, button.dp, button.dp)))
                         .clickable(actionRunCallback<WidgetTapAction>())
                         .semantics { contentDescription = WidgetCopy.tapLabel(m, zone, h24) },
                     contentAlignment = Alignment.Center,
@@ -162,14 +164,15 @@ private fun caption(color: Color, bold: Boolean) =
 /** Undo for the log the widget just made: a `surfaceHigh` pill, in a 44dp touch target. */
 @Composable
 private fun UndoPill(c: ExColors, height: Dp) {
+    val width = 96.dp // fixed, so its drawn background is exactly its size
     Box(
         modifier = GlanceModifier.height(ExSize.touch).clickable(actionRunCallback<WidgetUndoAction>()),
         contentAlignment = Alignment.Center,
     ) {
         Row(
-            modifier = GlanceModifier.height(height).background(c.surfaceHigh).cornerRadius(height / 2)
-                .padding(start = ExSpace.sm, end = ExSpace.md),
+            modifier = GlanceModifier.size(width, height).background(ImageProvider(WidgetArt.pill(LocalContext.current, c.surfaceHigh, width, height))),
             verticalAlignment = Alignment.CenterVertically,
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Icon(ExIcons.UNDO_PATH, c.ink, ExSize.iconSmall)
             Spacer(GlanceModifier.width(6.dp))

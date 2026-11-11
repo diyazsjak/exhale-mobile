@@ -154,6 +154,16 @@ object WidgetArt {
         canvas.drawText(of, cx, top + countBox.height() + gap - ofBox.top, ofPaint)
     }
 
+    /** A [color] pill [width] × [height] (a circle when they match), for backgrounds Glance can't round before Android 12. */
+    fun pill(context: Context, color: Color, width: Dp, height: Dp): Bitmap {
+        val density = context.resources.displayMetrics.density
+        val w = (width.value * density).roundToInt().coerceAtLeast(1)
+        val h = (height.value * density).roundToInt().coerceAtLeast(1)
+        return Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888).also {
+            Canvas(it).drawRoundRect(RectF(0f, 0f, w.toFloat(), h.toFloat()), h / 2f, h / 2f, Paint(Paint.ANTI_ALIAS_FLAG).apply { this.color = color.toArgb() })
+        }
+    }
+
     /** An [ExIcons] line icon ([pathData]) in [tint], [sizeDp] across: Glance has no vector tinting of its own. */
     fun icon(context: Context, pathData: String, tint: Color, sizeDp: Dp): Bitmap {
         val px = (sizeDp.value * context.resources.displayMetrics.density).roundToInt().coerceAtLeast(1)

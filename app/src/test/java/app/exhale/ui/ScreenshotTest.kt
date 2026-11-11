@@ -1,7 +1,17 @@
 package app.exhale.ui
 
 import androidx.compose.foundation.background
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.PorterDuff
+import android.graphics.PorterDuffXfermode
+import android.graphics.RectF
+import android.view.View
+import kotlin.math.roundToInt
 import android.widget.FrameLayout
+import app.exhale.ui.theme.ExRadius
+import java.io.File
 import android.widget.RemoteViews
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -298,6 +308,41 @@ class ScreenshotTest {
 
     private val square = DpSize(176.dp, 176.dp)
     private val wide = DpSize(379.dp, 76.dp)
+
+    /**
+     * The widget picker's preview images (`android:previewImage`): the widget waiting for the next one,
+     * on a transparent background with its own corners. Copy them into `res/drawable-nodpi` (light) and
+     * `res/drawable-night-nodpi` (dark) when the widget's look changes.
+     */
+    private fun widgetPreview(name: String, dark: Boolean, size: DpSize, radius: androidx.compose.ui.unit.Dp) {
+        val context = RuntimeEnvironment.getApplication()
+        val rv = widgetViews(dark, size).first { it.first == "Waiting" }.second
+        val density = context.resources.displayMetrics.density
+        val w = (size.width.value * density).roundToInt()
+        val h = (size.height.value * density).roundToInt()
+        val view = rv.apply(context, FrameLayout(context))
+        view.measure(View.MeasureSpec.makeMeasureSpec(w, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(h, View.MeasureSpec.EXACTLY))
+        view.layout(0, 0, w, h)
+        val drawn = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888).also { view.draw(Canvas(it)) }
+        // A launcher clips the widget to its corners; the image has to carry them itself.
+        val r = radius.value * density
+        val out = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+        Canvas(out).apply {
+            val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+            drawRoundRect(RectF(0f, 0f, w.toFloat(), h.toFloat()), r, r, paint)
+            paint.xfermode = PorterDuffXfermode(PorterDuff.Mode.SRC_IN)
+            drawBitmap(drawn, 0f, 0f, paint)
+        }
+        val file = File("build/outputs/roborazzi/${name}_${if (dark) "dark" else "light"}.png").apply { parentFile?.mkdirs() }
+        file.outputStream().use { out.compress(Bitmap.CompressFormat.PNG, 100, it) }
+    }
+
+    private val previewWide = DpSize(360.dp, 76.dp)
+
+    @Test fun widgetPreviewDark() = widgetPreview("widget_preview", true, square, ExRadius.LG)
+    @Test fun widgetPreviewLight() = widgetPreview("widget_preview", false, square, ExRadius.LG)
+    @Test fun widgetPreviewWideDark() = widgetPreview("widget_preview_wide", true, previewWide, previewWide.height / 2)
+    @Test fun widgetPreviewWideLight() = widgetPreview("widget_preview_wide", false, previewWide, previewWide.height / 2)
 
     @Test fun widgetDark() = widgetViews(true, square).let { v -> shot("11_widget", true) { WidgetBoard(v, square, true, 2) } }
     @Test fun widgetLight() = widgetViews(false, square).let { v -> shot("11_widget", false) { WidgetBoard(v, square, false, 2) } }
