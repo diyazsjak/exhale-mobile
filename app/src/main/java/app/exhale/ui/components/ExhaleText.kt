@@ -47,8 +47,15 @@ import kotlin.math.ceil
 import kotlin.math.floor
 import kotlin.math.roundToInt
 
-/** One change of [ExhaleText]'s text: from what (null on first show) to what. */
-private class TextChange(val from: String?, val to: String)
+/**
+ * One change of [ExhaleText]'s text, from what (null on first show) to what, with its clock: the time
+ * into it in ms, from 0 to TOTAL_MS (at rest; a first show starts there). The clock is made with the
+ * change, so the change's first frame already draws its start (the old text as it was); started
+ * from an effect, which runs after that frame, it flashed the new text for a frame.
+ */
+private class TextChange(val from: String?, val to: String) {
+    val t = Animatable(if (from != null) 0f else TOTAL_MS.toFloat())
+}
 
 /** A changed number's animation, in ms: the old one breathes out over OUT_MS; the new one settles in after IN_DELAY_MS. */
 private const val OUT_MS = 340
@@ -64,20 +71,27 @@ private const val TOTAL_MS = IN_DELAY_MS + IN_MS
  * The first show does not animate. Blur needs Android 12; below that it is fade and drift only.
  * Each piece is drawn as its slice of one laid-out line, so at rest it is exactly a plain Text; the
  * old text stays centred where it was. It stays on one line, shrinking to fit the width if it must.
- * For the heroes' big numbers.
+ * A new text that comes while a change is still moving waits for it to finish, then the next change
+ * goes from what was shown to the newest text (any in between are skipped), so no change is cut
+ * short. For the heroes' big numbers.
  */
 @Composable
 fun ExhaleText(text: String, style: TextStyle, color: Color, modifier: Modifier = Modifier) {
     var change by remember { mutableStateOf(TextChange(null, text)) }
-    if (change.to != text) change = TextChange(change.to, text)
-    val from = change.from
+    val current = change
+    // Flips once per change, so waiting doesn't recompose on every frame of it.
+    val atRest by remember(current) { derivedStateOf { current.t.value >= TOTAL_MS } }
+    if (current.to != text && atRest) change = TextChange(current.to, text)
+    val shown = change
+    LaunchedEffect(shown) { shown.t.animateTo(TOTAL_MS.toFloat(), tween(TOTAL_MS, easing = LinearEasing)) }
     BoxWithConstraints(modifier) {
         // A new measurer comes with a new density, font scale or layout direction, so those re-measure too.
         val measurer = rememberTextMeasurer()
         val maxWidth = constraints.maxWidth
-        val now = remember(text, style, measurer, maxWidth) { measureToFit(measurer, text, style, maxWidth) }
-        val before = remember(from, style, measurer, maxWidth) { from?.let { measureToFit(measurer, it, style, maxWidth) } }
-        ExhaleLines(text, from, now, before, change, color)
+        val now = remember(shown.to, style, measurer, maxWidth) { measureToFit(measurer, shown.to, style, maxWidth) }
+        val before = remember(shown.from, style, measurer, maxWidth) { shown.from?.let { measureToFit(measurer, it, style, maxWidth) } }
+        // Screen readers get the newest text, even while the last change finishes.
+        ExhaleLines(shown, now, before, color, description = text)
     }
 }
 
@@ -128,11 +142,12 @@ internal fun exhalePairs(old: String?, text: String): List<TokenPair> {
 }
 
 @Composable
-private fun ExhaleLines(text: String, from: String?, now: TextLayoutResult, before: TextLayoutResult?, change: TextChange, color: Color) {
+private fun ExhaleLines(change: TextChange, now: TextLayoutResult, before: TextLayoutResult?, color: Color, description: String) {
+    val from = change.from
     // Built once per change, not on every recomposition (the hero's screen recomposes every second).
-    val pieces = remember(now, before) {
+    val pieces = remember(change, now, before) {
         val shift = before?.let { (now.size.width - it.size.width) / 2f } ?: 0f
-        exhalePairs(from, text).map { pair ->
+        exhalePairs(from, change.to).map { pair ->
             val cell = pair.to?.let { Cell(now, it, 0f) }
             val old = if (before != null && from != null && pair.from != null) Cell(before, pair.from, shift) else null
             // The old piece breathes out only if it changed and has something to show (not a space).
@@ -152,11 +167,11 @@ private fun ExhaleLines(text: String, from: String?, now: TextLayoutResult, befo
                 val pl = m.measure(Constraints.fixed(now.size.width, now.size.height))
                 layout(pl.width, pl.height) { pl.place(0, 0) }
             }
-            .clearAndSetSemantics { contentDescription = text },
+            .clearAndSetSemantics { contentDescription = description },
     ) {
         pieces.forEachIndexed { i, piece ->
             // Keyed from the right, as the pieces are matched.
-            key(pieces.size - 1 - i) { ExhalePiece(piece, change, color) }
+            key(pieces.size - 1 - i) { ExhalePiece(piece, change.t, color) }
         }
     }
 }
@@ -182,16 +197,9 @@ private class Cell(val line: TextLayoutResult, range: IntRange, val dx: Float) {
     val mid = (boxStart + boxEnd) / 2f
 }
 
+/** One [piece] of a change whose clock is [t] (ms into it). [t] is read only in layers, so frames don't recompose. */
 @Composable
-private fun ExhalePiece(piece: Piece, change: TextChange, color: Color) {
-    // Time into this piece's change, in ms; at TOTAL_MS it is at rest. Read only in layers, so frames don't recompose.
-    // Made with the change, so the change's first frame already draws its start (the old text as it
-    // was); starting it from the effect, which runs after that frame, flashed the new text for a frame.
-    val animates = piece.changed || piece.slideFrom != 0f
-    val t = remember(change) { Animatable(if (animates) 0f else TOTAL_MS.toFloat()) }
-    LaunchedEffect(change) {
-        if (animates) t.animateTo(TOTAL_MS.toFloat(), tween(TOTAL_MS, easing = LinearEasing))
-    }
+private fun ExhalePiece(piece: Piece, t: Animatable<Float, *>, color: Color) {
     val outgoing by remember(t) { derivedStateOf { t.value < OUT_MS } }
     val cell = piece.cell
     val old = piece.old
@@ -212,7 +220,7 @@ private fun ExhalePiece(piece: Piece, change: TextChange, color: Color) {
             translationY = 0.12f * em.toPx() * (1f - k)
             scaleX = 0.94f + 0.06f * k; scaleY = scaleX
             renderEffect = blur(6.dp.toPx() * (1f - k))
-        } else {
+        } else if (piece.slideFrom != 0f) {
             translationX = piece.slideFrom * (1f - FastOutSlowInEasing.transform(t.value / TOTAL_MS))
         }
     }

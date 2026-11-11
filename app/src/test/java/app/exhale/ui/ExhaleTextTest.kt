@@ -8,6 +8,9 @@ import androidx.compose.foundation.background
 import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.ui.test.onRoot
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
@@ -48,6 +51,11 @@ import org.robolectric.annotation.GraphicsMode
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(sdk = [34], qualifiers = "w411dp-h891dp-xxhdpi")
 class ExhaleTextTest {
+    private companion object {
+        /** Height of each half in the two-hero test: room for the drift and blur, a whole number of pixels at 3x. */
+        const val HALF_DP = 200
+    }
+
     @get:Rule val compose = createComposeRule()
 
     private var fontScale by mutableFloatStateOf(1f)
@@ -117,6 +125,58 @@ class ExhaleTextTest {
         compose.mainClock.advanceTimeBy(1_000)
         val end = ink(frame("end"))
         assertTrue("ink at ${end.box}, was at ${before.box}", end.box.width() > before.box.width() + 50)
+    }
+
+    // A new time that comes while a change is still moving (as when the minute rolls over during
+    // one) waits for it, so nothing jumps; the newest time follows once the change has played out.
+    // (It used to cut the change short: the half-faded "1h 0m" jumped to full.) Two heroes, one above
+    // the other, both change to "1h 0m"; only the top one then gets "59m" mid-change. Until that
+    // change has played out, the two must look exactly alike.
+    @Test fun aChangeMidAnimation_waitsForItToFinish_thenShowsTheNewest() {
+        var top by mutableStateOf("25m")
+        var bottom by mutableStateOf("25m")
+        compose.mainClock.autoAdvance = false
+        compose.setContent {
+            ExhaleTheme(dark = true) {
+                Column(Modifier.width(411.dp).background(Ex.colors.bg)) {
+                    for (text in listOf(top, bottom)) {
+                        Box(Modifier.fillMaxWidth().height(HALF_DP.dp), contentAlignment = Alignment.Center) {
+                            ExhaleText(text, ExType.display.copy(fontSize = 88.sp), Ex.colors.ink)
+                        }
+                    }
+                }
+            }
+        }
+        compose.mainClock.advanceTimeBy(500)
+        compose.runOnUiThread { top = "1h 0m"; bottom = "1h 0m"; Snapshot.sendApplyNotifications() }
+        compose.mainClock.advanceTimeBy(200)
+        compose.runOnUiThread { top = "59m"; Snapshot.sendApplyNotifications() }
+        compose.mainClock.advanceTimeByFrame()
+        assertHalvesAlike(frame("next_frame"))
+        compose.mainClock.advanceTimeBy(150)
+        assertHalvesAlike(frame("150ms_on"))
+        // Then the top one moves on to "59m", which is narrower than "1h 0m".
+        compose.mainClock.advanceTimeBy(1_000)
+        val (shownTop, shownBottom) = halves(frame("end")).let { (t, b) -> ink(t) to ink(b) }
+        assertTrue("top ink ${shownTop.box}, bottom ${shownBottom.box}", shownTop.box.width() < shownBottom.box.width() - 50)
+    }
+
+    /** The top and bottom halves of [bmp] (each [HALF_DP] tall). */
+    private fun halves(bmp: Bitmap): Pair<Bitmap, Bitmap> {
+        val h = bmp.height / 2
+        return Bitmap.createBitmap(bmp, 0, 0, bmp.width, h) to Bitmap.createBitmap(bmp, 0, h, bmp.width, h)
+    }
+
+    /** Alike, give or take the blur's rounding (a few levels in its faint halo, which can differ by where on screen it is). */
+    private fun assertHalvesAlike(bmp: Bitmap) {
+        val (a, b) = halves(bmp)
+        var most = 0
+        for (y in 0 until a.height) for (x in 0 until a.width) {
+            val p = a.getPixel(x, y)
+            val q = b.getPixel(x, y)
+            most = maxOf(most, abs(Color.red(p) - Color.red(q)), abs(Color.green(p) - Color.green(q)), abs(Color.blue(p) - Color.blue(q)))
+        }
+        assertTrue("the halves differ by up to $most levels", most <= 8)
     }
 
     private class Ink(val box: Rect, val amount: Int)

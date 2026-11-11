@@ -101,9 +101,10 @@ class ExhaleViewModel(private val repo: ExhaleRepository) : ViewModel() {
 
     private val zone: ZoneId get() = ZoneId.systemDefault()
 
+    /** Once a second, so what depends on the time (countdowns, money, recovery) moves on. */
     private val ticker = flow {
         while (true) {
-            emit(Instant.now())
+            emit(Unit)
             delay(1000)
         }
     }
@@ -120,8 +121,14 @@ class ExhaleViewModel(private val repo: ExhaleRepository) : ViewModel() {
 
     private val stored = combine(repo.settings, repo.logs, repo.urges, repo.triggers, ::Stored)
 
+    /**
+     * Worked out again on every tick and whenever the data changes, always with the time it is
+     * worked out at. Not the last tick's time: right after a log that is up to a second older than
+     * the log, so the countdown showed the whole gap and a second more ("1h 0m" of 60) until the next
+     * tick took it under ("59m"), and the hero changed twice in a row.
+     */
     val state: StateFlow<ExhaleState> =
-        combine(stored, ticker) { d, now -> derive(d, now) }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ExhaleState())
+        combine(stored, ticker) { d, _ -> derive(d, Instant.now()) }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ExhaleState())
 
     private val _lastLogged = MutableStateFlow<LoggedEvent?>(null)
     val lastLogged: StateFlow<LoggedEvent?> = _lastLogged.asStateFlow()
