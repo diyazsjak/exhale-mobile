@@ -50,7 +50,7 @@ Exhale's own line icons: 24px grid, 1.8 stroke, round caps and joins, no fills. 
 
 ## Motion and haptics
 
-- Tappable components squish to 97% on press with a spring; the tab pill and segmented thumb slide with a spring.
+- Tappable components squish to 97% on press with a spring; the segmented thumb slides with a spring. The tab pill pops in place: the old one clears at once, the new one grows from 82% and fades in.
 - Screen transitions are short (260ms) and slide: tabs move like pages in tab order; full-screen flows push in from the right over a receding screen and pop back.
 - The craving screen's breathing guide is text only. The current instruction fills with colour letter by letter over its duration; centred under the wave; the next waits below, small and faded ("then hold · 2s"), and brightens and lifts in the last second; on a change it glides up and grows into place while the old one floats away. The halo around the wave's dot swells and shrinks continuously with the breath.
 - The Ember and Glow heroes' number breathes out when it changes (`ExhaleText`): a number that changed drifts up about 0.4em, swells 10% and blurs away (340ms) while the new one rises 0.12em into place out of a blur (300ms, after 90ms), all its digits at once. Numbers and units that didn't change hold still, gliding to their new place (390ms) if the width changed. At rest it draws exactly like plain text, on one line, its type shrunk to fit if it is wider than the screen.
@@ -346,7 +346,7 @@ Like ListRow (52px minimum, `body` label, inside a `surface` card with `space-sm
 
 iOS-style floating pill tab bar, icons only; the selected tab sits in a lighter inner pill and takes its meaning colour.
 
-`chrome` pill, 68px tall, 6px inner padding, floating 12px above the navigation bar with a 20px gutter. Light: `shadow-float`; dark: a 1px `line` ring. Selected: `chrome-selected` inner pill and the icon in its colour's ink (Ember follows heat). Unselected icons `ink-soft`. Every tab has an accessibility label. Screens leave `tab-bar-clearance` at the bottom.
+`chrome` pill, 68px tall, 6px inner padding, floating 12px above the navigation bar with a 20px gutter. Light: `shadow-float`; dark: a 1px `line` ring. Selected: `chrome-selected` inner pill and the icon in its colour's ink (Ember follows heat). On a tab change the old pill clears at once and the new one grows from 82% to full size on a soft spring (damping 0.6, stiffness 700), fading in as it grows; the icon colours cross over in 160ms. Only one pill ever shows. Unselected icons `ink-soft`. Every tab has an accessibility label. Screens leave `tab-bar-clearance` at the bottom.
 
 - Compose: `FloatingTabBar(items = listOf(TabItem(ExIcons.Ember, "Ember", tint)), selected, onSelect)`.
 
