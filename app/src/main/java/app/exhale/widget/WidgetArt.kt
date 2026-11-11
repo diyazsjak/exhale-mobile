@@ -97,12 +97,12 @@ object WidgetArt {
             }
         }
 
-        // The core: heat, strongest right after a log and while armed.
+        // The core: a faint wash of heat, a little stronger right after a log and while armed.
         val coreAlpha = when (m.kind) {
             WidgetKind.SETUP -> 0f
-            WidgetKind.ARMED -> 0.42f
-            WidgetKind.LOGGED -> 0.5f
-            else -> if (c.isDark) 0.22f else 0.16f
+            WidgetKind.ARMED -> 0.2f
+            WidgetKind.LOGGED -> 0.24f
+            else -> if (c.isDark) 0.1f else 0.07f
         }
         if (coreAlpha > 0f) {
             val heat = c.heat(m.heat)
@@ -111,7 +111,7 @@ object WidgetArt {
                 shader = RadialGradient(
                     cx, cx, core,
                     intArrayOf(heat.copy(alpha = coreAlpha).toArgb(), heat.copy(alpha = 0f).toArgb()),
-                    floatArrayOf(0f, 0.72f), Shader.TileMode.CLAMP,
+                    floatArrayOf(0f, 0.6f), Shader.TileMode.CLAMP,
                 )
             })
         }
