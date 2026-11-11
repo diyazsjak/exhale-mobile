@@ -11,7 +11,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import app.exhale.domain.ThemeMode
+import app.exhale.ui.theme.isDark
 import app.exhale.ui.ExhaleRoot
 import app.exhale.ui.ExhaleViewModel
 import app.exhale.ui.theme.ExhaleTheme
@@ -24,11 +24,7 @@ class MainActivity : ComponentActivity() {
             val vm: ExhaleViewModel = viewModel(factory = ExhaleViewModel.Factory)
             val state by vm.state.collectAsStateWithLifecycle()
             val systemDark = isSystemInDarkTheme()
-            val dark = when (state.settings.theme) {
-                ThemeMode.SYSTEM -> systemDark
-                ThemeMode.LIGHT -> false
-                ThemeMode.DARK -> true
-            }
+            val dark = state.settings.theme.isDark(systemDark)
             // Status/navigation bar icons follow the app theme, not only the system one.
             DisposableEffect(dark) {
                 val style = if (dark) SystemBarStyle.dark(Color.TRANSPARENT)

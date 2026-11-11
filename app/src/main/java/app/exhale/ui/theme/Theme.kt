@@ -9,6 +9,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.staticCompositionLocalOf
+import app.exhale.domain.ThemeMode
 
 private val LocalExColors = staticCompositionLocalOf { DarkColors }
 
@@ -35,9 +36,19 @@ private fun materialScheme(c: ExColors) = (if (c.isDark) darkColorScheme() else 
 private val DarkScheme = materialScheme(DarkColors)
 private val LightScheme = materialScheme(LightColors)
 
+/** The palette for a theme. */
+fun exColors(dark: Boolean): ExColors = if (dark) DarkColors else LightColors
+
+/** Whether the app (and its widget) draw dark: the Appearance setting, or the phone's with "System". */
+fun ThemeMode.isDark(systemDark: Boolean): Boolean = when (this) {
+    ThemeMode.SYSTEM -> systemDark
+    ThemeMode.LIGHT -> false
+    ThemeMode.DARK -> true
+}
+
 @Composable
 fun ExhaleTheme(dark: Boolean, content: @Composable () -> Unit) {
-    val c = if (dark) DarkColors else LightColors
+    val c = exColors(dark)
     CompositionLocalProvider(LocalExColors provides c) {
         MaterialTheme(colorScheme = if (dark) DarkScheme else LightScheme, typography = ExTypography) {
             CompositionLocalProvider(LocalContentColor provides c.ink, content = content)

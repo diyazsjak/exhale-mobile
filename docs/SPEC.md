@@ -414,9 +414,9 @@ data?") with the safe choice as a Ghost button; neither uses a warm colour.
     "Logged at 2:15" with Undo in place of the button; taps on the ring wait until Undo is gone. Anywhere else on
     the widget opens Exhale.
   - **Redraws**: a widget can't tick, so it shows clock times, not a countdown, and the ring moves in 8 steps. It
-    redraws at the next step, when the next one is earned, at midnight, at the end of an armed or Undo window
-    (`WidgetModel.refreshAt`, an inexact alarm), after any log or settings change (`ExhaleRepository.onWrite`)
-    and when the clock, time zone or language changes.
+    redraws at the next step, when the next one is earned and at midnight (`WidgetModel.refreshAt`, an inexact
+    alarm), at the end of an armed or Undo window (a timer in the app process), after any log or settings change
+    (`ExhaleRepository.onWrite`) and when the clock, time zone or language changes.
   - **Theme**: the app's setting (Settings → Appearance); "System" is read when it is drawn, so after the phone
     switches theme it catches up at the next redraw.
   - **Privacy**: a home screen is seen by others, so the widget never says "cigarette": only counts and times.
@@ -497,8 +497,8 @@ reads through to it.
 - `Widget.model`: setup before onboarding; else logged (Undo within `UNDO_WINDOW`, 8 s, of the widget's own log),
   armed, nothing logged yet, earned or waiting, from `TodayPlan`. The ring is `earnedFraction` rounded **down** to
   eighths (`RING_STEPS`), heat is 1 − that, so neither runs ahead of the truth between redraws.
-- `refreshAt`: the earliest of the next ring step, the moment the next one is earned, the end of an armed or Undo
-  window, and midnight.
+- `refreshAt`: the earliest of the next ring step, the moment the next one is earned, and midnight. The ends of the
+  armed and Undo windows are seconds away and redrawn by the widget itself.
 
 ### Heat — `Stats.heat`
 `1 − clamp(minutesSinceLast / interval, 0, 1)`. No logs ever → 0 (cool).

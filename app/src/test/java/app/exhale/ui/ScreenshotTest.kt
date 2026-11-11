@@ -14,10 +14,10 @@ import androidx.glance.GlanceId
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.compose
 import androidx.glance.appwidget.provideContent
-import app.exhale.domain.WidgetKind
 import app.exhale.domain.WidgetModel
-import app.exhale.ui.theme.DarkColors
-import app.exhale.ui.theme.LightColors
+import app.exhale.ui.theme.exColors
+import app.exhale.domain.Widget
+import app.exhale.domain.WidgetTap
 import app.exhale.widget.WidgetContent
 import kotlinx.coroutines.runBlocking
 import org.robolectric.RuntimeEnvironment
@@ -242,24 +242,29 @@ class ScreenshotTest {
     // --- Home-screen widget (SPEC §3.9): every state, rendered through Glance's RemoteViews, on a stand-in wallpaper. ---
 
     private val widgetStates: List<Pair<String, WidgetModel>> by lazy {
-        val last = Instant.parse("2026-11-02T13:43:00Z")
-        val next = last.plus(Duration.ofMinutes(90))
-        val m = WidgetModel(WidgetKind.WAITING, 4, 10, 0, 0, 0.375f, 0.625f, next, last, null, next)
+        // 10 a day, one every 96 minutes; the last one 38 minutes before `now`.
+        val settings = UserSettings(onboarded = true, startAllowance = 10, taper = TaperType.HOLD, planStart = LocalDate.parse("2026-10-30"))
+        val today = now.atZone(zone).toLocalDate()
+        fun logs(count: Int, lastMinutesAgo: Long) = List(count) { i ->
+            SmokeLog(i.toLong(), if (i == count - 1) now.minus(Duration.ofMinutes(lastMinutesAgo)) else today.atTime(7 + i / 2, 30 * (i % 2)).atZone(zone).toInstant(), null, false)
+        }
+        fun model(logs: List<SmokeLog>, tap: WidgetTap = WidgetTap(), s: UserSettings = settings) = Widget.model(s, logs, tap, now, zone)
+        val four = logs(4, 38)
         listOf(
-            "Nothing yet" to m.copy(kind = WidgetKind.NOTHING_YET, count = 0, ringFill = 1f, heat = 0f, nextAt = null, lastAt = null),
-            "Waiting" to m,
-            "Next one earned" to m.copy(kind = WidgetKind.EARNED, ringFill = 1f, heat = 0f),
-            "Over allowance" to m.copy(count = 12, overToday = 2, borrowingFromTomorrow = 2, ringFill = 0.25f, heat = 0.75f),
-            "First tap: armed" to m.copy(kind = WidgetKind.ARMED),
-            "Second tap: logged" to m.copy(kind = WidgetKind.LOGGED, count = 5, ringFill = 0f, heat = 1f, loggedAt = now),
-            "Not set up" to m.copy(kind = WidgetKind.SETUP, count = 0, allowance = 0),
+            "Nothing yet" to model(emptyList()),
+            "Waiting" to model(four),
+            "Next one earned" to model(logs(4, 130)),
+            "Over allowance" to model(logs(12, 20)),
+            "First tap: armed" to model(four, WidgetTap(armedUntil = now.plusSeconds(4))),
+            "Second tap: logged" to model(logs(5, 0), WidgetTap(loggedId = 4, undoUntil = now.plusSeconds(8))),
+            "Not set up" to model(emptyList(), s = UserSettings(onboarded = false)),
         )
     }
 
     @OptIn(ExperimentalGlanceApi::class)
     private fun widgetViews(dark: Boolean, size: DpSize): List<Pair<String, RemoteViews>> {
         val context = RuntimeEnvironment.getApplication()
-        val colors = if (dark) DarkColors else LightColors
+        val colors = exColors(dark)
         return widgetStates.map { (label, model) ->
             val widget = object : GlanceAppWidget() {
                 override suspend fun provideGlance(context: android.content.Context, id: GlanceId) =

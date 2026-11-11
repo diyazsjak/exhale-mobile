@@ -94,7 +94,7 @@ class ExhaleRepository(
         clearHistory()
         val zone = ZoneId.systemDefault()
         val demo = DemoData.generate(LocalDate.now(zone), Instant.now(), zone, current = settings.first())
-        saveSettings(demo.settings)
+        settingsStore.save(demo.settings)
         db.logs().insertAll(demo.logs.map { it.toEntity() })
         db.urges().insertAll(demo.urges.map { it.toEntity() })
         onWrite()

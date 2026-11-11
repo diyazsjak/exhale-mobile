@@ -36,7 +36,7 @@ class WidgetTest {
     }
 
     @Test fun tapWhileUndoShows_isIgnored_thenArmsOnceItIsGone() {
-        val logged = WidgetTap(loggedId = 7, loggedAt = now, undoUntil = now.plusSeconds(8))
+        val logged = WidgetTap(loggedId = 7, undoUntil = now.plusSeconds(8))
         assertEquals(TapResult.Ignore, Widget.onTap(logged, now.plusSeconds(2)))
         assertEquals(TapResult.Arm(now.plusSeconds(12)), Widget.onTap(logged, now.plusSeconds(8)))
     }
@@ -94,24 +94,22 @@ class WidgetTest {
         assertEquals(2, m.borrowingFromTomorrow)
     }
 
-    @Test fun armed_showsUntilTheWindowCloses_andRedrawsThen() {
+    @Test fun armed_showsUntilTheWindowCloses() {
         val tap = WidgetTap(armedUntil = now.plusSeconds(4))
         val logs = listOf(log(now.minus(Duration.ofMinutes(40))))
-        val m = model(logs, tap)
-        assertEquals(WidgetKind.ARMED, m.kind)
-        assertEquals(now.plusSeconds(4), m.refreshAt)
+        assertEquals(WidgetKind.ARMED, model(logs, tap).kind)
         assertEquals(WidgetKind.WAITING, model(logs, tap, now.plusSeconds(4)).kind)
     }
 
     @Test fun logged_showsUndoForEightSeconds_thenTheNewWait() {
         val made = log(now)
-        val tap = WidgetTap(loggedId = made.id, loggedAt = now, undoUntil = now.plusSeconds(8))
+        val tap = WidgetTap(loggedId = made.id, undoUntil = now.plusSeconds(8))
         val m = model(listOf(made), tap, now.plusSeconds(1))
         assertEquals(WidgetKind.LOGGED, m.kind)
         assertEquals(now, m.loggedAt)
         assertEquals(0f, m.ringFill, 0f)
         assertEquals(1f, m.heat, 0f)
-        assertEquals(now.plusSeconds(8), m.refreshAt)
+        assertEquals(now.plus(Duration.ofMinutes(12)), m.refreshAt) // the first ring step
         val after = model(listOf(made), tap, now.plusSeconds(8))
         assertEquals(WidgetKind.WAITING, after.kind)
         assertNull(after.loggedAt)

@@ -17,11 +17,14 @@ object ExSpace {
 }
 
 object ExRadius {
+    /** The card corner ([lg]) as a size, for places that take a Dp, such as the home-screen widget. */
+    val LG = 28.dp
+
     /** Small drawn objects, e.g. the pack icons on Money. */
     val xs = RoundedCornerShape(6.dp)
     val sm = RoundedCornerShape(12.dp)
     val md = RoundedCornerShape(20.dp)
-    val lg = RoundedCornerShape(28.dp)
+    val lg = RoundedCornerShape(LG)
     val pill = RoundedCornerShape(50)
 }
 

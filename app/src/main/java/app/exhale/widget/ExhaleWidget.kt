@@ -6,6 +6,7 @@ import android.text.format.DateFormat
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.datastore.preferences.core.MutablePreferences
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.glance.GlanceId
@@ -22,15 +23,15 @@ import androidx.glance.state.GlanceStateDefinition
 import androidx.glance.state.PreferencesGlanceStateDefinition
 import app.exhale.ExhaleApp
 import app.exhale.domain.TapResult
-import app.exhale.domain.ThemeMode
 import app.exhale.domain.TodayPlan
 import app.exhale.domain.Widget
 import app.exhale.domain.WidgetTap
 import app.exhale.ui.components.Haptics
-import app.exhale.ui.theme.DarkColors
-import app.exhale.ui.theme.ExColors
-import app.exhale.ui.theme.LightColors
+import app.exhale.ui.theme.exColors
+import app.exhale.ui.theme.isDark
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.stateIn
 import java.time.Instant
 import java.time.ZoneId
 
@@ -43,61 +44,62 @@ class ExhaleWidget : GlanceAppWidget() {
     override val sizeMode: SizeMode = SizeMode.Exact
     override val stateDefinition: GlanceStateDefinition<*> = PreferencesGlanceStateDefinition
 
-    override suspend fun provideGlance(context: Context, id: GlanceId) {
+    override suspend fun provideGlance(context: Context, id: GlanceId) = coroutineScope {
         val repo = (context.applicationContext as ExhaleApp).repository
-        val settings0 = repo.settings.first()
-        val logs0 = repo.logs.first()
+        // One subscription each for the session, waiting for the first value before the first draw.
+        val settingsFlow = repo.settings.stateIn(this)
+        val logsFlow = repo.logs.stateIn(this)
         provideContent {
-            val settings by repo.settings.collectAsState(settings0)
-            val logs by repo.logs.collectAsState(logs0)
-            // Every redraw (WidgetRefresh) writes this widget's state, so reading it here recomposes
-            // with a fresh "now".
+            val settings by settingsFlow.collectAsState()
+            val logs by logsFlow.collectAsState()
+            // Read so a redraw (WidgetRefresh.clock) recomposes with the time now.
+            WidgetRefresh.clock.collectAsState().value
             val tap = WidgetState.tap(currentState<Preferences>())
             val now = Instant.now()
             val zone = ZoneId.systemDefault()
             val model = Widget.model(settings, logs, tap, now, zone)
             LaunchedEffect(model.refreshAt) { WidgetRefresh.schedule(context, model.refreshAt) }
-            WidgetContent(model, colors(context, settings.theme), zone, DateFormat.is24HourFormat(context))
+            val systemDark = context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES
+            WidgetContent(model, exColors(settings.theme.isDark(systemDark)), zone, DateFormat.is24HourFormat(context))
         }
-    }
-
-    /** The app's theme setting, like MainActivity; "System" is read when the widget is drawn. */
-    private fun colors(context: Context, mode: ThemeMode): ExColors {
-        val dark = when (mode) {
-            ThemeMode.DARK -> true
-            ThemeMode.LIGHT -> false
-            ThemeMode.SYSTEM ->
-                context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES
-        }
-        return if (dark) DarkColors else LightColors
     }
 }
 
 /** The 2×2 entry in the widget picker. */
-class ExhaleWidgetReceiver : GlanceAppWidgetReceiver() {
+open class ExhaleWidgetReceiver : GlanceAppWidgetReceiver() {
     override val glanceAppWidget: GlanceAppWidget = ExhaleWidget()
 }
 
 /** The 4×1 entry in the widget picker: the same widget, starting short and wide. */
-class ExhaleWideWidgetReceiver : GlanceAppWidgetReceiver() {
-    override val glanceAppWidget: GlanceAppWidget = ExhaleWidget()
-}
+class ExhaleWideWidgetReceiver : ExhaleWidgetReceiver()
 
 /** Each widget's own tap state ([WidgetTap]), kept in Glance's per-widget preferences. */
 internal object WidgetState {
-    val ARMED_UNTIL = longPreferencesKey("armed_until")
-    val LOGGED_ID = longPreferencesKey("logged_id")
-    val LOGGED_AT = longPreferencesKey("logged_at")
-    val UNDO_UNTIL = longPreferencesKey("undo_until")
-    /** Bumped on every redraw so the content recomposes with the time of the redraw. */
-    val DRAWN_AT = longPreferencesKey("drawn_at")
+    private val ARMED_UNTIL = longPreferencesKey("armed_until")
+    private val LOGGED_ID = longPreferencesKey("logged_id")
+    private val UNDO_UNTIL = longPreferencesKey("undo_until")
 
     fun tap(p: Preferences) = WidgetTap(
         armedUntil = p[ARMED_UNTIL]?.let(Instant::ofEpochMilli),
         loggedId = p[LOGGED_ID],
-        loggedAt = p[LOGGED_AT]?.let(Instant::ofEpochMilli),
         undoUntil = p[UNDO_UNTIL]?.let(Instant::ofEpochMilli),
     )
+
+    suspend fun read(context: Context, id: GlanceId): WidgetTap =
+        tap(getAppWidgetState(context, PreferencesGlanceStateDefinition, id))
+
+    /** Writes [tap] as widget [id]'s state. It shows from the widget's next redraw. */
+    suspend fun write(context: Context, id: GlanceId, tap: WidgetTap) {
+        updateAppWidgetState(context, id) { p: MutablePreferences ->
+            p.setOrRemove(ARMED_UNTIL, tap.armedUntil?.toEpochMilli())
+            p.setOrRemove(LOGGED_ID, tap.loggedId)
+            p.setOrRemove(UNDO_UNTIL, tap.undoUntil?.toEpochMilli())
+        }
+    }
+
+    private fun MutablePreferences.setOrRemove(key: Preferences.Key<Long>, value: Long?) {
+        if (value == null) remove(key) else this[key] = value
+    }
 }
 
 /** A tap on the ring (2×2) or the ember button (4×1): the first arms, the second logs. */
@@ -105,32 +107,23 @@ class WidgetTapAction : ActionCallback {
     override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
         val app = context.applicationContext as ExhaleApp
         val now = Instant.now()
-        val tap = WidgetState.tap(getAppWidgetState(context, PreferencesGlanceStateDefinition, glanceId))
-        when (val r = Widget.onTap(tap, now)) {
+        when (val r = Widget.onTap(WidgetState.read(context, glanceId), now)) {
             TapResult.Ignore -> Unit
             is TapResult.Arm -> {
-                updateAppWidgetState(context, glanceId) {
-                    it[WidgetState.ARMED_UNTIL] = r.until.toEpochMilli()
-                    it[WidgetState.DRAWN_AT] = now.toEpochMilli()
-                }
+                WidgetState.write(context, glanceId, WidgetTap(armedUntil = r.until))
                 ExhaleWidget().update(context, glanceId)
                 WidgetRefresh.after(app, glanceId, Widget.ARM_WINDOW)
             }
             TapResult.Log -> {
                 val repo = app.repository
-                val zone = ZoneId.systemDefault()
-                val goesOver = TodayPlan.of(repo.settings.first(), repo.logs.first(), now, zone).overAllowance
+                val goesOver = TodayPlan.of(repo.settings.first(), repo.logs.first(), now, ZoneId.systemDefault()).overAllowance
                 val id = repo.logCigarette(at = now)
-                updateAppWidgetState(context, glanceId) {
-                    it.remove(WidgetState.ARMED_UNTIL)
-                    it[WidgetState.LOGGED_ID] = id
-                    it[WidgetState.LOGGED_AT] = now.toEpochMilli()
-                    it[WidgetState.UNDO_UNTIL] = now.plus(Widget.UNDO_WINDOW).toEpochMilli()
-                    it[WidgetState.DRAWN_AT] = now.toEpochMilli()
-                }
-                ExhaleWidget().update(context, glanceId)
                 // Same meaning as on Ember. Android may mute vibration for an app in the background.
                 Haptics(context, null).run { if (goesOver) loggedOver() else logged() }
+                // The insert already redraws every widget (ExhaleRepository.onWrite), maybe before this
+                // state is written, so this one is redrawn once more with its Undo.
+                WidgetState.write(context, glanceId, WidgetTap(loggedId = id, undoUntil = now.plus(Widget.UNDO_WINDOW)))
+                ExhaleWidget().update(context, glanceId)
                 WidgetRefresh.after(app, glanceId, Widget.UNDO_WINDOW)
             }
         }
@@ -141,14 +134,10 @@ class WidgetTapAction : ActionCallback {
 class WidgetUndoAction : ActionCallback {
     override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
         val app = context.applicationContext as ExhaleApp
-        val tap = WidgetState.tap(getAppWidgetState(context, PreferencesGlanceStateDefinition, glanceId))
-        updateAppWidgetState(context, glanceId) {
-            it.remove(WidgetState.LOGGED_ID)
-            it.remove(WidgetState.LOGGED_AT)
-            it.remove(WidgetState.UNDO_UNTIL)
-            it[WidgetState.DRAWN_AT] = System.currentTimeMillis()
-        }
-        tap.loggedId?.let { app.repository.undoLog(it) }
-        ExhaleWidget().update(context, glanceId)
+        val logged = WidgetState.read(context, glanceId).loggedId
+        WidgetState.write(context, glanceId, WidgetTap())
+        WidgetRefresh.cancel(glanceId)
+        // Deleting redraws every widget (ExhaleRepository.onWrite); with nothing to undo, redraw this one.
+        if (logged != null) app.repository.undoLog(logged) else ExhaleWidget().update(context, glanceId)
     }
 }

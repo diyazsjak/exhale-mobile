@@ -16,6 +16,7 @@ import android.graphics.Typeface
 import android.os.Build
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.unit.Dp
 import androidx.core.content.res.ResourcesCompat
 import androidx.core.graphics.PathParser
 import app.exhale.R
@@ -116,7 +117,7 @@ object WidgetArt {
             })
         }
 
-        if (m.kind == WidgetKind.SETUP) drawEmber(canvas, cx, (if (compact) 20f else 30f) * unit, c.inkSoft)
+        if (m.kind == WidgetKind.SETUP) drawIcon(canvas, ExIcons.EMBER_PATH, cx, (if (compact) 20f else 30f) * unit, c.inkSoft)
         else drawCount(context, canvas, m, c, cx, unit, compact)
         return bmp
     }
@@ -153,9 +154,17 @@ object WidgetArt {
         canvas.drawText(of, cx, top + countBox.height() + gap - ofBox.top, ofPaint)
     }
 
-    /** The ember outline from [ExIcons], [size] across, centred on ([cx], [cx]). */
-    private fun drawEmber(canvas: Canvas, cx: Float, size: Float, color: Color) {
-        val path = PathParser.createPathFromPathData(ExIcons.EMBER_PATH)
+    /** An [ExIcons] line icon ([pathData]) in [tint], [sizeDp] across: Glance has no vector tinting of its own. */
+    fun icon(context: Context, pathData: String, tint: Color, sizeDp: Dp): Bitmap {
+        val px = (sizeDp.value * context.resources.displayMetrics.density).roundToInt().coerceAtLeast(1)
+        return Bitmap.createBitmap(px, px, Bitmap.Config.ARGB_8888).also {
+            drawIcon(Canvas(it), pathData, px / 2f, px.toFloat(), tint)
+        }
+    }
+
+    /** An [ExIcons] line icon, [size] across, centred on ([cx], [cx]), with the set's 1.8 stroke and round ends. */
+    private fun drawIcon(canvas: Canvas, pathData: String, cx: Float, size: Float, color: Color) {
+        val path = PathParser.createPathFromPathData(pathData)
         val k = size / 24f
         path.transform(Matrix().apply { setScale(k, k); postTranslate(cx - size / 2f, cx - size / 2f) })
         canvas.drawPath(path, Paint(Paint.ANTI_ALIAS_FLAG).apply {

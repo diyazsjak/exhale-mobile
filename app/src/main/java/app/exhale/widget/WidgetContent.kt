@@ -4,8 +4,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.glance.ColorFilter
 import androidx.glance.GlanceModifier
 import androidx.glance.Image
 import androidx.glance.ImageProvider
@@ -34,10 +32,14 @@ import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
 import app.exhale.MainActivity
-import app.exhale.R
+import app.exhale.ui.components.ExIcons
 import app.exhale.domain.WidgetKind
 import app.exhale.domain.WidgetModel
 import app.exhale.ui.theme.ExColors
+import app.exhale.ui.theme.ExRadius
+import app.exhale.ui.theme.ExSize
+import app.exhale.ui.theme.ExSpace
+import app.exhale.ui.theme.ExType
 import java.time.ZoneId
 
 /**
@@ -45,9 +47,8 @@ import java.time.ZoneId
  * ones (the 4×1) a row: a small ring, the count and line, and the ember button. Tapping the ring or
  * the button arms, a second tap logs; anywhere else opens Exhale.
  *
- * Glance has its own text and colour types, so this reads [ExColors] values directly and sizes
- * text to match `ExType` (caption 13, number-small 15, label-small 14). Fonts are the system's:
- * only the count, drawn in [WidgetArt], is in Newsreader.
+ * Glance has its own text and colour types, so this reads [ExColors] values directly and takes text
+ * sizes from `ExType`. Fonts are the system's: only the count, drawn in [WidgetArt], is in Newsreader.
  */
 @Composable
 fun WidgetContent(m: WidgetModel, c: ExColors, zone: ZoneId, h24: Boolean) {
@@ -67,7 +68,7 @@ private fun SquareLayout(m: WidgetModel, c: ExColors, zone: ZoneId, h24: Boolean
     val ring = minOf(size.width.value - 16f, size.height.value - 60f).coerceIn(64f, 132f)
     val tappable = m.kind != WidgetKind.SETUP && m.kind != WidgetKind.LOGGED
     Column(
-        modifier = root(c, 28.dp /* ExRadius.lg */).padding(top = 8.dp, bottom = 6.dp),
+        modifier = root(c, ExRadius.LG).padding(top = ExSpace.xs, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
@@ -76,7 +77,7 @@ private fun SquareLayout(m: WidgetModel, c: ExColors, zone: ZoneId, h24: Boolean
             contentDescription = if (tappable) WidgetCopy.tapLabel(m, zone, h24) else null,
             modifier = GlanceModifier.size(ring.dp).let { if (tappable) it.clickable(actionRunCallback<WidgetTapAction>()) else it },
         )
-        Box(modifier = GlanceModifier.height(44.dp), contentAlignment = Alignment.Center) {
+        Box(modifier = GlanceModifier.height(ExSize.touch), contentAlignment = Alignment.Center) {
             if (m.kind == WidgetKind.LOGGED) UndoPill(c, height = 32.dp)
             else LineText(WidgetCopy.line(m, wide = false, zone, h24), c)
         }
@@ -88,9 +89,9 @@ private fun WideLayout(m: WidgetModel, c: ExColors, zone: ZoneId, h24: Boolean) 
     val context = LocalContext.current
     val size = LocalSize.current
     val ring = (size.height.value - 20f).coerceIn(36f, 52f)
-    val button = (size.height.value - 20f).coerceIn(44f, 52f)
+    val button = (size.height.value - 20f).coerceIn(ExSize.touch.value, ExSize.row.value)
     Row(
-        modifier = root(c, minOf(size.height / 2, 38.dp)).padding(horizontal = 12.dp),
+        modifier = root(c, minOf(size.height / 2, 38.dp)).padding(horizontal = ExSpace.sm),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Image(
@@ -98,7 +99,7 @@ private fun WideLayout(m: WidgetModel, c: ExColors, zone: ZoneId, h24: Boolean) 
             contentDescription = null,
             modifier = GlanceModifier.size(ring.dp),
         )
-        Spacer(GlanceModifier.width(12.dp))
+        Spacer(GlanceModifier.width(ExSpace.sm))
         if (size.width >= 200.dp) {
             Column(modifier = GlanceModifier.defaultWeight()) {
                 Text(
@@ -106,7 +107,7 @@ private fun WideLayout(m: WidgetModel, c: ExColors, zone: ZoneId, h24: Boolean) 
                     maxLines = 1,
                     style = TextStyle(
                         color = ColorProvider(if (m.overToday > 0) c.flareInk else c.ink),
-                        fontSize = 15.sp, fontWeight = FontWeight.Bold,
+                        fontSize = ExType.numberSmall.fontSize, fontWeight = FontWeight.Medium,
                     ),
                 )
                 LineText(WidgetCopy.line(m, wide = true, zone, h24), c)
@@ -114,12 +115,12 @@ private fun WideLayout(m: WidgetModel, c: ExColors, zone: ZoneId, h24: Boolean) 
         } else {
             Spacer(GlanceModifier.defaultWeight())
         }
-        Spacer(GlanceModifier.width(12.dp))
+        Spacer(GlanceModifier.width(ExSpace.sm))
         when (m.kind) {
-            WidgetKind.SETUP -> Box(modifier = GlanceModifier.size(44.dp), contentAlignment = Alignment.Center) {
-                Icon(R.drawable.ic_widget_forward, c.inkSoft, 24.dp)
+            WidgetKind.SETUP -> Box(modifier = GlanceModifier.size(ExSize.touch), contentAlignment = Alignment.Center) {
+                Icon(ExIcons.FORWARD_PATH, c.inkSoft, ExSize.icon)
             }
-            WidgetKind.LOGGED -> UndoPill(c, height = 44.dp)
+            WidgetKind.LOGGED -> UndoPill(c, height = ExSize.touch)
             else -> {
                 val armed = m.kind == WidgetKind.ARMED
                 Box(
@@ -131,7 +132,7 @@ private fun WideLayout(m: WidgetModel, c: ExColors, zone: ZoneId, h24: Boolean) 
                     contentAlignment = Alignment.Center,
                 ) {
                     // On the ember fill the icon is near-black in both themes (like on-primary in dark).
-                    Icon(R.drawable.ic_widget_ember, if (armed) (if (c.isDark) c.bg else c.ink) else c.ink, 24.dp)
+                    Icon(ExIcons.EMBER_PATH, if (armed && c.isDark) c.bg else c.ink, ExSize.icon)
                 }
             }
         }
@@ -155,33 +156,32 @@ private fun LineText(line: WidgetCopy.Line, c: ExColors) {
 }
 
 private fun caption(color: Color, bold: Boolean) =
-    TextStyle(color = ColorProvider(color), fontSize = 13.sp, fontWeight = if (bold) FontWeight.Bold else FontWeight.Normal)
+    TextStyle(color = ColorProvider(color), fontSize = ExType.caption.fontSize, fontWeight = if (bold) FontWeight.Bold else FontWeight.Normal)
 
 /** Undo for the log the widget just made: a `surfaceHigh` pill, in a 44dp touch target. */
 @Composable
 private fun UndoPill(c: ExColors, height: Dp) {
     Box(
-        modifier = GlanceModifier.height(44.dp).clickable(actionRunCallback<WidgetUndoAction>()),
+        modifier = GlanceModifier.height(ExSize.touch).clickable(actionRunCallback<WidgetUndoAction>()),
         contentAlignment = Alignment.Center,
     ) {
         Row(
             modifier = GlanceModifier.height(height).background(c.surfaceHigh).cornerRadius(height / 2)
-                .padding(start = 12.dp, end = 16.dp),
+                .padding(start = ExSpace.sm, end = ExSpace.md),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(R.drawable.ic_widget_undo, c.ink, 16.dp)
+            Icon(ExIcons.UNDO_PATH, c.ink, ExSize.iconSmall)
             Spacer(GlanceModifier.width(6.dp))
-            Text("Undo", style = TextStyle(color = ColorProvider(c.ink), fontSize = 14.sp, fontWeight = FontWeight.Medium))
+            Text("Undo", style = TextStyle(color = ColorProvider(c.ink), fontSize = ExType.labelSmall.fontSize, fontWeight = FontWeight.Medium))
         }
     }
 }
 
 @Composable
-private fun Icon(res: Int, tint: Color, size: Dp) {
+private fun Icon(pathData: String, tint: Color, size: Dp) {
     Image(
-        provider = ImageProvider(res),
+        provider = ImageProvider(WidgetArt.icon(LocalContext.current, pathData, tint, size)),
         contentDescription = null,
         modifier = GlanceModifier.size(size),
-        colorFilter = ColorFilter.tint(ColorProvider(tint)),
     )
 }
