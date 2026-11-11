@@ -88,7 +88,7 @@ class RemindersTest {
         val r = next(ReminderKind.MILESTONE, logs) as Reminder.MilestoneReached
         assertEquals("12 hours", r.milestone.label)
         assertEquals(t("2026-11-11T18:00:00Z"), r.at)
-        assertEquals("12 hours · Carbon monoxide back to normal", r.title)
+        assertEquals("New milestone: 12 hours", r.title)
         // Then 2 weeks.
         assertEquals("2 weeks", (next(ReminderKind.MILESTONE, logs, after = r.at) as Reminder.MilestoneReached).milestone.label)
     }
@@ -205,6 +205,18 @@ class RemindersTest {
     }
 
     // --- Everything
+
+    @Test fun words_neverSaySmokeOrCigarette() {
+        // A notification can show on a lock screen other people see.
+        val at = now
+        val all = Milestones.all.map { Reminder.MilestoneReached(at, it) } +
+            listOf(Reminder.BusyHour(at, 8), Reminder.GoalReached(at, "New headphones")) +
+            listOf(0, 8, 9).map { Reminder.PlanWeek(at, it, it + 2) } + Reminder.PlanWeek(at, 7, 8)
+        all.forEach { r ->
+            val words = (r.title + " " + r.text).lowercase()
+            assertFalse(words, "smok" in words || "cigarette" in words)
+        }
+    }
 
     @Test fun nothingBeforeOnboarding() {
         val fresh = settings.copy(onboarded = false)

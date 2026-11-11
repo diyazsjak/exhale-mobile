@@ -444,21 +444,29 @@ data?") with the safe choice as a Ghost button; neither uses a warm colour.
   Android channel each so they can also be muted there, one notification per kind (a newer one replaces it):
   - **Before your busy hours** ("Before your busy hours" channel, default importance): "Your busy hour starts
     soon" / "A craving peaks and fades in about 4 minutes. Ride it out here if one comes." Tapping opens Urge Wave.
-  - **Recovery milestones** (default importance): "12 hours · Carbon monoxide back to normal" / "The first time
-    you've reached this one. Air shows what comes next." Tapping opens Air.
+  - **Recovery milestones** (default importance): "New milestone: 12 hours" / "The first time you've gone this
+    long. Air shows what's changing in your body." Not the milestone's own words: from a year on they say
+    "smoker's". Tapping opens Air.
   - **Savings goal** (default importance): "You've kept enough for New headphones" / "What you didn't spend
     since you started covers it. Go get it." Tapping opens Money.
   - **New plan weeks** (low importance: silent, no pop-up): "This week: 9 a day" / "One fewer than last week."
     ("3 fewer than last week.", or at 0 "Your plan reaches zero. Urge Wave is here when a craving comes.").
     Tapping opens Ember.
   - Like the widget, they never say "cigarette" or "smoke" (lock screens), and they're marked private, so a lock
-    screen set to hide contents shows only that Exhale has one. No action buttons: logging stays a hold in the app.
+    screen set to hide contents shows only that Exhale has one (a test checks every reminder's words). No action
+    buttons: logging stays a hold in the app. A tap opens its screen once: reopening Exhale from Recents later
+    doesn't open it again.
   - Sound and vibration are the phone's; Exhale's haptic patterns keep their meanings in the app. There are no
     quiet hours in Exhale: the phone's Do Not Disturb and Bedtime modes do that, and busy-hour nudges come at
     the user's own waking hours anyway.
-  - **Alarms** (`ReminderScheduler`): one inexact alarm per kind that is on (`setAndAllowWhileIdle`, so no
-    exact-alarm permission and it still goes off in Doze), set for the next reminder. They are set again after
-    every log or settings change (`ExhaleRepository.onWrite`), when Exhale opens, after a restart or an update,
+  - **Turning one on** starts it from now: a reminder that came due a little while before isn't posted for the
+    tap (it's marked handled at that moment).
+  - **Alarms** (`ReminderScheduler`): one alarm per kind that is on, set for the next reminder, with no
+    exact-alarm permission. A busy-hour nudge is no use once its hour has begun, so its alarm goes off within a
+    10-minute window (`setWindow`); the others can come later, so theirs go off in Doze too
+    (`setAndAllowWhileIdle`). While Android doesn't let Exhale post, every alarm is cancelled and nothing is
+    used up. They are set again after
+    every log or settings change (`ExhaleRepository.onWrite`), when Exhale comes to the front, after a restart or an update,
     and when the clock or time zone changes; turning a kind off cancels its alarm. Quick writes in a row share
     one run. Each run does what `Reminders.due` says (§4) and remembers the last one handled per kind
     (`ReminderStore`, DataStore `reminders`, through the repository), posted or skipped, so none comes twice.
@@ -666,7 +674,7 @@ Loading it keeps the current Appearance and Home screen.
 - `due(kind, settings, logs, urges, handled, now, zone)`: one run for a kind. Every reminder after `handled` and
   within its kind's `late` that has come due is handled; the ones that `shouldPost` are posted; `next` is the one
   to set the alarm for. So one the phone held back still comes, and none comes twice.
-- `outlook(settings, logs, now, zone)`: what Settings → Reminders says: the busy hours, and per kind why none
+- `outlook(settings, logs, now, zone)` (worked out again each minute and on every change): what Settings → Reminders says: the busy hours, and per kind why none
   will come for now (`ReminderQuiet`: no week of days yet, nothing logged, goal already reached, plan holding
   steady, plan at zero).
 - `shouldPost(reminder, logs, urges, now)`: from its time until its kind's `late` has passed (busy hour 15 min,

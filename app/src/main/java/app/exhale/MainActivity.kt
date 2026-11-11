@@ -28,12 +28,8 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
-        // Only for a fresh start, not a rotation: the intent has been followed and the alarms set already.
-        if (savedInstanceState == null) {
-            open.value = tapped(intent)
-            // Opening Exhale sets the reminder alarms again, in case Android dropped them.
-            ReminderScheduler.runAsync(application as ExhaleApp)
-        }
+        // Only for a fresh start, not a rotation: the intent has been followed already.
+        if (savedInstanceState == null) open.value = tapped(intent)
         setContent {
             val vm: ExhaleViewModel = viewModel(factory = ExhaleViewModel.Factory)
             val state by vm.state.collectAsStateWithLifecycle()
@@ -51,14 +47,22 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onStart() {
+        super.onStart()
+        // Coming to the front sets the reminder alarms again: Android may have dropped them, or the user
+        // may have just allowed notifications in its settings.
+        ReminderScheduler.runAsync(application as ExhaleApp)
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
         tapped(intent)?.let { open.value = it }
     }
 
+    /** The reminder [intent] is a tap on; none when it's Recents reopening a task a tap once started. */
     private fun tapped(intent: Intent?): ReminderKind? =
-        intent?.takeIf { it.action == ACTION_OPEN }?.let { enumOrNull<ReminderKind>(it.getStringExtra(EXTRA_OPEN)) }
+        intent?.takeIf { it.action == ACTION_OPEN && it.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY == 0 }?.let { enumOrNull<ReminderKind>(it.getStringExtra(EXTRA_OPEN)) }
 
     companion object {
         /** A reminder's tap: [EXTRA_OPEN] names its [ReminderKind]. */

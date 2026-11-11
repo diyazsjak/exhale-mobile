@@ -1,6 +1,7 @@
 package app.exhale.data
 
 import android.content.Context
+import androidx.datastore.preferences.core.MutablePreferences
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
@@ -43,23 +44,33 @@ class SettingsStore(private val context: Context) {
     val settings: Flow<UserSettings> = context.dataStore.data.map { it.toSettings() }
 
     suspend fun save(s: UserSettings) {
-        context.dataStore.edit { p ->
-            p[K.onboarded] = s.onboarded
-            p[K.baseline] = s.baselinePerDay
-            p[K.perPack] = s.cigsPerPack
-            p[K.packPrice] = s.packPriceMinor
-            p[K.currency] = s.currencyCode
-            p[K.taper] = s.taper.name
-            p[K.startAllowance] = s.startAllowance
-            p[K.planStart] = s.planStart.toEpochDay()
-            p[K.waking] = s.wakingMinutes
-            p[K.goalName] = s.goalName
-            p[K.goalMinor] = s.goalMinor
-            p[K.theme] = s.theme.name
-            p[K.home] = s.home.name
-            p[K.borrowSeen] = s.borrowNoticeSeenDay
-            p[K.reminders] = s.reminders.map { it.name }.toSet()
-        }
+        context.dataStore.edit { p -> write(p, s) }
+    }
+
+    private fun write(p: MutablePreferences, s: UserSettings) {
+        p[K.onboarded] = s.onboarded
+        p[K.baseline] = s.baselinePerDay
+        p[K.perPack] = s.cigsPerPack
+        p[K.packPrice] = s.packPriceMinor
+        p[K.currency] = s.currencyCode
+        p[K.taper] = s.taper.name
+        p[K.startAllowance] = s.startAllowance
+        p[K.planStart] = s.planStart.toEpochDay()
+        p[K.waking] = s.wakingMinutes
+        p[K.goalName] = s.goalName
+        p[K.goalMinor] = s.goalMinor
+        p[K.theme] = s.theme.name
+        p[K.home] = s.home.name
+        p[K.borrowSeen] = s.borrowNoticeSeenDay
+        p[K.reminders] = s.reminders.map { it.name }.toSet()
+    }
+
+    /**
+     * Changes the settings as they are stored right now, in one step: two quick changes (two switches
+     * tapped in a row) can't both start from the same old settings and lose one.
+     */
+    suspend fun update(change: (UserSettings) -> UserSettings) {
+        context.dataStore.edit { p -> write(p, change(p.toSettings())) }
     }
 
     suspend fun clear() {

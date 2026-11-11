@@ -122,9 +122,6 @@ class ExhaleViewModel(private val repo: ExhaleRepository) : ViewModel() {
         val triggers: List<TriggerEntry>,
     ) {
         val triggerUses = Triggers.uses(logs, urges)
-
-        // Only Settings shows it, and it moves with the data, not the second: worked out once per change.
-        val reminderOutlook = Reminders.outlook(settings, logs, Instant.now(), ZoneId.systemDefault())
     }
 
     private val stored = combine(repo.settings, repo.logs, repo.urges, repo.triggers, ::Stored)
@@ -161,8 +158,17 @@ class ExhaleViewModel(private val repo: ExhaleRepository) : ViewModel() {
             todayTimes = DayTimes.of(logs, d.urges, plan.date, zone, plan.allowance, now),
             triggers = d.triggers,
             triggerUses = d.triggerUses,
-            reminderOutlook = d.reminderOutlook,
+            reminderOutlook = outlookFor(d, now),
         )
+    }
+
+    /** The last [Reminders.outlook]: for this data and this minute. It moves with the clock, but not every second. */
+    private var outlook: Triple<Stored, Long, ReminderOutlook>? = null
+
+    private fun outlookFor(d: Stored, now: Instant): ReminderOutlook {
+        val minute = now.epochSecond / 60
+        outlook?.let { (data, m, o) -> if (data === d && m == minute) return o }
+        return Reminders.outlook(d.settings, d.logs, now, zone).also { outlook = Triple(d, minute, it) }
     }
 
     fun log(trigger: Trigger? = null, fromUrge: Boolean = false) {
@@ -285,7 +291,7 @@ class ExhaleViewModel(private val repo: ExhaleRepository) : ViewModel() {
 
     fun setTheme(mode: ThemeMode) { saveSettings(state.value.settings.copy(theme = mode)) }
     fun setHome(style: HomeStyle) { saveSettings(state.value.settings.copy(home = style)) }
-    fun setReminder(kind: ReminderKind, on: Boolean) { saveSettings(state.value.settings.withReminder(kind, on)) }
+    fun setReminder(kind: ReminderKind, on: Boolean) { viewModelScope.launch { repo.setReminder(kind, on) } }
 
     /** The user opened today's "borrowed from yesterday" note: hide the badge dot until next time. */
     fun markBorrowNoticeSeen() {

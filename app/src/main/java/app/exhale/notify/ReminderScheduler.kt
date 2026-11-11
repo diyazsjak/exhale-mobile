@@ -23,7 +23,12 @@ import java.util.concurrent.atomic.AtomicBoolean
  * after every log or settings change (ExhaleRepository's `onWrite`), when Exhale starts, after a
  * restart or an update, and when the clock or time zone changes.
  *
- * The alarms are inexact (no exact-alarm permission) but go off in Doze.
+ * No exact-alarm permission. A busy-hour nudge only helps before its hour, so its alarm goes off within
+ * a 10-minute window (the shortest Android allows); the phone is in use at those hours, so Doze rarely
+ * holds it. The others can come a while late, so theirs also go off in Doze.
+ *
+ * While Android doesn't let Exhale post, nothing is scheduled and nothing is used up: the reminders
+ * are worked out again when Exhale next comes to the front.
  */
 object ReminderScheduler {
     private const val ACTION = "app.exhale.notify.REMIND"
@@ -48,15 +53,15 @@ object ReminderScheduler {
     private suspend fun runLocked(app: ExhaleApp) {
         val repo = app.repository
         val s = repo.settings.first()
-        val off = ReminderKind.entries - s.reminders
-        off.forEach { cancel(app, it) }
-        if (off.size == ReminderKind.entries.size) return
+        val on = if (ReminderNotifier.allowed(app)) s.reminders else emptySet()
+        (ReminderKind.entries - on).forEach { cancel(app, it) }
+        if (on.isEmpty()) return
         val logs = repo.logs.first()
         val urges = repo.urges.first()
         val handled = repo.remindersHandled()
         val zone = ZoneId.systemDefault()
         val now = Instant.now()
-        val runs = s.reminders.associateWith { Reminders.due(it, s, logs, urges, handled[it], now, zone) }
+        val runs = on.associateWith { Reminders.due(it, s, logs, urges, handled[it], now, zone) }
         // Marked handled before posting: if anything stops in between, one is missed rather than sent twice.
         repo.markRemindersHandled(runs.mapNotNull { (k, r) -> r.handled?.let { k to it } }.toMap())
         runs.forEach { (kind, run) ->
@@ -74,8 +79,15 @@ object ReminderScheduler {
 
     private fun schedule(context: Context, kind: ReminderKind, at: Instant) {
         val alarms = context.getSystemService(AlarmManager::class.java) ?: return
-        alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at.toEpochMilli(), pending(context, kind))
+        if (kind == ReminderKind.BUSY_HOUR) {
+            alarms.setWindow(AlarmManager.RTC_WAKEUP, at.toEpochMilli(), BUSY_WINDOW_MS, pending(context, kind))
+        } else {
+            alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at.toEpochMilli(), pending(context, kind))
+        }
     }
+
+    /** Within [Reminders.BUSY_LEAD], so a nudge still comes before its hour. */
+    private const val BUSY_WINDOW_MS = 10 * 60_000L
 
     private fun cancel(context: Context, kind: ReminderKind) {
         context.getSystemService(AlarmManager::class.java)?.cancel(pending(context, kind))

@@ -44,6 +44,16 @@ class ExhaleRepository(
     val urges: Flow<List<Urge>> =
         combine(db.urges().observeAll(), triggersByKey) { list, byKey -> list.map { it.toDomain(byKey) } }
 
+    /**
+     * Turns reminder [kind] on or off. Turned on, it starts from now: one that came due a little while
+     * ago isn't posted for the tap. Changes the settings as stored, so quick taps in a row all count.
+     */
+    suspend fun setReminder(kind: ReminderKind, on: Boolean) {
+        if (on) markRemindersHandled(mapOf(kind to Instant.now()))
+        settingsStore.update { it.withReminder(kind, on) }
+        onWrite()
+    }
+
     /** When the last reminder of each kind was handled (see `notify/ReminderScheduler`). */
     suspend fun remindersHandled(): Map<ReminderKind, Instant> = reminderStore?.handled().orEmpty()
 

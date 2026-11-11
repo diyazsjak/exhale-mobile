@@ -43,8 +43,9 @@ sealed interface Reminder {
     /** [milestone] reached for the first time, at [at]. Opens Air. */
     data class MilestoneReached(override val at: Instant, val milestone: Milestone) : Reminder {
         override val kind get() = ReminderKind.MILESTONE
-        override val title get() = "${milestone.label} · ${milestone.text}"
-        override val text get() = "The first time you've reached this one. Air shows what comes next."
+        // Not the milestone's own text: from a year on it says "smoker's", and this can show on a lock screen.
+        override val title get() = "New milestone: ${milestone.label}"
+        override val text get() = "The first time you've gone this long. Air shows what's changing in your body."
     }
 
     /** What's kept covers the goal called [goalName], first at [at]. Opens Money. */
@@ -94,13 +95,35 @@ object Reminders {
      * finished onboarding). [now] is when it's worked out: busy hours are averaged up to it. [logs]
      * are oldest first. Doesn't check whether [kind] is turned on.
      */
-    fun next(kind: ReminderKind, s: UserSettings, logs: List<SmokeLog>, now: Instant, after: Instant, zone: ZoneId): Reminder? {
-        if (!s.onboarded) return null
-        return when (kind) {
-            ReminderKind.BUSY_HOUR -> nextBusyHour(s, logs, now, after, zone)
-            ReminderKind.MILESTONE -> nextMilestone(logs, after)
-            ReminderKind.GOAL -> Money.goalReachedAt(s, logs, zone)?.takeIf { it.isAfter(after) }?.let { Reminder.GoalReached(it, s.goalName) }
-            ReminderKind.PLAN_WEEK -> nextPlanWeek(s, after, zone)
+    fun next(kind: ReminderKind, s: UserSettings, logs: List<SmokeLog>, now: Instant, after: Instant, zone: ZoneId): Reminder? =
+        stepper(kind, s, logs, now, zone)(after)
+
+    /**
+     * [next] for one kind, with what doesn't depend on `after` (busy hours, gaps reached, when the goal
+     * is covered) worked out once, so [due] can step through several.
+     */
+    private fun stepper(kind: ReminderKind, s: UserSettings, logs: List<SmokeLog>, now: Instant, zone: ZoneId): (Instant) -> Reminder? {
+        if (!s.onboarded) return { null }
+        when (kind) {
+            ReminderKind.BUSY_HOUR -> {
+                val hours = busyHours(s, logs, now, zone).orEmpty()
+                return { after -> nextBusyHour(hours, after, zone) }
+            }
+            ReminderKind.MILESTONE -> {
+                val times = logs.map { it.at }
+                // Reached by a gap between two cigarettes: reached before, so not the first time.
+                val unreached = times.lastOrNull()?.let { last ->
+                    val reached = Recovery.lastReached(times, now = last)
+                    Milestones.all.withIndex().drop(FIRST_MILESTONE).filter { reached[it.index] == null }
+                        .map { Reminder.MilestoneReached(last.plus(it.value.after), it.value) }
+                }.orEmpty()
+                return { after -> unreached.firstOrNull { it.at.isAfter(after) } }
+            }
+            ReminderKind.GOAL -> {
+                val at = Money.goalReachedAt(s, logs, zone)
+                return { after -> at?.takeIf { it.isAfter(after) }?.let { Reminder.GoalReached(it, s.goalName) } }
+            }
+            ReminderKind.PLAN_WEEK -> return { after -> nextPlanWeek(s, after, zone) }
         }
     }
 
@@ -111,13 +134,14 @@ object Reminders {
      * held back still comes, and none comes twice.
      */
     fun due(kind: ReminderKind, s: UserSettings, logs: List<SmokeLog>, urges: List<Urge>, handled: Instant?, now: Instant, zone: ZoneId): ReminderRun {
+        val next = stepper(kind, s, logs, now, zone)
         val post = mutableListOf<Reminder>()
         var last: Instant? = null
-        var r = next(kind, s, logs, now, listOfNotNull(now.minus(kind.late), handled).max(), zone)
+        var r = next(listOfNotNull(now.minus(kind.late), handled).max())
         while (r != null && !r.at.isAfter(now)) {
             if (shouldPost(r, logs, urges, now)) post += r
             last = r.at
-            r = next(kind, s, logs, now, r.at, zone)
+            r = next(r.at)
         }
         return ReminderRun(post, last, r)
     }
@@ -164,24 +188,12 @@ object Reminders {
         return ReminderOutlook(hours.orEmpty(), quiet)
     }
 
-    private fun nextBusyHour(s: UserSettings, logs: List<SmokeLog>, now: Instant, after: Instant, zone: ZoneId): Reminder? {
-        val hours = busyHours(s, logs, now, zone)?.takeIf { it.isNotEmpty() } ?: return null
+    private fun nextBusyHour(hours: List<Int>, after: Instant, zone: ZoneId): Reminder? {
         val day = after.atZone(zone).toLocalDate()
         // A nudge for midnight falls on the day before, so look a day further than tomorrow.
         return (0L..2L).flatMap { d -> hours.map { h -> Reminder.BusyHour(at(day.plusDays(d), h, zone).minus(BUSY_LEAD), h) } }
             .filter { it.at.isAfter(after) }
             .minByOrNull { it.at }
-    }
-
-    private fun nextMilestone(logs: List<SmokeLog>, after: Instant): Reminder? {
-        val times = logs.map { it.at }
-        val last = times.lastOrNull() ?: return null
-        // Reached by a gap between two cigarettes: reached before, so not the first time.
-        val reached = Recovery.lastReached(times, now = last)
-        return Milestones.all.withIndex().drop(FIRST_MILESTONE)
-            .filter { (i, _) -> reached[i] == null }
-            .map { (_, m) -> Reminder.MilestoneReached(last.plus(m.after), m) }
-            .firstOrNull { it.at.isAfter(after) }
     }
 
     /** A lower allowance only ever starts on a plan week's first day: the first one after [after]. */

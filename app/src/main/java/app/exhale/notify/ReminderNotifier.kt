@@ -77,7 +77,12 @@ object ReminderNotifier {
         Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS)
             .putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, context.packageName)
 
+    /** The channels are made once per process; making them again changes nothing. */
+    @Volatile private var channelsMade = false
+
     private fun ensureChannels(context: Context) {
+        if (channelsMade) return
+        channelsMade = true
         val manager = context.getSystemService(NotificationManager::class.java) ?: return
         manager.createNotificationChannels(
             ReminderKind.entries.map { spec(it) }.map { NotificationChannel(it.channelId, it.name, it.importance).apply { description = it.description } },
