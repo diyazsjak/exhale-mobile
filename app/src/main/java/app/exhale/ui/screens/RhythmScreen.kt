@@ -161,7 +161,7 @@ fun RhythmScreen(
     val peaks = view.peaks
     val unit = when (dayFilter) { DayFilter.ALL -> "a day"; DayFilter.WEEKDAYS -> "a weekday"; DayFilter.WEEKENDS -> "a weekend day" }
     val where = when (dayFilter) { DayFilter.ALL -> ""; DayFilter.WEEKDAYS -> " on weekdays"; DayFilter.WEEKENDS -> " at weekends" }
-    val label = { h: Int -> hourLabel(h, h24) }
+    val label = { h: Int -> Fmt.hour(h, h24) }
 
     // The average a day leads the comparison card (or the first-month card). Its label says what it
     // covers: the last 30 days, or since tracking began when that is newer, and the day filter.
@@ -595,12 +595,10 @@ private fun ifAt(t: Trigger, hour: String): String? = when (t.builtIn) {
     null -> "If it's ${t.inSentence} at $hour,"
 }
 
-private fun hourLabel(h: Int, h24: Boolean): String = Fmt.hour(h, h24)
-
 /** "8–9 am", "11 am–12 pm", "08:00–09:00". */
 private fun hourRange(h: Int, h24: Boolean): String {
-    val a = hourLabel(h, h24)
-    val b = hourLabel((h + 1) % 24, h24)
+    val a = Fmt.hour(h, h24)
+    val b = Fmt.hour((h + 1) % 24, h24)
     if (h24) return "$a–$b"
     val (an, ap) = a.split(" ")
     val (bn, bp) = b.split(" ")

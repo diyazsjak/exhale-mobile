@@ -459,9 +459,11 @@ data?") with the safe choice as a Ghost button; neither uses a warm colour.
   - **Alarms** (`ReminderScheduler`): one inexact alarm per kind that is on (`setAndAllowWhileIdle`, so no
     exact-alarm permission and it still goes off in Doze), set for the next reminder. They are set again after
     every log or settings change (`ExhaleRepository.onWrite`), when Exhale opens, after a restart or an update,
-    and when the clock or time zone changes; turning a kind off cancels its alarm. Each run posts what's due
-    (see `ReminderKind.late` and `shouldPost`) and remembers the last one handled per kind (`ReminderStore`,
-    DataStore `reminders`), posted or skipped, so none comes twice.
+    and when the clock or time zone changes; turning a kind off cancels its alarm. Quick writes in a row share
+    one run. Each run does what `Reminders.due` says (§4) and remembers the last one handled per kind
+    (`ReminderStore`, DataStore `reminders`, through the repository), posted or skipped, so none comes twice.
+    It's marked before posting, so if anything stops in between one is missed rather than sent twice. Erase all
+    data and Load demo data clear it too: it says when milestones and the goal were reached.
 - Planned: Wear OS tile (see §6).
 
 ### 3.10 History — `HistoryScreen.kt`
@@ -661,6 +663,12 @@ Loading it keeps the current Appearance and Home screen.
     notifies once per goal; a new, bigger goal notifies when it's reached. None without a goal or baseline.
   - **Plan week**: midnight on the first day of the next plan week after `after` whose base allowance is lower
     than the day before (`perDay`, `before`). None on Hold steady or once the plan is at 0.
+- `due(kind, settings, logs, urges, handled, now, zone)`: one run for a kind. Every reminder after `handled` and
+  within its kind's `late` that has come due is handled; the ones that `shouldPost` are posted; `next` is the one
+  to set the alarm for. So one the phone held back still comes, and none comes twice.
+- `outlook(settings, logs, now, zone)`: what Settings → Reminders says: the busy hours, and per kind why none
+  will come for now (`ReminderQuiet`: no week of days yet, nothing logged, goal already reached, plan holding
+  steady, plan at zero).
 - `shouldPost(reminder, logs, urges, now)`: from its time until its kind's `late` has passed (busy hour 15 min,
   so never once the hour has begun; milestone 12 h; goal and plan week 24 h). A busy-hour nudge is also skipped if a
   cigarette was logged or a craving wave started in the 30 minutes before (`BUSY_QUIET`).

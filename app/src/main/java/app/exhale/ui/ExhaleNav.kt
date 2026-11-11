@@ -47,6 +47,7 @@ import androidx.navigation.compose.rememberNavController
 import app.exhale.domain.HomeStyle
 import app.exhale.BuildConfig
 import app.exhale.domain.ReminderKind
+import app.exhale.domain.ReminderOutlook
 import app.exhale.domain.UrgeOutcome
 import app.exhale.notify.ReminderNotifier
 import app.exhale.ui.components.ExAppBar
@@ -87,9 +88,6 @@ internal enum class Tab(val route: String, val label: String, val icon: ImageVec
         MONEY -> c.sun
     }
 }
-
-/** A screen a tapped reminder opens: Urge Wave, Air, Money or Ember. */
-enum class OpenTarget { WAVE, AIR, MONEY, EMBER }
 
 /** What the app bar's leading shows: one per tab, and Rhythm's changes while a day is [picked]. */
 internal data class LeadingKey(val tab: Tab, val picked: Boolean = false)
@@ -141,9 +139,9 @@ private const val SETTINGS = "settings"
 private const val UIKIT = "uikit"
 private const val HISTORY = "history"
 
-/** [open]: a screen a tapped reminder asked for; [onOpened] once it's been gone to (or can't be, before onboarding). */
+/** [tapped]: a reminder the user tapped; [onOpened] once its screen is open (or can't be, before onboarding). */
 @Composable
-fun ExhaleRoot(vm: ExhaleViewModel, open: OpenTarget? = null, onOpened: () -> Unit = {}) {
+fun ExhaleRoot(vm: ExhaleViewModel, tapped: ReminderKind?, onOpened: () -> Unit) {
     val state by vm.state.collectAsStateWithLifecycle()
     val logged by vm.lastLogged.collectAsStateWithLifecycle()
     Box(Modifier.fillMaxSize().background(Ex.colors.bg)) {
@@ -151,16 +149,16 @@ fun ExhaleRoot(vm: ExhaleViewModel, open: OpenTarget? = null, onOpened: () -> Un
             !state.loaded -> Unit
             !state.settings.onboarded -> {
                 // Reminders are only sent once onboarded; one tapped after an erase has nowhere to go.
-                LaunchedEffect(open) { if (open != null) onOpened() }
+                LaunchedEffect(tapped) { if (tapped != null) onOpened() }
                 OnboardingScreen(onFinish = { vm.saveSettings(it.copy(theme = state.settings.theme)) })
             }
-            else -> MainNav(state, logged, vm, open, onOpened)
+            else -> MainNav(state, logged, vm, tapped, onOpened)
         }
     }
 }
 
 @Composable
-private fun MainNav(state: ExhaleState, logged: LoggedEvent?, vm: ExhaleViewModel, open: OpenTarget?, onOpened: () -> Unit) {
+private fun MainNav(state: ExhaleState, logged: LoggedEvent?, vm: ExhaleViewModel, tapped: ReminderKind?, onOpened: () -> Unit) {
     val c = Ex.colors
     val nav = rememberNavController()
     val triggerActions = remember(vm) {
@@ -178,12 +176,12 @@ private fun MainNav(state: ExhaleState, logged: LoggedEvent?, vm: ExhaleViewMode
     val tab = Tab.entries.firstOrNull { it.route == entry?.destination?.route }
     // A tapped reminder: a busy-hour nudge opens Urge Wave over where the user was (unless it's open
     // already), the others switch to their tab.
-    LaunchedEffect(open) {
-        when (open) {
-            OpenTarget.WAVE -> if (nav.currentDestination?.route != WAVE) nav.navigate(WAVE)
-            OpenTarget.AIR -> goToTab(Tab.AIR)
-            OpenTarget.MONEY -> goToTab(Tab.MONEY)
-            OpenTarget.EMBER -> goToTab(Tab.EMBER)
+    LaunchedEffect(tapped) {
+        when (tapped) {
+            ReminderKind.BUSY_HOUR -> if (nav.currentDestination?.route != WAVE) nav.navigate(WAVE)
+            ReminderKind.MILESTONE -> goToTab(Tab.AIR)
+            ReminderKind.GOAL -> goToTab(Tab.MONEY)
+            ReminderKind.PLAN_WEEK -> goToTab(Tab.EMBER)
             null -> return@LaunchedEffect
         }
         onOpened()
@@ -309,9 +307,7 @@ private fun MainNav(state: ExhaleState, logged: LoggedEvent?, vm: ExhaleViewMode
             }
             composable(SETTINGS) {
                 SettingsScreen(
-                    reminders = reminderControls(vm),
-                    busyHours = state.busyHours,
-                    goalReached = state.money?.goalLeftMinor == 0L,
+                    reminders = reminderControls(vm, state.reminderOutlook),
                     current = state.settings,
                     today = state.today,
                     onSave = vm::saveSettings,
@@ -381,7 +377,7 @@ private fun MainNav(state: ExhaleState, logged: LoggedEvent?, vm: ExhaleViewMode
  * links there. Whether Exhale may post is checked again each time the screen resumes.
  */
 @Composable
-private fun reminderControls(vm: ExhaleViewModel): ReminderControls {
+private fun reminderControls(vm: ExhaleViewModel, outlook: ReminderOutlook): ReminderControls {
     val context = LocalContext.current
     var allowed by remember { mutableStateOf(ReminderNotifier.allowed(context)) }
     var refused by rememberSaveable { mutableStateOf(false) }
@@ -397,16 +393,20 @@ private fun reminderControls(vm: ExhaleViewModel): ReminderControls {
         asking = null
         if (granted && kind != null) vm.setReminder(kind, true) else refused = true
     }
-    return ReminderControls(
-        allowed = allowed,
-        refused = refused,
-        onChange = { kind, on ->
-            when {
-                !on || allowed -> vm.setReminder(kind, on)
-                ReminderNotifier.canAsk(context) -> { asking = kind; ask.launch(Manifest.permission.POST_NOTIFICATIONS) }
-                else -> refused = true
-            }
-        },
-        onOpenSettings = { context.startActivity(ReminderNotifier.settingsIntent(context)) },
-    )
+    // Remembered, so Settings can skip the ViewModel's once-a-second tick.
+    return remember(allowed, refused, outlook) {
+        ReminderControls(
+            allowed = allowed,
+            refused = refused,
+            outlook = outlook,
+            onChange = { kind, on ->
+                when {
+                    !on || allowed -> vm.setReminder(kind, on)
+                    ReminderNotifier.canAsk(context) -> { asking = kind; ask.launch(Manifest.permission.POST_NOTIFICATIONS) }
+                    else -> refused = true
+                }
+            },
+            onOpenSettings = { context.startActivity(ReminderNotifier.settingsIntent(context)) },
+        )
+    }
 }

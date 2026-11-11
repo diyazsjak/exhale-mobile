@@ -1,6 +1,7 @@
 package app.exhale.data
 
 import app.exhale.domain.DemoData
+import app.exhale.domain.ReminderKind
 import app.exhale.domain.SmokeLog
 import app.exhale.domain.Trigger
 import app.exhale.domain.TriggerEntry
@@ -25,6 +26,7 @@ import java.time.ZoneId
 class ExhaleRepository(
     private val db: ExhaleDatabase,
     private val settingsStore: SettingsStore,
+    private val reminderStore: ReminderStore? = null,
     private val onWrite: () -> Unit = {},
 ) {
     val settings: Flow<UserSettings> = settingsStore.settings
@@ -41,6 +43,14 @@ class ExhaleRepository(
 
     val urges: Flow<List<Urge>> =
         combine(db.urges().observeAll(), triggersByKey) { list, byKey -> list.map { it.toDomain(byKey) } }
+
+    /** When the last reminder of each kind was handled (see `notify/ReminderScheduler`). */
+    suspend fun remindersHandled(): Map<ReminderKind, Instant> = reminderStore?.handled().orEmpty()
+
+    /** Bookkeeping, not data the widget or reminders depend on: doesn't call [onWrite]. */
+    suspend fun markRemindersHandled(handled: Map<ReminderKind, Instant>) {
+        reminderStore?.markHandled(handled)
+    }
 
     suspend fun saveTriggers(list: List<TriggerEntry>) =
         db.triggers().replaceAll(list.mapIndexed { i, e -> e.toEntity(i) })
@@ -104,6 +114,7 @@ class ExhaleRepository(
     private suspend fun clearHistory() {
         db.logs().clear()
         db.urges().clear()
+        reminderStore?.clear()
         // Erasing or loading demo data starts the trigger list over from the built-ins.
         saveTriggers(Triggers.defaults)
     }

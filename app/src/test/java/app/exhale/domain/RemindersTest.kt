@@ -155,6 +155,55 @@ class RemindersTest {
         assertEquals(t("2026-11-21T00:00:00Z"), next(ReminderKind.PLAN_WEEK, emptyList(), s = ahead)?.at)
     }
 
+    // --- A run: what's due, what's handled, what's next
+
+    @Test fun due_postsWhatCameDueAndWaitsForTheNext() {
+        // 17:50: the 17:45 nudge is due; the next is tomorrow's 7:45.
+        val at = t("2026-11-11T17:50:00Z")
+        val run = Reminders.due(ReminderKind.BUSY_HOUR, settings, habit(10), emptyList(), null, at, zone)
+        assertEquals(listOf(t("2026-11-11T17:45:00Z")), run.post.map { it.at })
+        assertEquals(t("2026-11-11T17:45:00Z"), run.handled)
+        assertEquals(t("2026-11-12T07:45:00Z"), run.next?.at)
+        // Run again with it handled: nothing to post, the same next.
+        val again = Reminders.due(ReminderKind.BUSY_HOUR, settings, habit(10), emptyList(), run.handled, at, zone)
+        assertEquals(emptyList<Reminder>(), again.post)
+        assertNull(again.handled)
+        assertEquals(run.next, again.next)
+    }
+
+    @Test fun due_skipsButStillHandlesOneThatNoLongerFits() {
+        val at = t("2026-11-11T17:50:00Z")
+        val run = Reminders.due(ReminderKind.BUSY_HOUR, settings, habit(10) + log(t("2026-11-11T17:40:00Z")), emptyList(), null, at, zone)
+        assertEquals(emptyList<Reminder>(), run.post)
+        assertEquals(t("2026-11-11T17:45:00Z"), run.handled)
+    }
+
+    @Test fun due_dropsOnesHeldBackPastTheirLateness() {
+        // 18:05: the 17:45 nudge is 20 minutes old, past its 15. Nothing posted, nothing handled.
+        val run = Reminders.due(ReminderKind.BUSY_HOUR, settings, habit(10), emptyList(), null, t("2026-11-11T18:05:00Z"), zone)
+        assertEquals(emptyList<Reminder>(), run.post)
+        assertNull(run.handled)
+        assertEquals(t("2026-11-12T07:45:00Z"), run.next?.at)
+    }
+
+    // --- What Settings says
+
+    @Test fun outlook_saysWhyAKindWontComeForNow() {
+        val young = settings.copy(planStart = today.minusDays(3))
+        assertEquals(ReminderQuiet.NEEDS_A_WEEK, Reminders.outlook(young, habit(3), now, zone).quiet[ReminderKind.BUSY_HOUR])
+        assertEquals(ReminderQuiet.NOTHING_LOGGED, Reminders.outlook(settings, emptyList(), now, zone).quiet[ReminderKind.BUSY_HOUR])
+        val known = Reminders.outlook(settings, habit(10), now, zone)
+        assertEquals(listOf(18, 8), known.busyHours)
+        assertNull(known.quiet[ReminderKind.BUSY_HOUR])
+        assertNull(known.quiet[ReminderKind.PLAN_WEEK])
+        assertEquals(ReminderQuiet.PLAN_HOLDS, Reminders.outlook(settings.copy(taper = TaperType.HOLD), emptyList(), now, zone).quiet[ReminderKind.PLAN_WEEK])
+        assertEquals(ReminderQuiet.PLAN_AT_ZERO, Reminders.outlook(settings.copy(startAllowance = 2), emptyList(), now, zone).quiet[ReminderKind.PLAN_WEEK])
+        // 20 days at 15 a day, none smoked: 300 kept at 0.50 is 150.00.
+        val cheap = settings.copy(goalMinor = 10000)
+        assertEquals(ReminderQuiet.GOAL_REACHED, Reminders.outlook(cheap, emptyList(), now, zone).quiet[ReminderKind.GOAL])
+        assertNull(Reminders.outlook(settings.copy(goalMinor = 1_000_000), emptyList(), now, zone).quiet[ReminderKind.GOAL])
+    }
+
     // --- Everything
 
     @Test fun nothingBeforeOnboarding() {

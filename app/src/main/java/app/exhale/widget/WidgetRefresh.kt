@@ -8,6 +8,7 @@ import android.content.Intent
 import androidx.glance.GlanceId
 import androidx.glance.appwidget.updateAll
 import app.exhale.ExhaleApp
+import app.exhale.launchAsync
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -71,15 +72,5 @@ object WidgetRefresh {
 
 /** Redraws the widgets on the scheduled alarm and when the clock, time zone or language changes. */
 class WidgetRefreshReceiver : BroadcastReceiver() {
-    override fun onReceive(context: Context, intent: Intent) {
-        val app = context.applicationContext as ExhaleApp
-        val done = goAsync()
-        app.scope.launch {
-            try {
-                runCatching { WidgetRefresh.refreshAll(app) }
-            } finally {
-                done.finish()
-            }
-        }
-    }
+    override fun onReceive(context: Context, intent: Intent) = launchAsync(context) { WidgetRefresh.refreshAll(it) }
 }

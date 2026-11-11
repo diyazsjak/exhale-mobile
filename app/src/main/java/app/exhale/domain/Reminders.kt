@@ -105,6 +105,24 @@ object Reminders {
     }
 
     /**
+     * What a run at [now] does for [kind], given the last reminder of it already [handled]: every
+     * reminder that came due since (within its [ReminderKind.late], and after [handled]) is handled,
+     * the ones that [shouldPost] are posted, and the next one is waited for. So a reminder the phone
+     * held back still comes, and none comes twice.
+     */
+    fun due(kind: ReminderKind, s: UserSettings, logs: List<SmokeLog>, urges: List<Urge>, handled: Instant?, now: Instant, zone: ZoneId): ReminderRun {
+        val post = mutableListOf<Reminder>()
+        var last: Instant? = null
+        var r = next(kind, s, logs, now, listOfNotNull(now.minus(kind.late), handled).max(), zone)
+        while (r != null && !r.at.isAfter(now)) {
+            if (shouldPost(r, logs, urges, now)) post += r
+            last = r.at
+            r = next(kind, s, logs, now, r.at, zone)
+        }
+        return ReminderRun(post, last, r)
+    }
+
+    /**
      * Whether [r], now due, should still be posted at [now]: not past its [ReminderKind.late], and for
      * a busy hour, nothing logged and no wave started in the [BUSY_QUIET] before.
      */
@@ -129,6 +147,23 @@ object Reminders {
         return Stats.peaks(Stats.hourly(logs, period, now, zone, dataStart))
     }
 
+    /** What Settings → Reminders says: the busy hours, and why any kind won't come for now. */
+    fun outlook(s: UserSettings, logs: List<SmokeLog>, now: Instant, zone: ZoneId): ReminderOutlook {
+        val hours = busyHours(s, logs, now, zone)
+        val quiet = buildMap {
+            when {
+                hours == null -> put(ReminderKind.BUSY_HOUR, ReminderQuiet.NEEDS_A_WEEK)
+                hours.isEmpty() -> put(ReminderKind.BUSY_HOUR, ReminderQuiet.NOTHING_LOGGED)
+            }
+            if (Money.goalReachedAt(s, logs, zone)?.isAfter(now) == false) put(ReminderKind.GOAL, ReminderQuiet.GOAL_REACHED)
+            when {
+                s.taper == TaperType.HOLD -> put(ReminderKind.PLAN_WEEK, ReminderQuiet.PLAN_HOLDS)
+                PlanMath.baseAllowance(s, now.atZone(zone).toLocalDate()) == 0 -> put(ReminderKind.PLAN_WEEK, ReminderQuiet.PLAN_AT_ZERO)
+            }
+        }
+        return ReminderOutlook(hours.orEmpty(), quiet)
+    }
+
     private fun nextBusyHour(s: UserSettings, logs: List<SmokeLog>, now: Instant, after: Instant, zone: ZoneId): Reminder? {
         val hours = busyHours(s, logs, now, zone)?.takeIf { it.isNotEmpty() } ?: return null
         val day = after.atZone(zone).toLocalDate()
@@ -139,29 +174,38 @@ object Reminders {
     }
 
     private fun nextMilestone(logs: List<SmokeLog>, after: Instant): Reminder? {
-        val last = logs.lastOrNull()?.at ?: return null
-        // The longest gap between two cigarettes: a milestone it reached was reached before.
-        val longest = logs.zipWithNext { a, b -> Duration.between(a.at, b.at) }.maxOrNull() ?: Duration.ZERO
-        return Milestones.all.drop(FIRST_MILESTONE)
-            .filter { it.after > longest }
-            .map { Reminder.MilestoneReached(last.plus(it.after), it) }
+        val times = logs.map { it.at }
+        val last = times.lastOrNull() ?: return null
+        // Reached by a gap between two cigarettes: reached before, so not the first time.
+        val reached = Recovery.lastReached(times, now = last)
+        return Milestones.all.withIndex().drop(FIRST_MILESTONE)
+            .filter { (i, _) -> reached[i] == null }
+            .map { (_, m) -> Reminder.MilestoneReached(last.plus(m.after), m) }
             .firstOrNull { it.at.isAfter(after) }
     }
 
+    /** A lower allowance only ever starts on a plan week's first day: the first one after [after]. */
     private fun nextPlanWeek(s: UserSettings, after: Instant, zone: ZoneId): Reminder? {
         if (s.taper == TaperType.HOLD) return null
-        // A lower allowance only ever starts on a plan week's first day: the first one after [after].
-        val weeks = maxOf(1, PlanMath.weeksIntoPlan(s.planStart, after.atZone(zone).toLocalDate())).toLong()
-        for (w in weeks..weeks + 1) {
-            val start = s.planStart.plusWeeks(w)
-            val at = start.atStartOfDay(zone).toInstant()
-            if (!at.isAfter(after)) continue
-            val before = PlanMath.baseAllowance(s, start.minusDays(1))
-            val perDay = PlanMath.baseAllowance(s, start)
-            return if (perDay < before) Reminder.PlanWeek(at, perDay, before) else null
-        }
-        return null
+        val o = PlanMath.outlook(s, after.atZone(zone).toLocalDate())
+        if (o.baseNextWeek >= o.baseToday) return null
+        return Reminder.PlanWeek(o.nextWeekStart.atStartOfDay(zone).toInstant(), o.baseNextWeek, o.baseToday)
     }
 
     private fun at(day: LocalDate, hour: Int, zone: ZoneId): Instant = day.atTime(hour, 0).atZone(zone).toInstant()
 }
+
+/** One [Reminders.due] run for a kind: what to [post], the newest reminder [handled] (posted or not), and the [next] to wait for. */
+data class ReminderRun(val post: List<Reminder>, val handled: Instant?, val next: Reminder?)
+
+/** Why a reminder kind won't come for now, for Settings → Reminders. */
+enum class ReminderQuiet { NEEDS_A_WEEK, NOTHING_LOGGED, GOAL_REACHED, PLAN_HOLDS, PLAN_AT_ZERO }
+
+/**
+ * [Reminders.outlook]: the busy hours (empty until known) and, per kind, why none will come for now.
+ * The default is before anything is worked out: no busy hours yet.
+ */
+data class ReminderOutlook(
+    val busyHours: List<Int> = emptyList(),
+    val quiet: Map<ReminderKind, ReminderQuiet> = mapOf(ReminderKind.BUSY_HOUR to ReminderQuiet.NEEDS_A_WEEK),
+)

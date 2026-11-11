@@ -16,6 +16,7 @@ import app.exhale.domain.PlanOutlook
 import app.exhale.domain.Recovery
 import app.exhale.domain.RecoverySummary
 import app.exhale.domain.ReminderKind
+import app.exhale.domain.ReminderOutlook
 import app.exhale.domain.Reminders
 import app.exhale.domain.SmokeLog
 import app.exhale.domain.Stats
@@ -70,8 +71,8 @@ data class ExhaleState(
     val triggers: List<TriggerEntry> = Triggers.defaults,
     /** How many logs and cravings each trigger key tagged; only unused ones can be deleted. */
     val triggerUses: Map<String, Int> = emptyMap(),
-    /** The busy hours the reminders nudge before ([Reminders.busyHours]); null until there's a week to go on. */
-    val busyHours: List<Int>? = null,
+    /** What Settings → Reminders says: the busy hours, and why a kind won't come for now ([Reminders.outlook]). */
+    val reminderOutlook: ReminderOutlook = ReminderOutlook(),
 ) {
     /** The triggers offered as chips, in order ([Triggers.shown]). */
     val shownTriggers: List<Trigger> get() = Triggers.shown(triggers)
@@ -123,7 +124,7 @@ class ExhaleViewModel(private val repo: ExhaleRepository) : ViewModel() {
         val triggerUses = Triggers.uses(logs, urges)
 
         // Only Settings shows it, and it moves with the data, not the second: worked out once per change.
-        val busyHours = Reminders.busyHours(settings, logs, Instant.now(), ZoneId.systemDefault())
+        val reminderOutlook = Reminders.outlook(settings, logs, Instant.now(), ZoneId.systemDefault())
     }
 
     private val stored = combine(repo.settings, repo.logs, repo.urges, repo.triggers, ::Stored)
@@ -160,7 +161,7 @@ class ExhaleViewModel(private val repo: ExhaleRepository) : ViewModel() {
             todayTimes = DayTimes.of(logs, d.urges, plan.date, zone, plan.allowance, now),
             triggers = d.triggers,
             triggerUses = d.triggerUses,
-            busyHours = d.busyHours,
+            reminderOutlook = d.reminderOutlook,
         )
     }
 

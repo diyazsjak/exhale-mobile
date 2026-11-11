@@ -50,7 +50,7 @@ object Money {
     fun summary(s: UserSettings, logs: List<SmokeLog>, now: Instant, zone: ZoneId): MoneySummary {
         val start = s.planStart.atStartOfDay(zone).toInstant()
         fun notSmokedSince(from: Instant) = notSmokedBetween(s.baselinePerDay, logs, from, now)
-        fun minor(notSmoked: Int) = (notSmoked * s.pricePerCigMinor).toLong()
+        fun minor(notSmoked: Int) = worth(notSmoked.toLong(), s.pricePerCigMinor)
         val days = daysBetween(start, now)
         val notSmoked = notSmokedSince(start)
         val kept = minor(notSmoked)
@@ -91,8 +91,8 @@ object Money {
         if (s.goalMinor <= 0 || price <= 0.0 || s.baselinePerDay <= 0) return null
         // The fewest cigarettes not smoked whose price covers the goal, rounded as the summary rounds.
         var need = ceil(s.goalMinor / price).toLong()
-        while (need > 0 && ((need - 1) * price).toLong() >= s.goalMinor) need--
-        while ((need * price).toLong() < s.goalMinor) need++
+        while (need > 0 && worth(need - 1, price) >= s.goalMinor) need--
+        while (worth(need, price) < s.goalMinor) need++
         val start = s.planStart.atStartOfDay(zone).toInstant()
         val smoked = logs.map { it.at }.filter { it >= start }.sorted()
         // With j smoked so far, `need` not smoked is reached at start + (need + j) / baseline days. The
@@ -115,6 +115,9 @@ object Money {
         }.toLong()
 
     private const val DAY_MS = 86_400_000.0
+
+    /** What [notSmoked] cigarettes at [pricePerCig] come to, in minor units, rounded down. */
+    private fun worth(notSmoked: Long, pricePerCig: Double): Long = (notSmoked * pricePerCig).toLong()
 
     private fun daysBetween(from: Instant, to: Instant): Double = Duration.between(from, to).toMillis() / DAY_MS
 }

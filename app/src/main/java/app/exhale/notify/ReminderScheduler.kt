@@ -8,54 +8,60 @@ import android.content.Intent
 import app.exhale.ExhaleApp
 import app.exhale.domain.ReminderKind
 import app.exhale.domain.Reminders
+import app.exhale.launchAsync
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.time.Instant
 import java.time.ZoneId
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
- * Keeps one alarm per reminder kind that is turned on, set for its next reminder ([Reminders.next]).
- * [run] posts whatever is due, then sets the alarms again. It runs when an alarm goes off, after
- * every log or settings change (ExhaleRepository's `onWrite`), when Exhale opens, after a restart
- * or an update, and when the clock or time zone changes.
+ * Keeps one alarm per reminder kind that is turned on, set for its next reminder. [run] posts
+ * whatever is due ([Reminders.due]), then sets the alarms again. It runs when an alarm goes off,
+ * after every log or settings change (ExhaleRepository's `onWrite`), when Exhale starts, after a
+ * restart or an update, and when the clock or time zone changes.
  *
- * The alarms are inexact (no exact-alarm permission) but go off in Doze. A reminder the phone held
- * back is still posted within its kind's [ReminderKind.late]; after that it is dropped. Each due
- * reminder is marked handled whether it was posted or skipped ([Reminders.shouldPost]), so none is
- * posted twice.
+ * The alarms are inexact (no exact-alarm permission) but go off in Doze.
  */
 object ReminderScheduler {
     private const val ACTION = "app.exhale.notify.REMIND"
     private val lock = Mutex()
 
+    /** A run is waiting for the lock: more requests until it starts are covered by it. */
+    private val queued = AtomicBoolean(false)
+
+    /** Runs soon. Quick writes in a row share one run, which reads the data once it starts. */
     fun runAsync(app: ExhaleApp) {
-        app.scope.launch { runCatching { run(app) } }
+        if (!queued.compareAndSet(false, true)) return
+        app.scope.launch {
+            lock.withLock {
+                queued.set(false)
+                runCatching { runLocked(app) }
+            }
+        }
     }
 
-    suspend fun run(app: ExhaleApp) = lock.withLock {
+    suspend fun run(app: ExhaleApp) = lock.withLock { runLocked(app) }
+
+    private suspend fun runLocked(app: ExhaleApp) {
         val repo = app.repository
         val s = repo.settings.first()
+        val off = ReminderKind.entries - s.reminders
+        off.forEach { cancel(app, it) }
+        if (off.size == ReminderKind.entries.size) return
         val logs = repo.logs.first()
         val urges = repo.urges.first()
+        val handled = repo.remindersHandled()
         val zone = ZoneId.systemDefault()
         val now = Instant.now()
-        for (kind in ReminderKind.entries) {
-            if (kind !in s.reminders) {
-                cancel(app, kind)
-                continue
-            }
-            val handled = app.reminders.handled(kind)
-            var after = listOfNotNull(now.minus(kind.late), handled).max()
-            var r = Reminders.next(kind, s, logs, now, after, zone)
-            while (r != null && !r.at.isAfter(now)) {
-                if (Reminders.shouldPost(r, logs, urges, now)) ReminderNotifier.post(app, r)
-                app.reminders.markHandled(kind, r.at)
-                after = r.at
-                r = Reminders.next(kind, s, logs, now, after, zone)
-            }
-            if (r == null) cancel(app, kind) else schedule(app, kind, r.at)
+        val runs = s.reminders.associateWith { Reminders.due(it, s, logs, urges, handled[it], now, zone) }
+        // Marked handled before posting: if anything stops in between, one is missed rather than sent twice.
+        repo.markRemindersHandled(runs.mapNotNull { (k, r) -> r.handled?.let { k to it } }.toMap())
+        runs.forEach { (kind, run) ->
+            run.post.forEach { ReminderNotifier.post(app, it) }
+            if (run.next == null) cancel(app, kind) else schedule(app, kind, run.next.at)
         }
     }
 
@@ -81,15 +87,5 @@ object ReminderScheduler {
  * clear alarms), and when the clock or time zone changes.
  */
 class ReminderReceiver : BroadcastReceiver() {
-    override fun onReceive(context: Context, intent: Intent) {
-        val app = context.applicationContext as ExhaleApp
-        val done = goAsync()
-        app.scope.launch {
-            try {
-                runCatching { ReminderScheduler.run(app) }
-            } finally {
-                done.finish()
-            }
-        }
-    }
+    override fun onReceive(context: Context, intent: Intent) = launchAsync(context) { ReminderScheduler.run(it) }
 }

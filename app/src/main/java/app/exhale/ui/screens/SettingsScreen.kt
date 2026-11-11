@@ -47,7 +47,11 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import app.exhale.domain.PlanMath
+import app.exhale.domain.Milestones
 import app.exhale.domain.ReminderKind
+import app.exhale.domain.ReminderOutlook
+import app.exhale.domain.ReminderQuiet
+import app.exhale.domain.Reminders
 import app.exhale.domain.SettingsInput
 import app.exhale.domain.SettingsInput.Field
 import app.exhale.domain.TaperType
@@ -101,6 +105,8 @@ enum class SettingsPage { TAPER, PACK, GOAL, TRIGGERS, TRIGGER;
 class ReminderControls(
     val allowed: Boolean = true,
     val refused: Boolean = false,
+    /** The busy hours, and why a kind won't come for now. */
+    val outlook: ReminderOutlook = ReminderOutlook(),
     val onChange: (ReminderKind, Boolean) -> Unit = { _, _ -> },
     val onOpenSettings: () -> Unit = {},
 )
@@ -141,10 +147,6 @@ fun SettingsScreen(
     /** With [initialPage] TRIGGER: the trigger to open, null to add one. */
     initialTriggerKey: String? = null,
     reminders: ReminderControls = ReminderControls(),
-    /** The busy hours the nudges come before; null until there's a week to go on. */
-    busyHours: List<Int>? = null,
-    /** What's kept already covers the goal. */
-    goalReached: Boolean = false,
 ) {
     var baseline by rememberSaveable { mutableIntStateOf(current.baselinePerDay) }
     var allowance by rememberSaveable { mutableIntStateOf(initialAllowance) }
@@ -188,7 +190,7 @@ fun SettingsScreen(
             when (p) {
                 null -> SettingsMain(
                     current, today, baseline, { baseline = it }, baselineChanged, allowance, { allowance = it }, allowanceChanged,
-                    dirty, mainScroll, onTheme, onHome, { page = it }, Triggers.shown(triggers), reminders, busyHours, goalReached,
+                    dirty, mainScroll, onTheme, onHome, { page = it }, Triggers.shown(triggers), reminders,
                     { ask = Ask.ERASE }, prototypeTools?.let { t -> PrototypeTools(t.onDesignSystem) { ask = Ask.DEMO } },
                     onBack = { if (dirty) ask = Ask.UNSAVED else onClose() },
                     onSaveCounts = { saveCounts(); toast.show("Saved") },
@@ -264,8 +266,6 @@ private fun SettingsMain(
     onOpen: (SettingsPage) -> Unit,
     shownTriggers: List<Trigger>,
     reminders: ReminderControls,
-    busyHours: List<Int>?,
-    goalReached: Boolean,
     onErase: () -> Unit,
     tools: PrototypeTools?,
     onBack: () -> Unit,
@@ -309,7 +309,7 @@ private fun SettingsMain(
             }
 
             Overline("Reminders", Modifier.paddingTop())
-            Reminders(current, today, reminders, busyHours, goalReached)
+            ReminderSwitches(current, reminders)
 
             Overline("Money", Modifier.paddingTop())
             ExCard(padding = ExSpace.sm) {
@@ -366,35 +366,40 @@ private fun CardWithCaption(content: @Composable ColumnScope.() -> Unit) {
  * links to Android's settings.
  */
 @Composable
-private fun Reminders(current: UserSettings, today: LocalDate, controls: ReminderControls, busyHours: List<Int>?, goalReached: Boolean) {
+private fun ReminderSwitches(current: UserSettings, controls: ReminderControls) {
     val c = Ex.colors
     val h24 = DateFormat.is24HourFormat(LocalContext.current)
-    fun on(kind: ReminderKind) = controls.allowed && kind in current.reminders
+    val quiet = controls.outlook.quiet
+    @Composable
+    fun Switch(kind: ReminderKind, label: String, sub: String) =
+        SwitchRow(label, controls.allowed && kind in current.reminders, { controls.onChange(kind, it) }, sub = sub)
+    val busyLead = "${Reminders.BUSY_LEAD.toMinutes()} minutes before"
     CardWithCaption {
         ExCard(padding = ExSpace.sm) {
-            SwitchRow(
-                "Before your busy hours", on(ReminderKind.BUSY_HOUR), { controls.onChange(ReminderKind.BUSY_HOUR, it) },
-                sub = when {
-                    busyHours == null -> "15 minutes before the hours you smoke most. Starts once Exhale has a week of your days."
-                    busyHours.isEmpty() -> "15 minutes before the hours you smoke most. Starts once you've logged some."
-                    else -> "15 minutes before " + busyHours.sorted().joinToString(" and ") { Fmt.hour(it, h24) } + ", the hours you smoke most."
+            Switch(
+                ReminderKind.BUSY_HOUR, "Before your busy hours",
+                when {
+                    controls.outlook.busyHours.isNotEmpty() ->
+                        "$busyLead " + controls.outlook.busyHours.sorted().joinToString(" and ") { Fmt.hour(it, h24) } + ", the hours you smoke most."
+                    quiet[ReminderKind.BUSY_HOUR] == ReminderQuiet.NOTHING_LOGGED -> "$busyLead the hours you smoke most. Starts once you've logged some."
+                    else -> "$busyLead the hours you smoke most. Starts once Exhale has a week of your days."
                 },
             )
-            SwitchRow(
-                "Recovery milestones", on(ReminderKind.MILESTONE), { controls.onChange(ReminderKind.MILESTONE, it) },
-                sub = "The first time you reach each one on Air, from 12 hours on.",
+            Switch(
+                ReminderKind.MILESTONE, "Recovery milestones",
+                "The first time you reach each one on Air, from ${Milestones.all[Reminders.FIRST_MILESTONE].label} on.",
             )
-            SwitchRow(
-                "Savings goal", on(ReminderKind.GOAL), { controls.onChange(ReminderKind.GOAL, it) },
-                sub = "When what you've kept covers ${current.goalName}." +
-                    if (goalReached) " It already does, so a bigger goal would be next." else "",
+            Switch(
+                ReminderKind.GOAL, "Savings goal",
+                "When what you've kept covers ${current.goalName}." +
+                    if (quiet[ReminderKind.GOAL] == ReminderQuiet.GOAL_REACHED) " It already does, so a bigger goal would be next." else "",
             )
-            SwitchRow(
-                "New plan weeks", on(ReminderKind.PLAN_WEEK), { controls.onChange(ReminderKind.PLAN_WEEK, it) },
-                sub = when {
-                    current.taper == TaperType.HOLD -> "When a new week lowers your allowance. Yours holds steady, so none will come."
-                    PlanMath.baseAllowance(current, today) == 0 -> "When a new week lowers your allowance. Yours is at zero, so none will come."
-                    else -> "When a new week lowers your allowance."
+            Switch(
+                ReminderKind.PLAN_WEEK, "New plan weeks",
+                "When a new week lowers your allowance." + when (quiet[ReminderKind.PLAN_WEEK]) {
+                    ReminderQuiet.PLAN_HOLDS -> " Yours holds steady, so none will come."
+                    ReminderQuiet.PLAN_AT_ZERO -> " Yours is at zero, so none will come."
+                    else -> ""
                 },
             )
         }

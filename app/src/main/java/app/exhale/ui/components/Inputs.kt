@@ -66,6 +66,7 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.exhale.ui.theme.Ex
@@ -414,13 +415,13 @@ fun FieldNote(text: String, modifier: Modifier = Modifier) {
 @Composable
 fun ExSwitch(checked: Boolean, onChange: ((Boolean) -> Unit)?, modifier: Modifier = Modifier) {
     val c = Ex.colors
-    val inset = 4.dp
-    val thumb by animateDpAsState(if (checked) 24.dp else 18.dp, spring(dampingRatio = 0.8f, stiffness = 500f), label = "switch-thumb-size")
-    val x by animateDpAsState(
-        if (checked) ExSize.switchWidth - inset - 24.dp else inset + 3.dp,
-        spring(dampingRatio = 0.8f, stiffness = 500f),
-        label = "switch-thumb",
-    )
+    // The thumb grows as it slides across; it stays centred in the track's height either way.
+    val on = 24.dp
+    val off = 18.dp
+    val inset = (ExSize.switchHeight - on) / 2
+    val motion = spring<Dp>(dampingRatio = 0.8f, stiffness = 500f)
+    val thumb by animateDpAsState(if (checked) on else off, motion, label = "switch-thumb-size")
+    val x by animateDpAsState(if (checked) ExSize.switchWidth - inset - on else inset + (on - off) / 2, motion, label = "switch-thumb")
     val track by animateColorAsState(if (checked) c.primary else c.surfaceHigh, tween(160), label = "switch-track")
     val dot by animateColorAsState(if (checked) c.onPrimary else c.inkSoft, tween(160), label = "switch-dot")
     val toggle = if (onChange == null) Modifier else Modifier.toggleable(checked, role = Role.Switch, onValueChange = onChange)
