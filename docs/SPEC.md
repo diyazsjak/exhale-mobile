@@ -396,7 +396,31 @@ data?") with the safe choice as a Ghost button; neither uses a warm colour.
 
 ### 3.9 Outside the app
 - **Quick-settings tile** — `tile/LogTileService.kt`: tap to log; subtitle shows today's count.
-- Planned: Glance home-screen widget, Wear OS tile, smart nudges (see §6).
+- **Home-screen widget** — `widget/` (Glance), offered in the picker as "Exhale" (2×2) and "Exhale, wide"
+  (4×1). One widget; its layout follows its size: under 120dp tall it is a row, otherwise a ring.
+  - **2×2**: a `surface` card (28dp corners) with the ring and the count inside ("4" in Newsreader, "of 10"
+    under it), and one line below: "Next one at 3:13" (time in bold `ink`), "Next one earned" (oxygen ink),
+    "Nothing logged yet" (oxygen ink) or "Open Exhale to set up" before onboarding (dashed ring, ember outline).
+  - **4×1**: a pill with a small ring holding the count, "4 of 10 today" and the same line ("Next one earned ·
+    last 1:43" when there's room, "2 borrowed from tomorrow" in flare ink when something is), and a round
+    `surfaceHigh` ember button on the right. Under 200dp wide the text is left out.
+  - **The ring** is Ember's countdown ring: `surfaceHigh` track filling sky → oxygen, a full oxygen ring with a
+    soft glow once earned, the core tinted by heat. Over the allowance the count (and "of 10") turn flare ink;
+    nothing turns red. It is one bitmap (`WidgetArt`) so it keeps Newsreader; the lines use the system sans.
+  - **Two taps to log** (launchers take the long-press on widgets): tapping the ring (2×2) or the ember button
+    (4×1) arms it for 4 s: the ring runs warm (ember → flare) with a glow, the 4×1's button fills ember, and the
+    line reads "Tap again to log". A second tap inside the window logs (`logged()` / `loggedOver()` haptic, if
+    Android lets a background app vibrate). Then for 8 s the 2×2 shows **Undo** in place of the line and the 4×1
+    "Logged at 2:15" with Undo in place of the button; taps on the ring wait until Undo is gone. Anywhere else on
+    the widget opens Exhale.
+  - **Redraws**: a widget can't tick, so it shows clock times, not a countdown, and the ring moves in 8 steps. It
+    redraws at the next step, when the next one is earned, at midnight, at the end of an armed or Undo window
+    (`WidgetModel.refreshAt`, an inexact alarm), after any log or settings change (`ExhaleRepository.onWrite`)
+    and when the clock, time zone or language changes.
+  - **Theme**: the app's setting (Settings → Appearance); "System" is read when it is drawn, so after the phone
+    switches theme it catches up at the next redraw.
+  - **Privacy**: a home screen is seen by others, so the widget never says "cigarette": only counts and times.
+- Planned: Wear OS tile, smart nudges (see §6).
 
 ### 3.10 History — `HistoryScreen.kt`
 Full-screen route from Rhythm's "All history ›" (back button, no tab bar).
@@ -467,6 +491,14 @@ and the Today popover ask: whether the next one is `earned` (and `earnedFraction
 ring), `overAllowance`, `overToday`, `leftToday`, `borrowingFromTomorrow` (§4 Debt, against the base),
 `tomorrowAllowance`, `borrowNoticeDue` and the plan `outlook`. `ExhaleState` holds it as `plan` and
 reads through to it.
+
+### Widget — `Widget`
+- `Widget.onTap`: Undo showing → ignore; armed (within `ARM_WINDOW`, 4 s) → log; else → arm until now + 4 s.
+- `Widget.model`: setup before onboarding; else logged (Undo within `UNDO_WINDOW`, 8 s, of the widget's own log),
+  armed, nothing logged yet, earned or waiting, from `TodayPlan`. The ring is `earnedFraction` rounded **down** to
+  eighths (`RING_STEPS`), heat is 1 − that, so neither runs ahead of the truth between redraws.
+- `refreshAt`: the earliest of the next ring step, the moment the next one is earned, the end of an armed or Undo
+  window, and midnight.
 
 ### Heat — `Stats.heat`
 `1 − clamp(minutesSinceLast / interval, 0, 1)`. No logs ever → 0 (cool).
@@ -604,6 +636,7 @@ app/src/main/java/app/exhale/
     components/           Pills, buttons, segments, haptics
     screens/              One file per screen; stateless, take ExhaleState + callbacks
   tile/LogTileService.kt  Quick-settings tile
+  widget/                 Glance home-screen widget: layouts, the ring bitmap, tap/undo actions, redraws
 ```
 
 - **Single source of state**: `ExhaleViewModel.state: StateFlow<ExhaleState>`. Screens are stateless
@@ -635,7 +668,6 @@ Every change to `domain/` needs a unit test. Every new screen needs a screenshot
 **Now (prototype, v0.1)** — everything above, local data only.
 
 **Next**
-- Glance home-screen widget: count, countdown, long-press to log; colour follows heat.
 - Notifications: "next one earned" (opt-in) and nudges before the user's own hot hours (max 2/day).
 - AGSL `RuntimeShader` orb and particle field on API 33+, current Canvas versions as fallback.
 - Accelerometer drift on the Air particles; flip-face-down mode for Urge Wave.

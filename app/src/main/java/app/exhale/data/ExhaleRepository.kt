@@ -17,10 +17,14 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 
-/** Single entry point to local data. Everything stays on device. */
+/**
+ * Single entry point to local data. Everything stays on device.
+ * [onWrite] runs after every write the home-screen widget shows (logs and settings), so it can redraw.
+ */
 class ExhaleRepository(
     private val db: ExhaleDatabase,
     private val settingsStore: SettingsStore,
+    private val onWrite: () -> Unit = {},
 ) {
     val settings: Flow<UserSettings> = settingsStore.settings
 
@@ -40,16 +44,25 @@ class ExhaleRepository(
     suspend fun saveTriggers(list: List<TriggerEntry>) =
         db.triggers().replaceAll(list.mapIndexed { i, e -> e.toEntity(i) })
 
-    suspend fun saveSettings(s: UserSettings) = settingsStore.save(s)
+    suspend fun saveSettings(s: UserSettings) {
+        settingsStore.save(s)
+        onWrite()
+    }
 
     /** A cigarette now, or at [at] for one the user forgot (the day list's "Add one you forgot"). */
     suspend fun logCigarette(trigger: Trigger? = null, fromUrge: Boolean = false, at: Instant = Instant.now()): Long =
-        db.logs().insert(SmokeLog(0, at, trigger, fromUrge).toEntity())
+        db.logs().insert(SmokeLog(0, at, trigger, fromUrge).toEntity()).also { onWrite() }
 
-    suspend fun undoLog(id: Long) = db.logs().delete(id)
+    suspend fun undoLog(id: Long) {
+        db.logs().delete(id)
+        onWrite()
+    }
 
     /** Moves log [id] to [at] and sets its trigger (null clears it): the day list's edit. */
-    suspend fun editLog(id: Long, at: Instant, trigger: Trigger?) = db.logs().update(id, at.toEpochMilli(), trigger?.key)
+    suspend fun editLog(id: Long, at: Instant, trigger: Trigger?) {
+        db.logs().update(id, at.toEpochMilli(), trigger?.key)
+        onWrite()
+    }
 
     /** How many logs and cravings are tagged with [key]. */
     suspend fun uses(key: String): Int = db.logs().countTagged(key)
@@ -73,6 +86,7 @@ class ExhaleRepository(
     suspend fun eraseAll() {
         clearHistory()
         settingsStore.clear()
+        onWrite()
     }
 
     /** Replaces everything with [DemoData]: a matching onboarded profile and 60 days of history. */
@@ -83,6 +97,7 @@ class ExhaleRepository(
         saveSettings(demo.settings)
         db.logs().insertAll(demo.logs.map { it.toEntity() })
         db.urges().insertAll(demo.urges.map { it.toEntity() })
+        onWrite()
     }
 
     private suspend fun clearHistory() {

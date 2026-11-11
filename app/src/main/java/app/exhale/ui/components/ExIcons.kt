@@ -29,10 +29,11 @@ object ExIcons {
 
     private const val CIRCLE = "M4 12a8 8 0 1 0 16 0a8 8 0 1 0 -16 0"
 
-    val Ember = icon(
-        "ember",
-        "M12 3C12 7 6.5 9 6.5 14.5a5.5 5.5 0 0 0 11 0C17.5 11.5 15.6 9.8 14.6 8.6C14.4 10.4 13.6 11.4 12.6 11.6C13.4 8.6 12.4 5.4 12 3Z",
-    )
+    /** The ember's outline, shared with the home-screen widget's drawings (`widget/WidgetArt.kt`). */
+    const val EMBER_PATH =
+        "M12 3C12 7 6.5 9 6.5 14.5a5.5 5.5 0 0 0 11 0C17.5 11.5 15.6 9.8 14.6 8.6C14.4 10.4 13.6 11.4 12.6 11.6C13.4 8.6 12.4 5.4 12 3Z"
+
+    val Ember = icon("ember", EMBER_PATH)
     val Regulate = icon("regulate", "M7 3h10", "M7 21h10", "M8 3c0 5 8 6 8 9s-8 4-8 9", "M16 3c0 5-8 6-8 9s8 4 8 9")
     val Rhythm = icon("rhythm", CIRCLE, "M12 7.5V12l3 2")
     val Air = icon("air", "M3 8.5h10a2.5 2.5 0 1 0-2.5-2.5", "M3 12.5h15a2.5 2.5 0 1 1-2.5 2.5", "M3 16.5h7")

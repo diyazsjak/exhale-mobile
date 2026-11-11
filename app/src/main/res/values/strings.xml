@@ -1,4 +1,7 @@
 <resources>
     <string name="app_name">Exhale</string>
     <string name="tile_label">Log cigarette</string>
+    <string name="widget_label">Exhale</string>
+    <string name="widget_wide_label">Exhale, wide</string>
+    <string name="widget_description">Today\'s count and when the next one is earned. Tap twice to log.</string>
 </resources>

@@ -1,6 +1,26 @@
 package app.exhale.ui
 
 import androidx.compose.foundation.background
+import android.widget.FrameLayout
+import android.widget.RemoteViews
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.material3.Text
+import androidx.compose.ui.unit.DpSize
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.glance.ExperimentalGlanceApi
+import androidx.glance.GlanceId
+import androidx.glance.appwidget.GlanceAppWidget
+import androidx.glance.appwidget.compose
+import androidx.glance.appwidget.provideContent
+import app.exhale.domain.WidgetKind
+import app.exhale.domain.WidgetModel
+import app.exhale.ui.theme.DarkColors
+import app.exhale.ui.theme.LightColors
+import app.exhale.widget.WidgetContent
+import kotlinx.coroutines.runBlocking
+import org.robolectric.RuntimeEnvironment
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.fillMaxSize
@@ -218,6 +238,66 @@ class ScreenshotTest {
         }
         compose.onRoot().captureRoboImage("build/outputs/roborazzi/${name}_${if (dark) "dark" else "light"}.png")
     }
+
+    // --- Home-screen widget (SPEC §3.9): every state, rendered through Glance's RemoteViews, on a stand-in wallpaper. ---
+
+    private val widgetStates: List<Pair<String, WidgetModel>> by lazy {
+        val last = Instant.parse("2026-11-02T13:43:00Z")
+        val next = last.plus(Duration.ofMinutes(90))
+        val m = WidgetModel(WidgetKind.WAITING, 4, 10, 0, 0, 0.375f, 0.625f, next, last, null, next)
+        listOf(
+            "Nothing yet" to m.copy(kind = WidgetKind.NOTHING_YET, count = 0, ringFill = 1f, heat = 0f, nextAt = null, lastAt = null),
+            "Waiting" to m,
+            "Next one earned" to m.copy(kind = WidgetKind.EARNED, ringFill = 1f, heat = 0f),
+            "Over allowance" to m.copy(count = 12, overToday = 2, borrowingFromTomorrow = 2, ringFill = 0.25f, heat = 0.75f),
+            "First tap: armed" to m.copy(kind = WidgetKind.ARMED),
+            "Second tap: logged" to m.copy(kind = WidgetKind.LOGGED, count = 5, ringFill = 0f, heat = 1f, loggedAt = now),
+            "Not set up" to m.copy(kind = WidgetKind.SETUP, count = 0, allowance = 0),
+        )
+    }
+
+    @OptIn(ExperimentalGlanceApi::class)
+    private fun widgetViews(dark: Boolean, size: DpSize): List<Pair<String, RemoteViews>> {
+        val context = RuntimeEnvironment.getApplication()
+        val colors = if (dark) DarkColors else LightColors
+        return widgetStates.map { (label, model) ->
+            val widget = object : GlanceAppWidget() {
+                override suspend fun provideGlance(context: android.content.Context, id: GlanceId) =
+                    provideContent { WidgetContent(model, colors, zone, h24 = false) }
+            }
+            label to runBlocking { widget.compose(context, size = size) }
+        }
+    }
+
+    @Composable
+    private fun WidgetBoard(views: List<Pair<String, RemoteViews>>, size: DpSize, dark: Boolean, columns: Int) {
+        val c = Ex.colors
+        // A plain stand-in for the user's wallpaper, so the widget's own card shows against it.
+        val wallpaper = if (dark) androidx.compose.ui.graphics.Color(0xFF262D3A) else androidx.compose.ui.graphics.Color(0xFFCFD8E3)
+        Column(
+            Modifier.fillMaxSize().background(wallpaper).padding(horizontal = 16.dp, vertical = 40.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            views.chunked(columns).forEach { row ->
+                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    row.forEach { (label, rv) ->
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            AndroidView(factory = { ctx -> rv.apply(ctx, FrameLayout(ctx)) }, modifier = Modifier.size(size.width, size.height))
+                            Text(label, style = ExType.caption, color = c.ink)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private val square = DpSize(176.dp, 176.dp)
+    private val wide = DpSize(379.dp, 76.dp)
+
+    @Test fun widgetDark() = widgetViews(true, square).let { v -> shot("11_widget", true) { WidgetBoard(v, square, true, 2) } }
+    @Test fun widgetLight() = widgetViews(false, square).let { v -> shot("11_widget", false) { WidgetBoard(v, square, false, 2) } }
+    @Test fun widgetWideDark() = widgetViews(true, wide).let { v -> shot("11b_widget_wide", true) { WidgetBoard(v, wide, true, 1) } }
+    @Test fun widgetWideLight() = widgetViews(false, wide).let { v -> shot("11b_widget_wide", false) { WidgetBoard(v, wide, false, 1) } }
 
     @Test fun emberDark() = shot("1_ember", true, 0) { EmberScreen(sampleState(), null, {}, {}, { _, _ -> }, {}, {}) }
     @Test fun emberLight() = shot("1_ember", false, 0) { EmberScreen(sampleState(), null, {}, {}, { _, _ -> }, {}, {}) }
