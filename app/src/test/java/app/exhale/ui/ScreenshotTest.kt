@@ -55,6 +55,7 @@ import app.exhale.domain.Urge
 import app.exhale.domain.UrgeOutcome
 import app.exhale.domain.UserSettings
 import app.exhale.ui.screens.AirScreen
+import app.exhale.ui.screens.DataExport
 import app.exhale.ui.screens.EmberScreen
 import app.exhale.ui.screens.HistoryScreen
 import app.exhale.ui.screens.MoneyScreen
@@ -528,11 +529,13 @@ class ScreenshotTest {
         triggerKey: String? = null,
         reminders: Set<ReminderKind> = emptySet(),
         controls: ReminderControls = ReminderControls(),
+        exportFailed: Boolean = false,
     ) {
         val st = sampleState()
         SettingsScreen(
             st.settings.copy(reminders = reminders), st.today, {}, {}, {}, {},
             reminders = controls,
+            export = DataExport(failed = exportFailed),
             prototypeTools = if (tools) PrototypeTools({}, {}) else null,
             initialScroll = scroll,
             initialPage = page,
@@ -619,6 +622,12 @@ class ScreenshotTest {
     @Test fun settingsGoalLight() = shot("7f_settings_goal", false) { Settings(page = SettingsPage.GOAL) }
     // Back from A pack with the price left empty: the rest saved, the price kept.
     @Test fun settingsSavedDark() = shot("7g_settings_saved", true) { Settings(toast = "Saved. Pack price stays 10.00 $.") }
+    // Your data: Export as CSV above Erase, and the toast once a file is saved.
+    @Test fun settingsExportedDark() = shot("7n_settings_exported", true) { Settings(scroll = 4000, toast = "Saved 412 cigarettes and 38 craving waves") }
+    @Test fun settingsExportedLight() = shot("7n_settings_exported", false) { Settings(scroll = 4000, toast = "Saved 412 cigarettes and 38 craving waves") }
+    // The file couldn't be written where the user picked.
+    @Test fun settingsExportFailedDark() = shot("7o_settings_export_failed", true) { Settings(scroll = 4000, exportFailed = true) }
+    @Test fun settingsExportFailedLight() = shot("7o_settings_export_failed", false) { Settings(scroll = 4000, exportFailed = true) }
 
     @Test fun onboardingWelcomeDark() = shot("0a_onboarding_welcome", true) { OnboardingScreen({}, initialStep = 0) }
     @Test fun onboardingWelcomeLight() = shot("0a_onboarding_welcome", false) { OnboardingScreen({}, initialStep = 0) }

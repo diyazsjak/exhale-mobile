@@ -44,6 +44,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import app.exhale.domain.Export
 import app.exhale.domain.HomeStyle
 import app.exhale.BuildConfig
 import app.exhale.domain.ReminderKind
@@ -51,12 +52,15 @@ import app.exhale.domain.ReminderOutlook
 import app.exhale.domain.UrgeOutcome
 import app.exhale.notify.ReminderNotifier
 import app.exhale.ui.components.ExAppBar
+import app.exhale.ui.components.ExToastState
 import app.exhale.ui.components.ExIcons
 import app.exhale.ui.components.FloatingTabBar
 import app.exhale.ui.components.Overline
 import app.exhale.ui.components.TabItem
 import app.exhale.ui.components.rememberAppBarScrollBehavior
+import app.exhale.ui.components.rememberToastState
 import app.exhale.ui.screens.AirScreen
+import app.exhale.ui.screens.DataExport
 import app.exhale.ui.screens.EmberScreen
 import app.exhale.ui.screens.GlowEdge
 import app.exhale.ui.screens.HistoryScreen
@@ -306,8 +310,11 @@ private fun MainNav(state: ExhaleState, logged: LoggedEvent?, vm: ExhaleViewMode
                 )
             }
             composable(SETTINGS) {
+                val settingsToast = rememberToastState()
                 SettingsScreen(
                     reminders = reminderControls(vm, state.reminderOutlook),
+                    export = dataExport(vm, settingsToast, state.today),
+                    toast = settingsToast,
                     current = state.settings,
                     today = state.today,
                     onSave = vm::saveSettings,
@@ -407,6 +414,30 @@ private fun reminderControls(vm: ExhaleViewModel, outlook: ReminderOutlook): Rem
                 }
             },
             onOpenSettings = { context.startActivity(ReminderNotifier.settingsIntent(context)) },
+        )
+    }
+}
+
+/**
+ * Settings → Export as CSV: Android's save dialog (the Storage Access Framework, so no permission and
+ * the file goes only where the user picks), then the write. A saved file is reported in [toast]; one
+ * that couldn't be written opens Settings' dialog.
+ */
+@Composable
+private fun dataExport(vm: ExhaleViewModel, toast: ExToastState, today: LocalDate): DataExport {
+    val context = LocalContext.current
+    var failed by rememberSaveable { mutableStateOf(false) }
+    val save = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument(Export.MIME)) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult // the user backed out
+        vm.exportCsv({ context.contentResolver.openOutputStream(uri, "w") }) { counts ->
+            if (counts != null) toast.show(Export.savedNote(counts)) else failed = true
+        }
+    }
+    return remember(failed, today) {
+        DataExport(
+            onExport = { save.launch(Export.fileName(today)) },
+            failed = failed,
+            onFailedSeen = { failed = false },
         )
     }
 }

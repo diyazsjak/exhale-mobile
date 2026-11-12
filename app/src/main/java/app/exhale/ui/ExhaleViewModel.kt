@@ -8,6 +8,7 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import app.exhale.ExhaleApp
 import app.exhale.data.ExhaleRepository
 import app.exhale.domain.DayTimes
+import app.exhale.domain.Export
 import app.exhale.domain.History
 import app.exhale.domain.Milestones
 import app.exhale.domain.Money
@@ -30,6 +31,7 @@ import app.exhale.domain.Urge
 import app.exhale.domain.UrgeOutcome
 import app.exhale.domain.UserSettings
 import app.exhale.ui.components.DayDot
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -42,6 +44,9 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
+import java.io.IOException
+import java.io.OutputStream
 import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
@@ -297,6 +302,25 @@ class ExhaleViewModel(private val repo: ExhaleRepository) : ViewModel() {
     fun markBorrowNoticeSeen() {
         val st = state.value
         if (!st.settings.borrowNoticeSeenOn(st.today)) saveSettings(st.settings.withBorrowNoticeSeen(st.today))
+    }
+
+    /**
+     * Settings → Export as CSV: writes everything to the stream [open] gives (the file the user picked),
+     * then hands [done] what it holds, or null when the file couldn't be opened or written.
+     */
+    fun exportCsv(open: () -> OutputStream?, done: (Export.Counts?) -> Unit) {
+        viewModelScope.launch {
+            val counts = withContext(Dispatchers.IO) {
+                try {
+                    open()?.use { repo.exportCsv(it) }
+                } catch (e: IOException) {
+                    null
+                } catch (e: SecurityException) {
+                    null
+                }
+            }
+            done(counts)
+        }
     }
 
     fun loadDemo() { viewModelScope.launch { triggerLock.withLock { repo.seedDemo() } } }

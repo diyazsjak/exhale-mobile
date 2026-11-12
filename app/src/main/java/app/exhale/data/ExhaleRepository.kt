@@ -1,6 +1,7 @@
 package app.exhale.data
 
 import app.exhale.domain.DemoData
+import app.exhale.domain.Export
 import app.exhale.domain.ReminderKind
 import app.exhale.domain.SmokeLog
 import app.exhale.domain.Trigger
@@ -14,6 +15,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import java.io.OutputStream
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -102,6 +104,18 @@ class ExhaleRepository(
     suspend fun countToday(zone: ZoneId = ZoneId.systemDefault()): Int {
         val start = LocalDate.now(zone).atStartOfDay(zone).toInstant().toEpochMilli()
         return db.logs().countBetween(start, start + 86_400_000L)
+    }
+
+    /**
+     * Every cigarette and craving wave as CSV ([Export.csv]), written to [out] (a file the user picked).
+     * Blocking writes: call it off the main thread. Says how many of each the file holds.
+     */
+    suspend fun exportCsv(out: OutputStream, zone: ZoneId = ZoneId.systemDefault()): Export.Counts {
+        val logs = logs.first()
+        val urges = urges.first()
+        out.write(Export.csv(logs, urges, zone).toByteArray(Charsets.UTF_8))
+        out.flush()
+        return Export.Counts(logs.size, urges.size)
     }
 
     suspend fun eraseAll() {

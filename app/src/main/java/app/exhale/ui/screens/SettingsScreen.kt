@@ -111,6 +111,13 @@ class ReminderControls(
     val onOpenSettings: () -> Unit = {},
 )
 
+/**
+ * Settings → Your data → Export as CSV. [onExport] opens Android's save dialog: the file goes only where
+ * the user picks, and Exhale needs no permission for it. [failed]: the last file couldn't be written; a
+ * dialog says so until [onFailedSeen].
+ */
+class DataExport(val onExport: () -> Unit = {}, val failed: Boolean = false, val onFailedSeen: () -> Unit = {})
+
 /** Rows that exist only in debug builds: the live component catalogue and demo data. */
 class PrototypeTools(val onDesignSystem: () -> Unit, val onDemo: () -> Unit)
 
@@ -147,6 +154,7 @@ fun SettingsScreen(
     /** With [initialPage] TRIGGER: the trigger to open, null to add one. */
     initialTriggerKey: String? = null,
     reminders: ReminderControls = ReminderControls(),
+    export: DataExport = DataExport(),
 ) {
     var baseline by rememberSaveable { mutableIntStateOf(current.baselinePerDay) }
     var allowance by rememberSaveable { mutableIntStateOf(initialAllowance) }
@@ -191,7 +199,7 @@ fun SettingsScreen(
                 null -> SettingsMain(
                     current, today, baseline, { baseline = it }, baselineChanged, allowance, { allowance = it }, allowanceChanged,
                     dirty, mainScroll, onTheme, onHome, { page = it }, Triggers.shown(triggers), reminders,
-                    { ask = Ask.ERASE }, prototypeTools?.let { t -> PrototypeTools(t.onDesignSystem) { ask = Ask.DEMO } },
+                    export.onExport, { ask = Ask.ERASE }, prototypeTools?.let { t -> PrototypeTools(t.onDesignSystem) { ask = Ask.DEMO } },
                     onBack = { if (dirty) ask = Ask.UNSAVED else onClose() },
                     onSaveCounts = { saveCounts(); toast.show("Saved") },
                 )
@@ -247,6 +255,17 @@ fun SettingsScreen(
         )
         null -> Unit
     }
+    if (export.failed) {
+        ExChoiceDialog(
+            "That file wasn't saved",
+            "Android couldn't write to the place you picked. Try somewhere else, like Downloads.",
+            listOf(
+                DialogAction("Choose another place", ButtonStyle.Primary) { export.onFailedSeen(); export.onExport() },
+                DialogAction("Close", ButtonStyle.Ghost, onClick = export.onFailedSeen),
+            ),
+            onDismiss = export.onFailedSeen,
+        )
+    }
 }
 
 @Composable
@@ -266,6 +285,7 @@ private fun SettingsMain(
     onOpen: (SettingsPage) -> Unit,
     shownTriggers: List<Trigger>,
     reminders: ReminderControls,
+    onExport: () -> Unit,
     onErase: () -> Unit,
     tools: PrototypeTools?,
     onBack: () -> Unit,
@@ -319,8 +339,11 @@ private fun SettingsMain(
 
             Overline("Your data", Modifier.paddingTop())
             CardWithCaption {
-                ExCard(padding = ExSpace.sm) { ListRow("Erase all data", onErase) }
-                Footnote("Exhale keeps everything on this phone. No account, no cloud.")
+                ExCard(padding = ExSpace.sm) {
+                    ListRow("Export as CSV", onExport, sub = "Every cigarette and craving wave, for a spreadsheet")
+                    ListRow("Erase all data", onErase)
+                }
+                Footnote("Exhale keeps everything on this phone. No account, no cloud. An export goes only where you save it.")
             }
 
             if (tools != null) {

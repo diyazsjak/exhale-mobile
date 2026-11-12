@@ -379,7 +379,14 @@ Edits everything set during onboarding; keeps the original plan start. Sections,
 - **Money**, one card: **A pack** ("20 for 10.00 $") and **Saving for** (the amount on the right, the
   goal name on a second line that is cut short when long, so the amount always shows whole). Each opens
   its own screen.
-- **Your data**: Erase all data, then "Exhale keeps everything on this phone. No account, no cloud."
+- **Your data**: **Export as CSV** ("Every cigarette and craving wave, for a spreadsheet") and Erase all
+  data, then "Exhale keeps everything on this phone. No account, no cloud. An export goes only where you save it."
+  - Export opens Android's save dialog (Storage Access Framework, `CreateDocument("text/csv")`: no permission,
+    no network) with `exhale-2026-11-12.csv` filled in. Backing out does nothing. Once written, a toast says what
+    the file holds: "Saved 412 cigarettes and 38 craving waves" ("Saved. Nothing logged yet, so it has only the
+    headings." with nothing logged). When the place can't be written, a dialog says "That file wasn't saved" /
+    "Android couldn't write to the place you picked. Try somewhere else, like Downloads." with **Choose another
+    place** (Primary, opens the save dialog again) and Close (Ghost). The format is in §4 Export.
 - **Prototype tools**, debug builds only (`BuildConfig.DEBUG`): Design system (opens `UiKitScreen`,
   the live component catalogue; its route only exists in debug builds) and Load demo data (60 days, so
   Rhythm has a "30 days before" to compare with).
@@ -682,6 +689,21 @@ Loading it keeps the current Appearance and Home screen.
   cigarette was logged or a craving wave started in the 30 minutes before (`BUSY_QUIET`).
 - The words (`title`, `text`) are part of each `Reminder`, so tests check them.
 
+### Export — `Export`
+- `csv(logs, urges, zone)`: one row per cigarette and craving wave, oldest first (a cigarette before a wave at
+  the same moment), under the header `type,date,time,trigger,minutes,outcome,timestamp`:
+  - `type` "cigarette" or "craving wave"; `date` and `time` on the phone's clock (`2026-11-12`, `08:14`, always
+    24-hour so spreadsheets read it); `trigger` the label as shown, or empty.
+  - `minutes` and `outcome` for craving waves only: the length rounded to the minute, "rode it out" (SURVIVED) or
+    "smoked" (SMOKED).
+  - `timestamp`: the moment to the second with its UTC offset (ISO 8601), so nothing is lost.
+- RFC 4180: commas, CRLF line ends, a cell with a comma, quote or line break quoted (quotes doubled). A UTF-8
+  byte-order mark first, so Excel reads the user's own trigger names in any script. A cell that starts like a
+  formula (`=`, `+`, `-`, `@`, tab, CR) gets a leading `'`, so a spreadsheet shows it as text.
+- `fileName(today)`: `exhale-<date>.csv`. `savedNote(counts)`: the toast after saving.
+- Storage: `ExhaleRepository.exportCsv(out)` writes what's stored to the stream the save dialog gave. Only
+  cigarettes and craving waves go in; settings, the plan and the goal stay out.
+
 ### Milestones — `Milestones`
 WHO timeline; lower bound of each range unlocks it. `clearFraction` = progress to 12 h, min 0.05.
 - `next(since)`: the first milestone not reached; null with no logs or once all are. `reached(since)`
@@ -753,7 +775,7 @@ Every change to `domain/` needs a unit test. Every new screen needs a screenshot
 - Notifications: "next one earned" (opt-in). (Busy-hour nudges, milestones, the savings goal and plan weeks are in: §3.9.)
 - AGSL `RuntimeShader` orb and particle field on API 33+, current Canvas versions as fallback.
 - Accelerometer drift on the Air particles; flip-face-down mode for Urge Wave.
-- CSV export; biometric app lock; discreet icon/notification option.
+- Biometric app lock; discreet icon/notification option.
 - Quit mode: explicit quit date, milestones counted from it.
 
 **Later**
