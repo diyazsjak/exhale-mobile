@@ -17,6 +17,8 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import java.io.ByteArrayOutputStream
+import java.io.InputStream
 import java.io.OutputStream
 import java.time.Instant
 import java.time.LocalDate
@@ -118,6 +120,22 @@ class ExhaleRepository(
         out.write(Export.csv(logs, urges, zone).toByteArray(Charsets.UTF_8))
         out.flush()
         return Export.Counts(logs.size, urges.size)
+    }
+
+    /**
+     * The rows of the file in [input] (a file the user picked): [Import.decode]d and [Import.parse]d, or null
+     * when it is over [Import.MAX_BYTES] or not a file Exhale can read. Blocking reads: call it off the main thread.
+     */
+    fun readCsv(input: InputStream, zone: ZoneId = ZoneId.systemDefault()): Import.Rows? {
+        val out = ByteArrayOutputStream()
+        val buffer = ByteArray(64 * 1024)
+        while (true) {
+            val n = input.read(buffer)
+            if (n < 0) break
+            out.write(buffer, 0, n)
+            if (out.size() > Import.MAX_BYTES) return null
+        }
+        return Import.parse(Import.decode(out.toByteArray()), zone)
     }
 
     /** What importing [rows] would add to what's stored now ([Import.plan]). */

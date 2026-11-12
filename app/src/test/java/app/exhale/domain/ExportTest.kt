@@ -57,6 +57,10 @@ class ExportTest {
         assertEquals("\"'@a,b\"", Export.cell("@a,b"))
         assertEquals("\"two\nlines\"", Export.cell("two\nlines"))
         assertEquals("", Export.cell(""))
+        // A leading ' is guarded too, so taking the guard off gives back exactly what was written.
+        assertEquals("''hi", Export.cell("'hi"))
+        listOf("=1+1", "'=1+1", "'hi", "''", "'", "-", "plain").forEach { assertEquals(it, Export.unguard(Export.guard(it))) }
+        assertEquals("'hi", Export.unguard("'hi")) // typed in a spreadsheet, never guarded: kept
     }
 
     @Test fun fileName_isDated() {

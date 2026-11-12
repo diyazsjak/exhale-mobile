@@ -14,6 +14,17 @@ class TriggersTest {
     private fun custom(name: String) = Trigger(Triggers.CUSTOM_PREFIX + name, name)
     private fun shownCount(n: Int) = (1..n).map { custom("T$it") }
 
+    @Test fun forName_findsShownOrHiddenWithoutChangingThem_elseAdds() {
+        val list = Triggers.delete(Triggers.setHidden(base, "DRIVING", true), "BORED", emptyMap())
+        assertEquals(TriggerAdded(list, Trigger.COFFEE), Triggers.forName(list, " coffee ", "k"))
+        assertEquals(TriggerAdded(list, Trigger.DRIVING), Triggers.forName(list, "Driving", "k")) // stays hidden
+        assertEquals(Trigger.BORED, Triggers.forName(list, "Bored", "k")!!.trigger) // a deleted built-in comes back
+        val own = Triggers.forName(list, "Bus  stop", "k")!!
+        assertEquals(Trigger("k", "Bus stop"), own.trigger)
+        assertEquals("Bus stop", labels(own.list)[labels(own.list).indexOf("-Driving") - 1])
+        assertNull(Triggers.forName(list, "   ", "k"))
+    }
+
     @Test fun defaults_areTheBuiltInsShown() {
         assertEquals(BuiltInTrigger.entries.map { it.label }, labels(base))
         assertEquals(Trigger.BUILT_IN, Triggers.shown(base))

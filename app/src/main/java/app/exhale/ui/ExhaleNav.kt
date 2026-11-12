@@ -45,6 +45,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import app.exhale.domain.Export
+import app.exhale.domain.Import
 import app.exhale.domain.HomeStyle
 import app.exhale.BuildConfig
 import app.exhale.domain.ReminderKind
@@ -60,8 +61,7 @@ import app.exhale.ui.components.TabItem
 import app.exhale.ui.components.rememberAppBarScrollBehavior
 import app.exhale.ui.components.rememberToastState
 import app.exhale.ui.screens.AirScreen
-import app.exhale.ui.screens.DataExport
-import app.exhale.ui.screens.DataImport
+import app.exhale.ui.screens.DataControls
 import app.exhale.ui.screens.EmberScreen
 import app.exhale.ui.screens.GlowEdge
 import app.exhale.ui.screens.HistoryScreen
@@ -314,8 +314,7 @@ private fun MainNav(state: ExhaleState, logged: LoggedEvent?, vm: ExhaleViewMode
                 val settingsToast = rememberToastState()
                 SettingsScreen(
                     reminders = reminderControls(vm, state.reminderOutlook),
-                    export = dataExport(vm, settingsToast, state.today),
-                    importer = dataImport(vm, settingsToast),
+                    data = dataControls(vm, settingsToast, state.today),
                     toast = settingsToast,
                     current = state.settings,
                     today = state.today,
@@ -421,47 +420,28 @@ private fun reminderControls(vm: ExhaleViewModel, outlook: ReminderOutlook): Rem
 }
 
 /**
- * Settings → Export as CSV: Android's save dialog (the Storage Access Framework, so no permission and
- * the file goes only where the user picks), then the write. A saved file is reported in [toast]; one
- * that couldn't be written opens Settings' dialog.
+ * Settings → Your data, with Android's side of it: the save dialog for an export and the file picker for an
+ * import (the Storage Access Framework: no permission, the file goes or comes only where the user picks;
+ * the picker takes any file, since providers label CSV files differently). What was saved or added is
+ * reported in [toast]; anything to ask comes from [ExhaleViewModel.dataAsk].
  */
 @Composable
-private fun dataExport(vm: ExhaleViewModel, toast: ExToastState, today: LocalDate): DataExport {
+private fun dataControls(vm: ExhaleViewModel, toast: ExToastState, today: LocalDate): DataControls {
     val context = LocalContext.current
-    var failed by rememberSaveable { mutableStateOf(false) }
+    val ask by vm.dataAsk.collectAsStateWithLifecycle()
     val save = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument(Export.MIME)) { uri ->
-        if (uri == null) return@rememberLauncherForActivityResult // the user backed out
-        vm.exportCsv({ context.contentResolver.openOutputStream(uri, "w") }) { counts ->
-            if (counts != null) toast.show(Export.savedNote(counts)) else failed = true
-        }
+        if (uri != null) vm.exportCsv({ context.contentResolver.openOutputStream(uri, "w") }) { toast.show(Export.savedNote(it)) }
     }
-    return remember(failed, today) {
-        DataExport(
-            onExport = { save.launch(Export.fileName(today)) },
-            failed = failed,
-            onFailedSeen = { failed = false },
-        )
-    }
-}
-
-/**
- * Settings → Import from CSV: Android's file picker (no permission; any file, since providers label CSV
- * files differently, and [ExhaleViewModel.readImport] says when one can't be read), then Settings' question
- * and the import. What was added is reported in [toast].
- */
-@Composable
-private fun dataImport(vm: ExhaleViewModel, toast: ExToastState): DataImport {
-    val context = LocalContext.current
-    val ask by vm.importAsk.collectAsStateWithLifecycle()
     val pick = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) vm.readImport { context.contentResolver.openInputStream(uri) }
     }
-    return remember(ask) {
-        DataImport(
+    return remember(ask, today) {
+        DataControls(
+            onExport = { save.launch(Export.fileName(today)) },
             onImport = { pick.launch(arrayOf("*/*")) },
             ask = ask,
-            onConfirm = { vm.confirmImport { counts -> Export.counted(counts)?.let { toast.show("Added $it") } } },
-            onDismiss = vm::dismissImport,
+            onConfirmImport = { vm.confirmImport { counts -> Import.addedNote(counts)?.let(toast::show) } },
+            onDismiss = vm::dismissData,
         )
     }
 }

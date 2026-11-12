@@ -56,8 +56,7 @@ import app.exhale.domain.Urge
 import app.exhale.domain.UrgeOutcome
 import app.exhale.domain.UserSettings
 import app.exhale.ui.screens.AirScreen
-import app.exhale.ui.screens.DataExport
-import app.exhale.ui.screens.DataImport
+import app.exhale.ui.screens.DataControls
 import app.exhale.ui.screens.EmberScreen
 import app.exhale.ui.screens.HistoryScreen
 import app.exhale.ui.screens.MoneyScreen
@@ -110,6 +109,7 @@ import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import java.util.Locale
 import kotlin.random.Random
 
 /**
@@ -531,15 +531,13 @@ class ScreenshotTest {
         triggerKey: String? = null,
         reminders: Set<ReminderKind> = emptySet(),
         controls: ReminderControls = ReminderControls(),
-        exportFailed: Boolean = false,
-        importAsk: ImportAsk? = null,
+        dataAsk: DataAsk? = null,
     ) {
         val st = sampleState()
         SettingsScreen(
             st.settings.copy(reminders = reminders), st.today, {}, {}, {}, {},
             reminders = controls,
-            export = DataExport(failed = exportFailed),
-            importer = DataImport(ask = importAsk),
+            data = DataControls(ask = dataAsk),
             prototypeTools = if (tools) PrototypeTools({}, {}) else null,
             initialScroll = scroll,
             initialPage = page,
@@ -630,22 +628,23 @@ class ScreenshotTest {
     @Test fun settingsExportedDark() = shot("7n_settings_exported", true) { Settings(scroll = 4000, toast = "Saved 412 cigarettes and 38 craving waves") }
     @Test fun settingsExportedLight() = shot("7n_settings_exported", false) { Settings(scroll = 4000, toast = "Saved 412 cigarettes and 38 craving waves") }
     // The file couldn't be written where the user picked.
-    @Test fun settingsExportFailedDark() = shot("7o_settings_export_failed", true) { Settings(scroll = 4000, exportFailed = true) }
+    @Test fun settingsExportFailedDark() = shot("7o_settings_export_failed", true) { Settings(scroll = 4000, dataAsk = DataAsk.ExportFailed) }
     // A file picked to import: what it adds and leaves out, asked before anything is added.
-    private val importReady = ImportAsk.Ready(
-        Import.Plan(
+    private val importReady = DataAsk.ImportReady(
+        Import.question(Import.Plan(
             logs = List(412) { i -> SmokeLog(0, Instant.parse("2026-09-04T12:00:00Z").plusSeconds(i * 3L * 3600), null, false) },
             urges = List(38) { i -> Urge(0, Instant.parse("2026-09-05T12:00:00Z").plusSeconds(i * 86_400L), Instant.parse("2026-09-05T12:04:00Z").plusSeconds(i * 86_400L), UrgeOutcome.SURVIVED, null) },
             triggers = ownTriggers,
             newTriggers = listOf(PHONE, Trigger("custom:bus", "Bus stop")),
             already = 20, later = 0, unreadable = 1,
-        ),
+        ), today = LocalDate.parse("2026-11-02"), zone = zone, locale = Locale.UK),
+        rows = Import.Rows(emptyList(), emptyList(), 0),
     )
-    @Test fun settingsImportDark() = shot("7p_settings_import", true) { Settings(scroll = 4000, importAsk = importReady) }
-    @Test fun settingsImportLight() = shot("7p_settings_import", false) { Settings(scroll = 4000, importAsk = importReady) }
-    @Test fun settingsImportUnreadableDark() = shot("7q_settings_import_unreadable", true) { Settings(scroll = 4000, importAsk = ImportAsk.Unreadable) }
-    @Test fun settingsImportUnreadableLight() = shot("7q_settings_import_unreadable", false) { Settings(scroll = 4000, importAsk = ImportAsk.Unreadable) }
-    @Test fun settingsExportFailedLight() = shot("7o_settings_export_failed", false) { Settings(scroll = 4000, exportFailed = true) }
+    @Test fun settingsImportDark() = shot("7p_settings_import", true) { Settings(scroll = 4000, dataAsk = importReady) }
+    @Test fun settingsImportLight() = shot("7p_settings_import", false) { Settings(scroll = 4000, dataAsk = importReady) }
+    @Test fun settingsImportUnreadableDark() = shot("7q_settings_import_unreadable", true) { Settings(scroll = 4000, dataAsk = DataAsk.ImportUnreadable) }
+    @Test fun settingsImportUnreadableLight() = shot("7q_settings_import_unreadable", false) { Settings(scroll = 4000, dataAsk = DataAsk.ImportUnreadable) }
+    @Test fun settingsExportFailedLight() = shot("7o_settings_export_failed", false) { Settings(scroll = 4000, dataAsk = DataAsk.ExportFailed) }
 
     @Test fun onboardingWelcomeDark() = shot("0a_onboarding_welcome", true) { OnboardingScreen({}, initialStep = 0) }
     @Test fun onboardingWelcomeLight() = shot("0a_onboarding_welcome", false) { OnboardingScreen({}, initialStep = 0) }

@@ -46,7 +46,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
@@ -107,12 +106,14 @@ data class ExhaleState(
     val outlook: PlanOutlook get() = plan.outlook
 }
 
-/** What Settings asks after a file was picked to import. */
-sealed interface ImportAsk {
-    /** The file was read: what importing it would add and leave out. */
-    data class Ready(val plan: Import.Plan) : ImportAsk
+/** What Settings → Your data asks after an export or once a file to import is read. */
+sealed interface DataAsk {
+    /** The file couldn't be written where the user picked. */
+    data object ExportFailed : DataAsk
+    /** The file to import was read: [question] is asked before its [rows] are added. */
+    data class ImportReady(val question: Import.Question, val rows: Import.Rows) : DataAsk
     /** It couldn't be opened, or isn't a file Exhale can read. */
-    data object Unreadable : ImportAsk
+    data object ImportUnreadable : DataAsk
 }
 
 /** One-shot UI feedback after logging, used for the undo + trigger toast. */
@@ -315,64 +316,58 @@ class ExhaleViewModel(private val repo: ExhaleRepository) : ViewModel() {
         if (!st.settings.borrowNoticeSeenOn(st.today)) saveSettings(st.settings.withBorrowNoticeSeen(st.today))
     }
 
+    private val _dataAsk = MutableStateFlow<DataAsk?>(null)
+    /** What Settings → Your data asks about an export or an import; null while nothing is asked. */
+    val dataAsk: StateFlow<DataAsk?> = _dataAsk.asStateFlow()
+
     /**
      * Settings → Export as CSV: writes everything to the stream [open] gives (the file the user picked),
-     * then hands [done] what it holds, or null when the file couldn't be opened or written.
+     * then hands [done] what it holds; one that couldn't be opened or written asks [DataAsk.ExportFailed].
      */
-    fun exportCsv(open: () -> OutputStream?, done: (Export.Counts?) -> Unit) {
+    fun exportCsv(open: () -> OutputStream?, done: (Export.Counts) -> Unit) {
         viewModelScope.launch {
-            val counts = withContext(Dispatchers.IO) {
-                try {
-                    open()?.use { repo.exportCsv(it) }
-                } catch (e: IOException) {
-                    null
-                } catch (e: SecurityException) {
-                    null
-                }
-            }
-            done(counts)
+            val counts = ioOrNull { open()?.use { repo.exportCsv(it, zone) } }
+            if (counts != null) done(counts) else _dataAsk.value = DataAsk.ExportFailed
         }
     }
 
-    private val _importAsk = MutableStateFlow<ImportAsk?>(null)
-    /** Settings → Import from CSV: what to ask about the file picked; null while nothing is asked. */
-    val importAsk: StateFlow<ImportAsk?> = _importAsk.asStateFlow()
-    private var importRows: Import.Rows? = null
-
-    /** Reads the file [open] gives (the one the user picked) and works out what importing it would do. */
+    /** Settings → Import from CSV: reads the file [open] gives and asks what importing it would do. */
     fun readImport(open: () -> InputStream?) {
         viewModelScope.launch {
-            val rows = withContext(Dispatchers.IO) {
-                try {
-                    open()?.use(::readCapped)?.let { Import.parse(it, zone) }
-                } catch (e: IOException) {
-                    null
-                } catch (e: SecurityException) {
-                    null
-                }
-            }
-            importRows = rows
-            _importAsk.value = if (rows == null) ImportAsk.Unreadable
-            else ImportAsk.Ready(triggerLock.withLock { repo.importPlan(rows, Instant.now()) })
+            val rows = ioOrNull { open()?.use { repo.readCsv(it, zone) } }
+            _dataAsk.value = if (rows == null) DataAsk.ImportUnreadable
+            else DataAsk.ImportReady(Import.question(planImport(rows), LocalDate.now(zone), zone), rows)
         }
     }
 
     /**
-     * Adds what the file read last has that isn't here, worked out again against the data as it is now
+     * Adds what the file asked about has that isn't here, worked out again against the data as it is now
      * (under the trigger lock, so a tag or edit can't slip in between), then hands [done] what was added.
      */
     fun confirmImport(done: (Export.Counts) -> Unit) {
-        val rows = importRows ?: return
-        dismissImport()
+        val rows = (_dataAsk.value as? DataAsk.ImportReady)?.rows ?: return
+        dismissData()
         viewModelScope.launch {
-            val plan = triggerLock.withLock { repo.importPlan(rows, Instant.now()).also { repo.applyImport(it) } }
+            val plan = triggerLock.withLock { planImport(rows).also { repo.applyImport(it) } }
             done(plan.counts)
         }
     }
 
-    fun dismissImport() {
-        _importAsk.value = null
-        importRows = null
+    fun dismissData() { _dataAsk.value = null }
+
+    /** [Import.plan] against what's stored now, off the main thread. */
+    private suspend fun planImport(rows: Import.Rows): Import.Plan =
+        withContext(Dispatchers.Default) { repo.importPlan(rows, Instant.now()) }
+
+    /** [block] on the IO dispatcher; a file that can't be opened, read or written gives null. */
+    private suspend fun <T> ioOrNull(block: suspend () -> T?): T? = withContext(Dispatchers.IO) {
+        try {
+            block()
+        } catch (e: IOException) {
+            null
+        } catch (e: SecurityException) {
+            null
+        }
     }
 
     fun loadDemo() { viewModelScope.launch { triggerLock.withLock { repo.seedDemo() } } }
@@ -392,19 +387,3 @@ class ExhaleViewModel(private val repo: ExhaleRepository) : ViewModel() {
 /** The last 7 days, today last, for the week strip. Days before tracking began have no count; days before the plan start have no allowance. */
 fun weekDays(s: UserSettings, logs: List<SmokeLog>, today: LocalDate, zone: ZoneId, dataStart: LocalDate?): List<DayDot> =
     History.week(s, logs, today, zone, dataStart).map { (date, t) -> DayDot(date, t?.count, t?.allowance) }
-
-/** Largest file Settings imports: far more than years of logs, small enough to read at once. */
-private const val IMPORT_MAX_BYTES = 16 * 1024 * 1024
-
-/** [input] as UTF-8 text; a file over [IMPORT_MAX_BYTES] reads as null. */
-private fun readCapped(input: InputStream): String? {
-    val out = ByteArrayOutputStream()
-    val buffer = ByteArray(64 * 1024)
-    while (true) {
-        val n = input.read(buffer)
-        if (n < 0) break
-        out.write(buffer, 0, n)
-        if (out.size() > IMPORT_MAX_BYTES) return null
-    }
-    return out.toString(Charsets.UTF_8.name())
-}

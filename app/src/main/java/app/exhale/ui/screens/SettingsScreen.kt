@@ -61,9 +61,8 @@ import app.exhale.domain.Triggers
 import app.exhale.domain.HomeStyle
 import app.exhale.domain.ThemeMode
 import app.exhale.domain.UserSettings
-import app.exhale.domain.Export
 import app.exhale.ui.Fmt
-import app.exhale.ui.ImportAsk
+import app.exhale.ui.DataAsk
 import app.exhale.ui.components.BackHeader
 import app.exhale.ui.components.ButtonStyle
 import app.exhale.ui.components.CounterRow
@@ -90,7 +89,6 @@ import app.exhale.ui.theme.Ex
 import app.exhale.ui.theme.ExSpace
 import app.exhale.ui.theme.ExType
 import java.time.LocalDate
-import java.time.ZoneId
 
 /** The edit screens Settings opens. Each one saves when you go back. */
 enum class SettingsPage { TAPER, PACK, GOAL, TRIGGERS, TRIGGER;
@@ -115,21 +113,16 @@ class ReminderControls(
 )
 
 /**
- * Settings → Your data → Export as CSV. [onExport] opens Android's save dialog: the file goes only where
- * the user picks, and Exhale needs no permission for it. [failed]: the last file couldn't be written; a
- * dialog says so until [onFailedSeen].
+ * Settings → Your data: [onExport] opens Android's save dialog and [onImport] its file picker (the file goes
+ * or comes only where the user picks, and Exhale needs no permission). [ask] is what Settings asks about
+ * the result: an export that couldn't be written, or a file to import ([onConfirmImport] adds it).
+ * [onDismiss] closes the question.
  */
-class DataExport(val onExport: () -> Unit = {}, val failed: Boolean = false, val onFailedSeen: () -> Unit = {})
-
-/**
- * Settings → Your data → Import from CSV. [onImport] opens Android's file picker; once a file is read,
- * [ask] says what importing it would do (or that it can't be read), and Settings asks before
- * [onConfirm] adds it. [onDismiss] closes the question without adding anything.
- */
-class DataImport(
+class DataControls(
+    val onExport: () -> Unit = {},
     val onImport: () -> Unit = {},
-    val ask: ImportAsk? = null,
-    val onConfirm: () -> Unit = {},
+    val ask: DataAsk? = null,
+    val onConfirmImport: () -> Unit = {},
     val onDismiss: () -> Unit = {},
 )
 
@@ -169,8 +162,7 @@ fun SettingsScreen(
     /** With [initialPage] TRIGGER: the trigger to open, null to add one. */
     initialTriggerKey: String? = null,
     reminders: ReminderControls = ReminderControls(),
-    export: DataExport = DataExport(),
-    importer: DataImport = DataImport(),
+    data: DataControls = DataControls(),
 ) {
     var baseline by rememberSaveable { mutableIntStateOf(current.baselinePerDay) }
     var allowance by rememberSaveable { mutableIntStateOf(initialAllowance) }
@@ -215,7 +207,7 @@ fun SettingsScreen(
                 null -> SettingsMain(
                     current, today, baseline, { baseline = it }, baselineChanged, allowance, { allowance = it }, allowanceChanged,
                     dirty, mainScroll, onTheme, onHome, { page = it }, Triggers.shown(triggers), reminders,
-                    export.onExport, importer.onImport, { ask = Ask.ERASE }, prototypeTools?.let { t -> PrototypeTools(t.onDesignSystem) { ask = Ask.DEMO } },
+                    data.onExport, data.onImport, { ask = Ask.ERASE }, prototypeTools?.let { t -> PrototypeTools(t.onDesignSystem) { ask = Ask.DEMO } },
                     onBack = { if (dirty) ask = Ask.UNSAVED else onClose() },
                     onSaveCounts = { saveCounts(); toast.show("Saved") },
                 )
@@ -271,69 +263,33 @@ fun SettingsScreen(
         )
         null -> Unit
     }
-    if (export.failed) {
-        ExChoiceDialog(
+    data.ask?.let { DataDialog(it, data) }
+}
+
+/** What Settings asks after an export or once a file to import is read. */
+@Composable
+private fun DataDialog(ask: DataAsk, controls: DataControls) {
+    val close = DialogAction("Close", ButtonStyle.Ghost, onClick = controls.onDismiss)
+    fun retry(label: String, again: () -> Unit) = DialogAction(label, ButtonStyle.Primary) { controls.onDismiss(); again() }
+    val (title, text, actions) = when (ask) {
+        DataAsk.ExportFailed -> Triple(
             "That file wasn't saved",
             "Android couldn't write to the place you picked. Try somewhere else, like Downloads.",
-            listOf(
-                DialogAction("Choose another place", ButtonStyle.Primary) { export.onFailedSeen(); export.onExport() },
-                DialogAction("Close", ButtonStyle.Ghost, onClick = export.onFailedSeen),
-            ),
-            onDismiss = export.onFailedSeen,
+            listOf(retry("Choose another place", controls.onExport), close),
         )
-    }
-    importer.ask?.let { ImportDialog(it, today, importer) }
-}
-
-/** The question after a file is picked to import: add what's new, nothing new, or it can't be read. */
-@Composable
-private fun ImportDialog(ask: ImportAsk, today: LocalDate, controls: DataImport) {
-    val close = DialogAction("Close", ButtonStyle.Ghost, onClick = controls.onDismiss)
-    when (ask) {
-        ImportAsk.Unreadable -> ExChoiceDialog(
+        DataAsk.ImportUnreadable -> Triple(
             "Exhale can't read that file",
             "It reads CSV files like the ones Export as CSV makes: a type column, and a timestamp or a date and time.",
-            listOf(DialogAction("Choose another file", ButtonStyle.Primary) { controls.onDismiss(); controls.onImport() }, close),
-            onDismiss = controls.onDismiss,
+            listOf(retry("Choose another file", controls.onImport), close),
         )
-        is ImportAsk.Ready -> {
-            val p = ask.plan
-            val counted = Export.counted(p.counts)
-            val skipped = listOfNotNull(
-                p.later.takeIf { it > 0 }?.let { "$it later than now ${if (it == 1) "is" else "are"} left out." },
-                p.unreadable.takeIf { it > 0 }?.let { "${if (it == 1) "1 line" else "$it lines"} couldn't be read and ${if (it == 1) "is" else "are"} left out." },
-            )
-            if (counted == null) {
-                ExChoiceDialog(
-                    "Nothing new in that file",
-                    listOf(if (p.already > 0) "What it has is already in Exhale." else "It has no cigarettes or craving waves to add.")
-                        .plus(skipped).joinToString(" "),
-                    listOf(DialogAction("Close", ButtonStyle.Primary, onClick = controls.onDismiss)),
-                    onDismiss = controls.onDismiss,
-                )
-            } else {
-                val zone = ZoneId.systemDefault()
-                val span = p.span?.let { (from, to) -> from.atZone(zone).toLocalDate() to to.atZone(zone).toLocalDate() }
-                ExChoiceDialog(
-                    "Add $counted?",
-                    listOfNotNull(
-                        span?.let { (from, to) -> importSpan(from, to, today) },
-                        p.newTriggers.takeIf { it.isNotEmpty() }?.let { t -> "New for your triggers: ${t.joinToString(", ") { it.label }}." },
-                    ).plus(if (p.already > 0) "${p.already} already in Exhale stay as they are." else "Nothing already here changes.")
-                        .plus(skipped).joinToString(" "),
-                    listOf(DialogAction("Add them", ButtonStyle.Primary, onClick = controls.onConfirm), DialogAction("Cancel", ButtonStyle.Ghost, onClick = controls.onDismiss)),
-                    onDismiss = controls.onDismiss,
-                )
-            }
-        }
+        is DataAsk.ImportReady -> Triple(
+            ask.question.title,
+            ask.question.text,
+            if (ask.question.adds) listOf(DialogAction("Add them", ButtonStyle.Primary, onClick = controls.onConfirmImport), DialogAction("Cancel", ButtonStyle.Ghost, onClick = controls.onDismiss))
+            else listOf(DialogAction("Close", ButtonStyle.Primary, onClick = controls.onDismiss)),
+        )
     }
-}
-
-/** "From 4 September to 12 November." with years once either isn't this year; "On 12 November." for one day. */
-private fun importSpan(from: LocalDate, to: LocalDate, today: LocalDate): String {
-    val years = from.year != today.year || to.year != today.year
-    fun day(d: LocalDate) = if (years) Fmt.dayMonthYear(d) else Fmt.dayMonth(d)
-    return if (from == to) "On ${day(from)}." else "From ${day(from)} to ${day(to)}."
+    ExChoiceDialog(title, text, actions, onDismiss = controls.onDismiss)
 }
 
 @Composable

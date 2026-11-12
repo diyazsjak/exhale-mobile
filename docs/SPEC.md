@@ -390,13 +390,15 @@ Edits everything set during onboarding; keeps the original plan start. Sections,
   - Import opens Android's file picker (`OpenDocument`, any type: providers label CSV files differently; no
     permission). Backing out does nothing. Once the file is read, a dialog asks before anything is added: "Add
     412 cigarettes and 38 craving waves?" / "From 4 September to 12 November." (years shown once either date
-    isn't this year; "On 12 November." for one day), "New for your triggers: Bus stop, Phone calls.", "20
-    already in Exhale stay as they are." (or "Nothing already here changes."), "1 later than now is left out.",
+    isn't this year; "On 12 November." for one day), "New for your triggers: Bus stop, Phone calls.", "Some
+    names look garbled, like “???????”. In Excel, save the file as CSV UTF-8 and import it again." (when a new
+    trigger's name didn't survive the file's encoding), "20 already in Exhale stay as they are." ("1 … stays as it
+    is", or "Nothing already here changes."), "1 later than now is left out.",
     "3 lines couldn't be read and are left out.", with **Add them** (Primary) and Cancel (Ghost). Add works it
     out again against the data as it is then, adds it in one transaction and says "Added 412 cigarettes and 38
     craving waves". A file with nothing new says "Nothing new in that file" / "What it has is already in
     Exhale." (or "It has no cigarettes or craving waves to add."), Close. A file that can't be opened or read
-    (or is over 16 MB) says "Exhale can't read that file" / "It reads CSV files like the ones Export as CSV
+    (or is over 4 MB) says "Exhale can't read that file" / "It reads CSV files like the ones Export as CSV
     makes: a type column, and a timestamp or a date and time." with **Choose another file** and Close. Rules in
     §4 Import.
 - **Prototype tools**, debug builds only (`BuildConfig.DEBUG`): Design system (opens `UiKitScreen`,
@@ -644,6 +646,8 @@ the picked day's tally and its `times` (`DayTimes`, below). `topTrigger(hour)` i
   trigger), Hidden (by a hidden one, which adding shows again) or Ok; the Add and rename screens use it.
 - `add`: a name the list has means that trigger (shown again if hidden); the name of a deleted
   built-in brings the built-in back; otherwise a new one goes after the shown ones.
+- `forName`: what a name means without changing the list: the trigger already called that, shown or hidden
+  (hidden stays hidden), else `add`. Import uses it.
 - `rename`: only the user's own, to a name that isn't blank or taken. Built-ins are never renamed.
 - `setHidden`: hiding moves it after the shown ones; showing it again puts it at the end of the shown.
 - `move(from, to)`: positions among the shown ones.
@@ -711,29 +715,40 @@ Loading it keeps the current Appearance and Home screen.
   - `timestamp`: the moment to the second with its UTC offset (ISO 8601), so nothing is lost.
 - RFC 4180: commas, CRLF line ends, a cell with a comma, quote or line break quoted (quotes doubled). A UTF-8
   byte-order mark first, so Excel reads the user's own trigger names in any script. A cell that starts like a
-  formula (`=`, `+`, `-`, `@`, tab, CR) gets a leading `'`, so a spreadsheet shows it as text.
+  formula (`=`, `+`, `-`, `@`, tab, CR), or with a `'`, gets a leading `'` (`guard`), so a spreadsheet shows it
+  as text; `unguard` takes exactly that off, so a name round-trips whatever it starts with. The column names,
+  type words ("cigarette", "craving wave") and outcome words are constants Import reads by.
 - `fileName(today)`: `exhale-<date>.csv`. `savedNote(counts)`: the toast after saving.
 - Storage: `ExhaleRepository.exportCsv(out)` writes what's stored to the stream the save dialog gave. Only
   cigarettes and craving waves go in; settings, the plan and the goal stay out.
 
 ### Import — `Import`
+- `decode(bytes, locale)`: the file's text: UTF-8 when it is valid UTF-8 (what Export writes); otherwise the
+  Windows code page a spreadsheet saves in for the phone's language (`legacyCharset`: 1251 for Russian,
+  Kazakh, Ukrainian and other Cyrillic ones, 1250 for Central European, 1253 Greek, 1254 Turkish, else 1252),
+  since Excel's plain "CSV" on Windows saves in the region's code page. `garbled(label)`: a name with a
+  replacement character or `??` (a code page that couldn't hold the letters); the question warns about new
+  triggers named like that (`Plan.garbledTriggers`). Files larger than `MAX_BYTES` (4 MB) aren't read.
 - `parse(text, zone)`: the rows of a file in Export's format, or null when it has no `type` column or no
   moment (`timestamp`, or `date` and `time`). Lenient about what a spreadsheet may have done: columns by
   header name in any order and case, extra columns ignored, a byte-order mark, LF or CRLF, `;` as the
   separator when the header has no comma, RFC 4180 quotes, and Export's leading `'` on formula-like cells
-  taken off. The moment is the `timestamp`, else `date` + `time` on the phone's clock. A craving wave with no
+  taken off (`Export.unguard`). The moment is the `timestamp`, else `date` + `time` on the phone's clock. A craving wave with no
   `minutes` lasts a whole wave (4 min) and with no `outcome` was ridden out; a type, moment, length (0 to 24 h)
   or outcome that can't be read leaves the row out, counted as `unreadable`.
 - `plan(rows, logs, urges, triggers, now)`: what importing adds. Nothing stored changes or goes. A row is
   already here when one of its kind starts in the same second (the file keeps whole seconds), stored or
   earlier in the file, so importing a file twice adds nothing the second time. Rows after `now` are left out,
   and a wave still running at `now` ends there. A trigger label (tidied by `Triggers.clean`) means the
-  trigger already called that, shown or hidden (hidden stays hidden); otherwise `Triggers.add` makes it, at the
-  end of the shown ones (a deleted built-in comes back). `span` is the first and last moment added.
-- Storage: `ExhaleRepository.applyImport` saves the trigger list (when one is new) and inserts the logs and
-  urges in one Room transaction, then `onWrite` (widget, reminders). `ExhaleViewModel` reads the file off the
-  main thread (16 MB at most), keeps its rows while Settings asks, and plans again under the trigger lock on
-  Add. No schema change.
+  trigger already called that, shown or hidden (hidden stays hidden); otherwise it is added at the end of the shown
+  ones (`Triggers.forName`; a deleted built-in comes back). `span` is the first and last moment added.
+- `question(plan, today, zone, locale)`: the dialog's title and text (§3.8) and whether it `adds`;
+  `addedNote(counts)`: the toast after adding.
+- Storage: `ExhaleRepository.readCsv(input)` reads, decodes and parses the picked file; `applyImport` saves the trigger list (when one is new) and inserts the logs and
+  urges in one Room transaction, then `onWrite` (widget, reminders). `ExhaleViewModel` reads the file and plans off the
+  main thread, keeps the rows in `DataAsk.ImportReady` while Settings asks, and plans again under the trigger
+  lock on Add. One `DataAsk` (export failed, import ready, unreadable) drives Settings' data dialog. No schema
+  change.
 
 ### Milestones — `Milestones`
 WHO timeline; lower bound of each range unlocks it. `clearFraction` = progress to 12 h, min 0.05.

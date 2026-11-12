@@ -6,7 +6,9 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.Instant
+import java.time.LocalDate
 import java.time.ZoneId
+import java.util.Locale
 
 class ImportTest {
     private val zone = ZoneId.of("Asia/Almaty") // UTC+5
@@ -143,6 +145,77 @@ class ImportTest {
         assertEquals(listOf(Trigger.BORED, bus), p.newTriggers)
         assertTrue(p.triggers.first { it.key == "DRIVING" }.hidden)
         assertEquals(listOf("BORED", bus.key, "DRIVING"), p.triggers.takeLast(3).map { it.key })
+    }
+
+    @Test fun roundTrip_labelsThatLookLikeFormulasOrQuotes() {
+        val labels = listOf("=1+1", "'=sum", "'quoted", "@home")
+        val list = labels.foldIndexed(Triggers.defaults) { i, l, n -> Triggers.add(l, n, "custom:$i")!!.list }
+        val logs = labels.mapIndexed { i, n -> SmokeLog(i.toLong(), at("2026-11-12T0${i}:00:00Z"), list.first { it.trigger.label == n }.trigger, false) }
+        val p = Import.plan(rows(Export.csv(logs, emptyList(), zone)), emptyList(), emptyList(), list, now, newKey)
+        assertEquals(labels, p.logs.map { it.trigger?.label })
+    }
+
+    @Test fun decode_utf8_elseTheRegionsOldCodePage() {
+        assertEquals("\uFEFFАвтобус", Import.decode("\uFEFFАвтобус".toByteArray(Charsets.UTF_8), Locale("ru")))
+        // Excel's plain "CSV" on Windows: the region's code page.
+        assertEquals("Автобус", Import.decode("Автобус".toByteArray(charset("windows-1251")), Locale("kk")))
+        assertEquals("Café", Import.decode("Café".toByteArray(charset("windows-1252")), Locale.UK))
+        assertEquals("Łódź", Import.decode("Łódź".toByteArray(charset("windows-1250")), Locale("pl")))
+    }
+
+    @Test fun garbled_namesAreFlagged() {
+        assertTrue(Import.garbled("Caf\uFFFD"))
+        assertTrue(Import.garbled("???????"))
+        assertFalse(Import.garbled("Why?"))
+        assertFalse(Import.garbled("Автобус"))
+    }
+
+    private val today = LocalDate.parse("2026-11-12")
+    private fun question(text: String, logs: List<SmokeLog> = emptyList()) =
+        Import.question(plan(text, logs = logs), today, zone, Locale.UK)
+
+    @Test fun question_add_namesTheDaysNewTriggersAndWhatsLeftOut() {
+        val stored = listOf(SmokeLog(9, at("2026-11-12T03:00:00Z"), null, false))
+        val q = question(
+            header +
+                "cigarette,,,Bus stop,,,2026-09-04T08:00:00+05:00\r\n" +
+                "cigarette,,,,,,2026-11-12T08:00:00+05:00\r\n" + // stored
+                "craving wave,,,,4,,2026-11-12T09:00:00+05:00\r\n" +
+                "cigarette,,,,,,2026-11-12T20:00:00+05:00\r\n" + // later than now
+                "cigar,,,,,,2026-11-12T08:00:00+05:00\r\n" +
+                "cigar,,,,,,2026-11-12T08:00:00+05:00\r\n",
+            logs = stored,
+        )
+        assertTrue(q.adds)
+        assertEquals("Add 1 cigarette and 1 craving wave?", q.title)
+        assertEquals(
+            "From 4 September to 12 November. New for your triggers: Bus stop. 1 already in Exhale stays as it is. " +
+                "1 later than now is left out. 2 lines couldn't be read and are left out.",
+            q.text,
+        )
+    }
+
+    @Test fun question_yearsShowOutsideThisYear_oneDaySaysOn_garbledNamesWarn() {
+        val q = question(header + "cigarette,,,??????,,,2025-12-31T08:00:00+05:00\r\ncigarette,,,,,,2025-12-31T09:00:00+05:00\r\n")
+        assertEquals(
+            "On 31 December 2025. New for your triggers: ??????. Some names look garbled, like “??????”. " +
+                "In Excel, save the file as CSV UTF-8 and import it again. Nothing already here changes.",
+            q.text,
+        )
+    }
+
+    @Test fun question_nothingNew() {
+        val stored = listOf(SmokeLog(9, at("2026-11-12T03:00:00Z"), null, false))
+        val again = question(header + "cigarette,,,,,,2026-11-12T08:00:00+05:00\r\n", logs = stored)
+        assertFalse(again.adds)
+        assertEquals("Nothing new in that file", again.title)
+        assertEquals("What it has is already in Exhale.", again.text)
+        assertEquals("It has no cigarettes or craving waves to add. 1 line couldn't be read and is left out.", question(header + "cigar,,,,,,\r\n").text)
+    }
+
+    @Test fun addedNote() {
+        assertEquals("Added 2 cigarettes", Import.addedNote(Export.Counts(2, 0)))
+        assertNull(Import.addedNote(Export.Counts(0, 0)))
     }
 
     @Test fun counted_and_savedNote() {

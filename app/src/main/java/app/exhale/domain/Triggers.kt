@@ -99,6 +99,15 @@ object Triggers {
         }
     }
 
+    /**
+     * The trigger [name] means without changing one the list has: the one already called that, shown or
+     * hidden (a hidden one stays hidden), else what [add] makes. Null when [name] is blank. Import uses it.
+     */
+    fun forName(list: List<TriggerEntry>, name: String, key: String): TriggerAdded? {
+        val label = clean(name) ?: return null
+        return named(list, label)?.let { TriggerAdded(list, it.trigger) } ?: add(list, label, key)
+    }
+
     /** Renames the user's own trigger [key]. Null when it's a built-in, missing, or [name] is blank or taken. */
     fun rename(list: List<TriggerEntry>, key: String, name: String): List<TriggerEntry>? {
         val label = (check(list, name, except = key) as? NameCheck.Ok)?.name ?: return null
