@@ -84,6 +84,9 @@ object Fmt {
     /** "4 September": a date within the year, e.g. when the plan started. */
     fun dayMonth(date: LocalDate): String = date.format(DateTimeFormatter.ofPattern("d MMMM", Locale.getDefault()))
 
+    /** "4 September 2025". */
+    fun dayMonthYear(date: LocalDate): String = date.format(DateTimeFormatter.ofPattern("d MMMM yyyy", Locale.getDefault()))
+
     fun mmss(seconds: Long): String = "%02d:%02d".format(seconds / 60, seconds % 60)
 
     /** Money as "12,345 KZT" / "62 $" / "10.00 $": the number first, then the currency symbol or code. */

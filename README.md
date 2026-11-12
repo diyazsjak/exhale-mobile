@@ -20,7 +20,7 @@ As you cut down, the app literally cools.
 - **Air** — WHO recovery milestones over a particle field that clears.
 - **Money** — money not burned vs. your old baseline, with a savings goal.
 - **Quick-settings tile** — log without opening the app.
-- **Export as CSV** — every cigarette and craving wave in a spreadsheet file, saved where you choose (Settings → Your data).
+- **Export and import CSV** — every cigarette and craving wave in a spreadsheet file, saved where you choose; importing one adds what isn't in the app yet (Settings → Your data).
 - Step-by-step onboarding: habit, cost, plan, optional goal.
 - Dark and light themes (follows the phone, override in Settings).
 - Floating tab bar, big pill buttons, Newsreader + Figtree type.

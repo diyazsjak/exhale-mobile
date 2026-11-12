@@ -1,7 +1,9 @@
 package app.exhale.data
 
+import androidx.room.withTransaction
 import app.exhale.domain.DemoData
 import app.exhale.domain.Export
+import app.exhale.domain.Import
 import app.exhale.domain.ReminderKind
 import app.exhale.domain.SmokeLog
 import app.exhale.domain.Trigger
@@ -116,6 +118,21 @@ class ExhaleRepository(
         out.write(Export.csv(logs, urges, zone).toByteArray(Charsets.UTF_8))
         out.flush()
         return Export.Counts(logs.size, urges.size)
+    }
+
+    /** What importing [rows] would add to what's stored now ([Import.plan]). */
+    suspend fun importPlan(rows: Import.Rows, now: Instant): Import.Plan =
+        Import.plan(rows, logs.first(), urges.first(), triggers.first(), now)
+
+    /** Adds what [plan] found new, its new triggers included, all at once. */
+    suspend fun applyImport(plan: Import.Plan) {
+        if (!plan.adds) return
+        db.withTransaction {
+            if (plan.newTriggers.isNotEmpty()) saveTriggers(plan.triggers)
+            db.logs().insertAll(plan.logs.map { it.toEntity() })
+            db.urges().insertAll(plan.urges.map { it.toEntity() })
+        }
+        onWrite()
     }
 
     suspend fun eraseAll() {

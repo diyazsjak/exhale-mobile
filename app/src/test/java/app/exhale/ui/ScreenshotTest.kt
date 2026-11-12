@@ -45,6 +45,7 @@ import app.exhale.domain.LogEdit
 import app.exhale.domain.Money
 import app.exhale.domain.TodayPlan
 import app.exhale.domain.Recovery
+import app.exhale.domain.Import
 import app.exhale.domain.SmokeLog
 import app.exhale.domain.Stats
 import app.exhale.domain.TaperType
@@ -56,6 +57,7 @@ import app.exhale.domain.UrgeOutcome
 import app.exhale.domain.UserSettings
 import app.exhale.ui.screens.AirScreen
 import app.exhale.ui.screens.DataExport
+import app.exhale.ui.screens.DataImport
 import app.exhale.ui.screens.EmberScreen
 import app.exhale.ui.screens.HistoryScreen
 import app.exhale.ui.screens.MoneyScreen
@@ -530,12 +532,14 @@ class ScreenshotTest {
         reminders: Set<ReminderKind> = emptySet(),
         controls: ReminderControls = ReminderControls(),
         exportFailed: Boolean = false,
+        importAsk: ImportAsk? = null,
     ) {
         val st = sampleState()
         SettingsScreen(
             st.settings.copy(reminders = reminders), st.today, {}, {}, {}, {},
             reminders = controls,
             export = DataExport(failed = exportFailed),
+            importer = DataImport(ask = importAsk),
             prototypeTools = if (tools) PrototypeTools({}, {}) else null,
             initialScroll = scroll,
             initialPage = page,
@@ -627,6 +631,20 @@ class ScreenshotTest {
     @Test fun settingsExportedLight() = shot("7n_settings_exported", false) { Settings(scroll = 4000, toast = "Saved 412 cigarettes and 38 craving waves") }
     // The file couldn't be written where the user picked.
     @Test fun settingsExportFailedDark() = shot("7o_settings_export_failed", true) { Settings(scroll = 4000, exportFailed = true) }
+    // A file picked to import: what it adds and leaves out, asked before anything is added.
+    private val importReady = ImportAsk.Ready(
+        Import.Plan(
+            logs = List(412) { i -> SmokeLog(0, Instant.parse("2026-09-04T12:00:00Z").plusSeconds(i * 3L * 3600), null, false) },
+            urges = List(38) { i -> Urge(0, Instant.parse("2026-09-05T12:00:00Z").plusSeconds(i * 86_400L), Instant.parse("2026-09-05T12:04:00Z").plusSeconds(i * 86_400L), UrgeOutcome.SURVIVED, null) },
+            triggers = ownTriggers,
+            newTriggers = listOf(PHONE, Trigger("custom:bus", "Bus stop")),
+            already = 20, later = 0, unreadable = 1,
+        ),
+    )
+    @Test fun settingsImportDark() = shot("7p_settings_import", true) { Settings(scroll = 4000, importAsk = importReady) }
+    @Test fun settingsImportLight() = shot("7p_settings_import", false) { Settings(scroll = 4000, importAsk = importReady) }
+    @Test fun settingsImportUnreadableDark() = shot("7q_settings_import_unreadable", true) { Settings(scroll = 4000, importAsk = ImportAsk.Unreadable) }
+    @Test fun settingsImportUnreadableLight() = shot("7q_settings_import_unreadable", false) { Settings(scroll = 4000, importAsk = ImportAsk.Unreadable) }
     @Test fun settingsExportFailedLight() = shot("7o_settings_export_failed", false) { Settings(scroll = 4000, exportFailed = true) }
 
     @Test fun onboardingWelcomeDark() = shot("0a_onboarding_welcome", true) { OnboardingScreen({}, initialStep = 0) }

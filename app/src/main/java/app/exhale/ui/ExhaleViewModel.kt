@@ -9,6 +9,7 @@ import app.exhale.ExhaleApp
 import app.exhale.data.ExhaleRepository
 import app.exhale.domain.DayTimes
 import app.exhale.domain.Export
+import app.exhale.domain.Import
 import app.exhale.domain.History
 import app.exhale.domain.Milestones
 import app.exhale.domain.Money
@@ -45,7 +46,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import java.io.ByteArrayOutputStream
 import java.io.IOException
+import java.io.InputStream
 import java.io.OutputStream
 import java.time.Duration
 import java.time.Instant
@@ -102,6 +105,14 @@ data class ExhaleState(
     val tomorrowAllowance: Int get() = plan.tomorrowAllowance
     val borrowNoticeDue: Boolean get() = plan.borrowNoticeDue
     val outlook: PlanOutlook get() = plan.outlook
+}
+
+/** What Settings asks after a file was picked to import. */
+sealed interface ImportAsk {
+    /** The file was read: what importing it would add and leave out. */
+    data class Ready(val plan: Import.Plan) : ImportAsk
+    /** It couldn't be opened, or isn't a file Exhale can read. */
+    data object Unreadable : ImportAsk
 }
 
 /** One-shot UI feedback after logging, used for the undo + trigger toast. */
@@ -323,6 +334,47 @@ class ExhaleViewModel(private val repo: ExhaleRepository) : ViewModel() {
         }
     }
 
+    private val _importAsk = MutableStateFlow<ImportAsk?>(null)
+    /** Settings → Import from CSV: what to ask about the file picked; null while nothing is asked. */
+    val importAsk: StateFlow<ImportAsk?> = _importAsk.asStateFlow()
+    private var importRows: Import.Rows? = null
+
+    /** Reads the file [open] gives (the one the user picked) and works out what importing it would do. */
+    fun readImport(open: () -> InputStream?) {
+        viewModelScope.launch {
+            val rows = withContext(Dispatchers.IO) {
+                try {
+                    open()?.use(::readCapped)?.let { Import.parse(it, zone) }
+                } catch (e: IOException) {
+                    null
+                } catch (e: SecurityException) {
+                    null
+                }
+            }
+            importRows = rows
+            _importAsk.value = if (rows == null) ImportAsk.Unreadable
+            else ImportAsk.Ready(triggerLock.withLock { repo.importPlan(rows, Instant.now()) })
+        }
+    }
+
+    /**
+     * Adds what the file read last has that isn't here, worked out again against the data as it is now
+     * (under the trigger lock, so a tag or edit can't slip in between), then hands [done] what was added.
+     */
+    fun confirmImport(done: (Export.Counts) -> Unit) {
+        val rows = importRows ?: return
+        dismissImport()
+        viewModelScope.launch {
+            val plan = triggerLock.withLock { repo.importPlan(rows, Instant.now()).also { repo.applyImport(it) } }
+            done(plan.counts)
+        }
+    }
+
+    fun dismissImport() {
+        _importAsk.value = null
+        importRows = null
+    }
+
     fun loadDemo() { viewModelScope.launch { triggerLock.withLock { repo.seedDemo() } } }
 
     fun eraseAll() { viewModelScope.launch { triggerLock.withLock { repo.eraseAll() } } }
@@ -340,3 +392,19 @@ class ExhaleViewModel(private val repo: ExhaleRepository) : ViewModel() {
 /** The last 7 days, today last, for the week strip. Days before tracking began have no count; days before the plan start have no allowance. */
 fun weekDays(s: UserSettings, logs: List<SmokeLog>, today: LocalDate, zone: ZoneId, dataStart: LocalDate?): List<DayDot> =
     History.week(s, logs, today, zone, dataStart).map { (date, t) -> DayDot(date, t?.count, t?.allowance) }
+
+/** Largest file Settings imports: far more than years of logs, small enough to read at once. */
+private const val IMPORT_MAX_BYTES = 16 * 1024 * 1024
+
+/** [input] as UTF-8 text; a file over [IMPORT_MAX_BYTES] reads as null. */
+private fun readCapped(input: InputStream): String? {
+    val out = ByteArrayOutputStream()
+    val buffer = ByteArray(64 * 1024)
+    while (true) {
+        val n = input.read(buffer)
+        if (n < 0) break
+        out.write(buffer, 0, n)
+        if (out.size() > IMPORT_MAX_BYTES) return null
+    }
+    return out.toString(Charsets.UTF_8.name())
+}

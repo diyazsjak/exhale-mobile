@@ -9,7 +9,7 @@ import java.time.temporal.ChronoUnit
 
 /**
  * Settings → Your data → Export as CSV: every cigarette and craving wave as one CSV file, for a
- * spreadsheet. One row per event, oldest first, with the columns in [HEADER]:
+ * spreadsheet ([Import] reads it back). One row per event, oldest first, with the columns in [HEADER]:
  * - `type`: "cigarette" or "craving wave".
  * - `date`, `time`: on the phone's clock (`2026-11-12`, `08:14`, always 24-hour, so spreadsheets read it).
  * - `trigger`: its label as the user sees it, or empty.
@@ -47,13 +47,14 @@ object Export {
     }
 
     /** What the toast says once the file is saved. */
-    fun savedNote(counts: Counts): String {
-        val parts = listOfNotNull(
-            counts.cigarettes.takeIf { it > 0 }?.let { plural(it, "cigarette") },
-            counts.waves.takeIf { it > 0 }?.let { plural(it, "craving wave") },
-        )
-        return if (parts.isEmpty()) "Saved. Nothing logged yet, so it has only the headings." else "Saved " + parts.joinToString(" and ")
-    }
+    fun savedNote(counts: Counts): String =
+        counted(counts)?.let { "Saved $it" } ?: "Saved. Nothing logged yet, so it has only the headings."
+
+    /** "412 cigarettes and 38 craving waves", leaving out a kind there are none of; null for none at all. */
+    fun counted(counts: Counts): String? = listOfNotNull(
+        counts.cigarettes.takeIf { it > 0 }?.let { plural(it, "cigarette") },
+        counts.waves.takeIf { it > 0 }?.let { plural(it, "craving wave") },
+    ).joinToString(" and ").ifEmpty { null }
 
     private fun cigaretteRow(log: SmokeLog, zone: ZoneId): List<String> {
         val at = log.at.atZone(zone)

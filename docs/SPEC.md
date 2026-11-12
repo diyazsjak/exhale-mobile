@@ -379,14 +379,26 @@ Edits everything set during onboarding; keeps the original plan start. Sections,
 - **Money**, one card: **A pack** ("20 for 10.00 $") and **Saving for** (the amount on the right, the
   goal name on a second line that is cut short when long, so the amount always shows whole). Each opens
   its own screen.
-- **Your data**: **Export as CSV** ("Every cigarette and craving wave, for a spreadsheet") and Erase all
-  data, then "Exhale keeps everything on this phone. No account, no cloud. An export goes only where you save it."
+- **Your data**: **Export as CSV** ("Every cigarette and craving wave, for a spreadsheet"), **Import from CSV**
+  ("Adds what isn't here yet from an Exhale file") and Erase all data, then "Exhale keeps everything on this phone. No account, no cloud. An export goes only where you save it."
   - Export opens Android's save dialog (Storage Access Framework, `CreateDocument("text/csv")`: no permission,
     no network) with `exhale-2026-11-12.csv` filled in. Backing out does nothing. Once written, a toast says what
     the file holds: "Saved 412 cigarettes and 38 craving waves" ("Saved. Nothing logged yet, so it has only the
     headings." with nothing logged). When the place can't be written, a dialog says "That file wasn't saved" /
     "Android couldn't write to the place you picked. Try somewhere else, like Downloads." with **Choose another
     place** (Primary, opens the save dialog again) and Close (Ghost). The format is in §4 Export.
+  - Import opens Android's file picker (`OpenDocument`, any type: providers label CSV files differently; no
+    permission). Backing out does nothing. Once the file is read, a dialog asks before anything is added: "Add
+    412 cigarettes and 38 craving waves?" / "From 4 September to 12 November." (years shown once either date
+    isn't this year; "On 12 November." for one day), "New for your triggers: Bus stop, Phone calls.", "20
+    already in Exhale stay as they are." (or "Nothing already here changes."), "1 later than now is left out.",
+    "3 lines couldn't be read and are left out.", with **Add them** (Primary) and Cancel (Ghost). Add works it
+    out again against the data as it is then, adds it in one transaction and says "Added 412 cigarettes and 38
+    craving waves". A file with nothing new says "Nothing new in that file" / "What it has is already in
+    Exhale." (or "It has no cigarettes or craving waves to add."), Close. A file that can't be opened or read
+    (or is over 16 MB) says "Exhale can't read that file" / "It reads CSV files like the ones Export as CSV
+    makes: a type column, and a timestamp or a date and time." with **Choose another file** and Close. Rules in
+    §4 Import.
 - **Prototype tools**, debug builds only (`BuildConfig.DEBUG`): Design system (opens `UiKitScreen`,
   the live component catalogue; its route only exists in debug builds) and Load demo data (60 days, so
   Rhythm has a "30 days before" to compare with).
@@ -703,6 +715,25 @@ Loading it keeps the current Appearance and Home screen.
 - `fileName(today)`: `exhale-<date>.csv`. `savedNote(counts)`: the toast after saving.
 - Storage: `ExhaleRepository.exportCsv(out)` writes what's stored to the stream the save dialog gave. Only
   cigarettes and craving waves go in; settings, the plan and the goal stay out.
+
+### Import — `Import`
+- `parse(text, zone)`: the rows of a file in Export's format, or null when it has no `type` column or no
+  moment (`timestamp`, or `date` and `time`). Lenient about what a spreadsheet may have done: columns by
+  header name in any order and case, extra columns ignored, a byte-order mark, LF or CRLF, `;` as the
+  separator when the header has no comma, RFC 4180 quotes, and Export's leading `'` on formula-like cells
+  taken off. The moment is the `timestamp`, else `date` + `time` on the phone's clock. A craving wave with no
+  `minutes` lasts a whole wave (4 min) and with no `outcome` was ridden out; a type, moment, length (0 to 24 h)
+  or outcome that can't be read leaves the row out, counted as `unreadable`.
+- `plan(rows, logs, urges, triggers, now)`: what importing adds. Nothing stored changes or goes. A row is
+  already here when one of its kind starts in the same second (the file keeps whole seconds), stored or
+  earlier in the file, so importing a file twice adds nothing the second time. Rows after `now` are left out,
+  and a wave still running at `now` ends there. A trigger label (tidied by `Triggers.clean`) means the
+  trigger already called that, shown or hidden (hidden stays hidden); otherwise `Triggers.add` makes it, at the
+  end of the shown ones (a deleted built-in comes back). `span` is the first and last moment added.
+- Storage: `ExhaleRepository.applyImport` saves the trigger list (when one is new) and inserts the logs and
+  urges in one Room transaction, then `onWrite` (widget, reminders). `ExhaleViewModel` reads the file off the
+  main thread (16 MB at most), keeps its rows while Settings asks, and plans again under the trigger lock on
+  Add. No schema change.
 
 ### Milestones — `Milestones`
 WHO timeline; lower bound of each range unlocks it. `clearFraction` = progress to 12 h, min 0.05.

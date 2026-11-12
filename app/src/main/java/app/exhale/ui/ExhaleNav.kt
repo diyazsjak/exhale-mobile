@@ -61,6 +61,7 @@ import app.exhale.ui.components.rememberAppBarScrollBehavior
 import app.exhale.ui.components.rememberToastState
 import app.exhale.ui.screens.AirScreen
 import app.exhale.ui.screens.DataExport
+import app.exhale.ui.screens.DataImport
 import app.exhale.ui.screens.EmberScreen
 import app.exhale.ui.screens.GlowEdge
 import app.exhale.ui.screens.HistoryScreen
@@ -314,6 +315,7 @@ private fun MainNav(state: ExhaleState, logged: LoggedEvent?, vm: ExhaleViewMode
                 SettingsScreen(
                     reminders = reminderControls(vm, state.reminderOutlook),
                     export = dataExport(vm, settingsToast, state.today),
+                    importer = dataImport(vm, settingsToast),
                     toast = settingsToast,
                     current = state.settings,
                     today = state.today,
@@ -438,6 +440,28 @@ private fun dataExport(vm: ExhaleViewModel, toast: ExToastState, today: LocalDat
             onExport = { save.launch(Export.fileName(today)) },
             failed = failed,
             onFailedSeen = { failed = false },
+        )
+    }
+}
+
+/**
+ * Settings → Import from CSV: Android's file picker (no permission; any file, since providers label CSV
+ * files differently, and [ExhaleViewModel.readImport] says when one can't be read), then Settings' question
+ * and the import. What was added is reported in [toast].
+ */
+@Composable
+private fun dataImport(vm: ExhaleViewModel, toast: ExToastState): DataImport {
+    val context = LocalContext.current
+    val ask by vm.importAsk.collectAsStateWithLifecycle()
+    val pick = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) vm.readImport { context.contentResolver.openInputStream(uri) }
+    }
+    return remember(ask) {
+        DataImport(
+            onImport = { pick.launch(arrayOf("*/*")) },
+            ask = ask,
+            onConfirm = { vm.confirmImport { counts -> Export.counted(counts)?.let { toast.show("Added $it") } } },
+            onDismiss = vm::dismissImport,
         )
     }
 }

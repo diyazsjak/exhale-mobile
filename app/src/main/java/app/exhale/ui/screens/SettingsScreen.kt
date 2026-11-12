@@ -61,7 +61,9 @@ import app.exhale.domain.Triggers
 import app.exhale.domain.HomeStyle
 import app.exhale.domain.ThemeMode
 import app.exhale.domain.UserSettings
+import app.exhale.domain.Export
 import app.exhale.ui.Fmt
+import app.exhale.ui.ImportAsk
 import app.exhale.ui.components.BackHeader
 import app.exhale.ui.components.ButtonStyle
 import app.exhale.ui.components.CounterRow
@@ -88,6 +90,7 @@ import app.exhale.ui.theme.Ex
 import app.exhale.ui.theme.ExSpace
 import app.exhale.ui.theme.ExType
 import java.time.LocalDate
+import java.time.ZoneId
 
 /** The edit screens Settings opens. Each one saves when you go back. */
 enum class SettingsPage { TAPER, PACK, GOAL, TRIGGERS, TRIGGER;
@@ -117,6 +120,18 @@ class ReminderControls(
  * dialog says so until [onFailedSeen].
  */
 class DataExport(val onExport: () -> Unit = {}, val failed: Boolean = false, val onFailedSeen: () -> Unit = {})
+
+/**
+ * Settings → Your data → Import from CSV. [onImport] opens Android's file picker; once a file is read,
+ * [ask] says what importing it would do (or that it can't be read), and Settings asks before
+ * [onConfirm] adds it. [onDismiss] closes the question without adding anything.
+ */
+class DataImport(
+    val onImport: () -> Unit = {},
+    val ask: ImportAsk? = null,
+    val onConfirm: () -> Unit = {},
+    val onDismiss: () -> Unit = {},
+)
 
 /** Rows that exist only in debug builds: the live component catalogue and demo data. */
 class PrototypeTools(val onDesignSystem: () -> Unit, val onDemo: () -> Unit)
@@ -155,6 +170,7 @@ fun SettingsScreen(
     initialTriggerKey: String? = null,
     reminders: ReminderControls = ReminderControls(),
     export: DataExport = DataExport(),
+    importer: DataImport = DataImport(),
 ) {
     var baseline by rememberSaveable { mutableIntStateOf(current.baselinePerDay) }
     var allowance by rememberSaveable { mutableIntStateOf(initialAllowance) }
@@ -199,7 +215,7 @@ fun SettingsScreen(
                 null -> SettingsMain(
                     current, today, baseline, { baseline = it }, baselineChanged, allowance, { allowance = it }, allowanceChanged,
                     dirty, mainScroll, onTheme, onHome, { page = it }, Triggers.shown(triggers), reminders,
-                    export.onExport, { ask = Ask.ERASE }, prototypeTools?.let { t -> PrototypeTools(t.onDesignSystem) { ask = Ask.DEMO } },
+                    export.onExport, importer.onImport, { ask = Ask.ERASE }, prototypeTools?.let { t -> PrototypeTools(t.onDesignSystem) { ask = Ask.DEMO } },
                     onBack = { if (dirty) ask = Ask.UNSAVED else onClose() },
                     onSaveCounts = { saveCounts(); toast.show("Saved") },
                 )
@@ -266,6 +282,58 @@ fun SettingsScreen(
             onDismiss = export.onFailedSeen,
         )
     }
+    importer.ask?.let { ImportDialog(it, today, importer) }
+}
+
+/** The question after a file is picked to import: add what's new, nothing new, or it can't be read. */
+@Composable
+private fun ImportDialog(ask: ImportAsk, today: LocalDate, controls: DataImport) {
+    val close = DialogAction("Close", ButtonStyle.Ghost, onClick = controls.onDismiss)
+    when (ask) {
+        ImportAsk.Unreadable -> ExChoiceDialog(
+            "Exhale can't read that file",
+            "It reads CSV files like the ones Export as CSV makes: a type column, and a timestamp or a date and time.",
+            listOf(DialogAction("Choose another file", ButtonStyle.Primary) { controls.onDismiss(); controls.onImport() }, close),
+            onDismiss = controls.onDismiss,
+        )
+        is ImportAsk.Ready -> {
+            val p = ask.plan
+            val counted = Export.counted(p.counts)
+            val skipped = listOfNotNull(
+                p.later.takeIf { it > 0 }?.let { "$it later than now ${if (it == 1) "is" else "are"} left out." },
+                p.unreadable.takeIf { it > 0 }?.let { "${if (it == 1) "1 line" else "$it lines"} couldn't be read and ${if (it == 1) "is" else "are"} left out." },
+            )
+            if (counted == null) {
+                ExChoiceDialog(
+                    "Nothing new in that file",
+                    listOf(if (p.already > 0) "What it has is already in Exhale." else "It has no cigarettes or craving waves to add.")
+                        .plus(skipped).joinToString(" "),
+                    listOf(DialogAction("Close", ButtonStyle.Primary, onClick = controls.onDismiss)),
+                    onDismiss = controls.onDismiss,
+                )
+            } else {
+                val zone = ZoneId.systemDefault()
+                val span = p.span?.let { (from, to) -> from.atZone(zone).toLocalDate() to to.atZone(zone).toLocalDate() }
+                ExChoiceDialog(
+                    "Add $counted?",
+                    listOfNotNull(
+                        span?.let { (from, to) -> importSpan(from, to, today) },
+                        p.newTriggers.takeIf { it.isNotEmpty() }?.let { t -> "New for your triggers: ${t.joinToString(", ") { it.label }}." },
+                    ).plus(if (p.already > 0) "${p.already} already in Exhale stay as they are." else "Nothing already here changes.")
+                        .plus(skipped).joinToString(" "),
+                    listOf(DialogAction("Add them", ButtonStyle.Primary, onClick = controls.onConfirm), DialogAction("Cancel", ButtonStyle.Ghost, onClick = controls.onDismiss)),
+                    onDismiss = controls.onDismiss,
+                )
+            }
+        }
+    }
+}
+
+/** "From 4 September to 12 November." with years once either isn't this year; "On 12 November." for one day. */
+private fun importSpan(from: LocalDate, to: LocalDate, today: LocalDate): String {
+    val years = from.year != today.year || to.year != today.year
+    fun day(d: LocalDate) = if (years) Fmt.dayMonthYear(d) else Fmt.dayMonth(d)
+    return if (from == to) "On ${day(from)}." else "From ${day(from)} to ${day(to)}."
 }
 
 @Composable
@@ -286,6 +354,7 @@ private fun SettingsMain(
     shownTriggers: List<Trigger>,
     reminders: ReminderControls,
     onExport: () -> Unit,
+    onImport: () -> Unit,
     onErase: () -> Unit,
     tools: PrototypeTools?,
     onBack: () -> Unit,
@@ -341,6 +410,7 @@ private fun SettingsMain(
             CardWithCaption {
                 ExCard(padding = ExSpace.sm) {
                     ListRow("Export as CSV", onExport, sub = "Every cigarette and craving wave, for a spreadsheet")
+                    ListRow("Import from CSV", onImport, sub = "Adds what isn't here yet from an Exhale file")
                     ListRow("Erase all data", onErase)
                 }
                 Footnote("Exhale keeps everything on this phone. No account, no cloud. An export goes only where you save it.")
