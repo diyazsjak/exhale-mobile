@@ -643,6 +643,8 @@ class ScreenshotTest {
     @Test fun settingsImportDark() = shot("7p_settings_import", true) { Settings(scroll = 4000, dataAsk = importReady) }
     @Test fun settingsImportLight() = shot("7p_settings_import", false) { Settings(scroll = 4000, dataAsk = importReady) }
     @Test fun settingsImportUnreadableDark() = shot("7q_settings_import_unreadable", true) { Settings(scroll = 4000, dataAsk = DataAsk.ImportUnreadable) }
+    @Test fun settingsImportTooBigDark() = shot("7r_settings_import_too_big", true) { Settings(scroll = 4000, dataAsk = DataAsk.ImportTooBig) }
+    @Test fun settingsImportTooBigLight() = shot("7r_settings_import_too_big", false) { Settings(scroll = 4000, dataAsk = DataAsk.ImportTooBig) }
     @Test fun settingsImportUnreadableLight() = shot("7q_settings_import_unreadable", false) { Settings(scroll = 4000, dataAsk = DataAsk.ImportUnreadable) }
     @Test fun settingsExportFailedLight() = shot("7o_settings_export_failed", false) { Settings(scroll = 4000, dataAsk = DataAsk.ExportFailed) }
 

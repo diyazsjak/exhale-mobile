@@ -79,6 +79,7 @@ import app.exhale.ui.theme.Ex
 import app.exhale.ui.theme.ExColors
 import kotlinx.coroutines.launch
 import java.time.LocalDate
+import java.util.UUID
 
 internal enum class Tab(val route: String, val label: String, val icon: ImageVector) {
     EMBER("ember", "Ember", ExIcons.Ember),
@@ -428,6 +429,9 @@ private fun reminderControls(vm: ExhaleViewModel, outlook: ReminderOutlook): Rem
 @Composable
 private fun dataControls(vm: ExhaleViewModel, toast: ExToastState, today: LocalDate): DataControls {
     val context = LocalContext.current
+    // One id per Settings visit, kept across rotation: what an earlier visit left to ask goes.
+    val visit = rememberSaveable { UUID.randomUUID().toString() }
+    remember(visit) { vm.startDataVisit(visit) }
     val ask by vm.dataAsk.collectAsStateWithLifecycle()
     val save = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument(Export.MIME)) { uri ->
         if (uri != null) vm.exportCsv({ context.contentResolver.openOutputStream(uri, "w") }) { toast.show(Export.savedNote(it)) }

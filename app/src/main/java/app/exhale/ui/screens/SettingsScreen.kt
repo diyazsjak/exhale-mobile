@@ -59,6 +59,7 @@ import app.exhale.domain.Trigger
 import app.exhale.domain.TriggerEntry
 import app.exhale.domain.Triggers
 import app.exhale.domain.HomeStyle
+import app.exhale.domain.Import
 import app.exhale.domain.ThemeMode
 import app.exhale.domain.UserSettings
 import app.exhale.ui.Fmt
@@ -280,6 +281,11 @@ private fun DataDialog(ask: DataAsk, controls: DataControls) {
         DataAsk.ImportUnreadable -> Triple(
             "Exhale can't read that file",
             "It reads CSV files like the ones Export as CSV makes: a type column, and a timestamp or a date and time.",
+            listOf(retry("Choose another file", controls.onImport), close),
+        )
+        DataAsk.ImportTooBig -> Triple(
+            "That file is too big",
+            "Exhale imports files up to ${Import.MAX_BYTES / (1024 * 1024)} MB. An export of years of logs is far smaller, so this may be another file.",
             listOf(retry("Choose another file", controls.onImport), close),
         )
         is DataAsk.ImportReady -> Triple(

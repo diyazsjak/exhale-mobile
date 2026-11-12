@@ -120,7 +120,8 @@ class ImportTest {
         )
         assertEquals(listOf(at("2026-11-12T04:00:00Z")), p.logs.map { it.at })
         assertEquals(listOf(at("2026-11-12T09:58:00Z") to now), p.urges.map { it.startedAt to it.endedAt })
-        assertEquals(2, p.already)
+        assertEquals(1, p.already)
+        assertEquals(1, p.repeated)
         assertEquals(1, p.later)
         assertEquals(at("2026-11-12T04:00:00Z") to at("2026-11-12T09:58:00Z"), p.span)
         assertEquals(Export.Counts(1, 1), p.counts)
@@ -211,6 +212,62 @@ class ImportTest {
         assertEquals("Nothing new in that file", again.title)
         assertEquals("What it has is already in Exhale.", again.text)
         assertEquals("It has no cigarettes or craving waves to add. 1 line couldn't be read and is left out.", question(header + "cigar,,,,,,\r\n").text)
+    }
+
+    @Test fun strayQuoteInsideACell_isJustAQuote() {
+        assertEquals(
+            listOf(listOf("a", "Bus \"stop", "b"), listOf("c", "x\"\"y")),
+            Import.table("a,Bus \"stop,b\nc,x\"\"y"),
+        )
+        val r = rows(header + "cigarette,,,Bus \"stop,,,2026-11-12T08:00:00+05:00\r\ncigarette,,,,,,2026-11-12T09:00:00+05:00\r\n")
+        assertEquals(listOf("Bus \"stop", null), r.cigarettes.map { it.trigger })
+    }
+
+    @Test fun separator_fromTheFirstLineWithText() {
+        val r = rows("\n\ntype;timestamp\ncigarette;2026-11-12T08:00:00+05:00\n")
+        assertEquals(1, r.cigarettes.size)
+    }
+
+    @Test fun decode_picksTheCodePageWhoseWordsReadAsWords() {
+        // A Cyrillic file on an English phone, and a Western one on a Russian phone.
+        assertEquals("Автобус", Import.decode("Автобус".toByteArray(charset("windows-1251")), Locale.UK))
+        assertEquals("Café au lait", Import.decode("Café au lait".toByteArray(charset("windows-1252")), Locale("ru")))
+    }
+
+    @Test fun garbled_onlyWhatLooksBroken() {
+        assertFalse(Import.garbled("Late again??"))
+        assertFalse(Import.garbled("Größe"))
+        assertTrue(Import.garbled("??? ????"))
+        assertTrue(Import.garbled("Àâòîáóñ")) // Cyrillic read as 1252
+        assertTrue(Import.garbled("Cafй")) // Western read as 1251
+    }
+
+    @Test fun read_tooBig_notExhale_ok() {
+        assertEquals(Import.Read.TooBig, Import.read(ByteArray(Import.MAX_BYTES + 1) { 'a'.code.toByte() }, zone))
+        assertEquals(Import.Read.NotExhale, Import.read("name,amount\n".toByteArray(), zone))
+        assertTrue(Import.read(header.toByteArray(), zone) is Import.Read.Ok)
+    }
+
+    @Test fun datesAndTimesASpreadsheetRewrote() {
+        assertEquals(LocalDate.parse("2026-11-12"), Import.day("12.11.2026", Locale.UK))
+        assertEquals(LocalDate.parse("2026-11-13"), Import.day("13/11/2026", Locale.US)) // a day past 12 settles it
+        assertEquals(LocalDate.parse("2026-11-13"), Import.day("11/13/2026", Locale.UK))
+        assertEquals(LocalDate.parse("2026-11-12"), Import.day("11/12/2026", Locale.US))
+        assertEquals(LocalDate.parse("2026-12-11"), Import.day("11/12/2026", Locale.UK))
+        assertNull(Import.day("31.02.2026", Locale.UK))
+        assertEquals(java.time.LocalTime.of(8, 14), Import.clock("8:14"))
+        assertEquals(java.time.LocalTime.of(20, 14), Import.clock("8:14 pm"))
+        assertEquals(java.time.LocalTime.of(8, 14, 3), Import.clock("08:14:03"))
+        assertNull(Import.clock("25:00"))
+        // No timestamp column: the rewritten date and time are enough.
+        val r = Import.parse("type,date,time\ncigarette,12.11.2026,8:14\n", zone, Locale.UK)!!
+        assertEquals(at("2026-11-12T03:14:00Z"), r.cigarettes.single().at)
+    }
+
+    @Test fun question_repeatedRowsAreAddedOnce() {
+        val q = question(header + "cigarette,,,,,,2026-11-12T08:00:00+05:00\r\ncigarette,,,,,,2026-11-12T08:00:00+05:00\r\n")
+        assertEquals("Add 1 cigarette?", q.title)
+        assertEquals("On 12 November. Nothing already here changes. 1 repeated in the file is added once.", q.text)
     }
 
     @Test fun addedNote() {

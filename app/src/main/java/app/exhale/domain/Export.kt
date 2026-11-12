@@ -19,8 +19,8 @@ import java.time.temporal.ChronoUnit
  *
  * RFC 4180: comma-separated, CRLF line ends, a cell with a comma, quote or line break in quotes (quotes
  * doubled). It starts with a UTF-8 byte-order mark ([BOM]) so Excel reads the user's own trigger names in
- * any script. A cell that starts like a formula, or with the `'` that marks one, gets a leading `'`
- * ([guard]), so a spreadsheet shows it as text instead of running it; [unguard] takes exactly that off.
+ * any script. A cell that starts like a formula (after any `'`s) gets a leading `'` ([guard]), so a
+ * spreadsheet shows it as text instead of running it; [unguard] takes exactly that off.
  */
 object Export {
     const val TYPE = "type"
@@ -40,8 +40,8 @@ object Export {
     internal const val BOM = "﻿"
     private const val EOL = "\r\n"
 
-    /** First characters that make a spreadsheet read a cell as a formula, and the `'` that guards one. */
-    private const val GUARDED = "=+-@\t\r'"
+    /** First characters that make a spreadsheet read a cell as a formula. */
+    private const val FORMULA = "=+-@\t\r"
 
     /** What a file held: how many cigarettes and craving waves. */
     data class Counts(val cigarettes: Int, val waves: Int)
@@ -97,12 +97,21 @@ object Export {
         return if (safe.any { it == ',' || it == '"' || it == '\n' || it == '\r' }) "\"" + safe.replace("\"", "\"\"") + "\"" else safe
     }
 
-    /** [text] with a leading `'` when it starts like a formula or with a `'`. */
-    internal fun guard(text: String): String = if (text.isNotEmpty() && text[0] in GUARDED) "'$text" else text
+    /** [text] with a leading `'` when it [looksLikeFormula]. */
+    internal fun guard(text: String): String = if (looksLikeFormula(text)) "'$text" else text
 
-    /** The inverse of [guard]: a `'` followed by what [guard] protects comes off; anything else stays. */
+    /**
+     * The inverse of [guard]: a `'` before something that [looksLikeFormula] comes off; anything else stays.
+     * Files from 0.17.0, which guarded only formula characters, read back the same way.
+     */
     internal fun unguard(cell: String): String =
-        if (cell.length > 1 && cell[0] == '\'' && cell[1] in GUARDED) cell.substring(1) else cell
+        if (cell.startsWith('\'') && looksLikeFormula(cell.substring(1))) cell.substring(1) else cell
+
+    /**
+     * Whether a spreadsheet would run [text], or it is one already guarded: a formula character after any
+     * leading `'`s. So `'=x` is guarded again (`''=x`) and comes back whole, while `'hi` is left as it is.
+     */
+    private fun looksLikeFormula(text: String): Boolean = text.trimStart('\'').firstOrNull()?.let { it in FORMULA } == true
 }
 
 /** "1 cigarette", "3 craving waves". */

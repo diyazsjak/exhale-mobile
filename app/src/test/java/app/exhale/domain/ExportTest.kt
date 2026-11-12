@@ -57,10 +57,13 @@ class ExportTest {
         assertEquals("\"'@a,b\"", Export.cell("@a,b"))
         assertEquals("\"two\nlines\"", Export.cell("two\nlines"))
         assertEquals("", Export.cell(""))
-        // A leading ' is guarded too, so taking the guard off gives back exactly what was written.
-        assertEquals("''hi", Export.cell("'hi"))
-        listOf("=1+1", "'=1+1", "'hi", "''", "'", "-", "plain").forEach { assertEquals(it, Export.unguard(Export.guard(it))) }
-        assertEquals("'hi", Export.unguard("'hi")) // typed in a spreadsheet, never guarded: kept
+        // An already guarded-looking name is guarded again, so taking the guard off gives back exactly what was written.
+        assertEquals("''=1+1", Export.cell("'=1+1"))
+        assertEquals("'hi", Export.cell("'hi"))
+        listOf("=1+1", "'=1+1", "''=x", "'hi", "''", "'", "-", "plain").forEach { assertEquals(it, Export.unguard(Export.guard(it))) }
+        // As 0.17.0 wrote them (only formula characters guarded): the same names come back.
+        assertEquals("''note", Export.unguard("''note"))
+        assertEquals("=1+1", Export.unguard("'=1+1"))
     }
 
     @Test fun fileName_isDated() {

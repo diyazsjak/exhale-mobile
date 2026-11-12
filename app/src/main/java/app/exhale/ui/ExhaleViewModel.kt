@@ -114,6 +114,8 @@ sealed interface DataAsk {
     data class ImportReady(val question: Import.Question, val rows: Import.Rows) : DataAsk
     /** It couldn't be opened, or isn't a file Exhale can read. */
     data object ImportUnreadable : DataAsk
+    /** It is over [Import.MAX_BYTES]. */
+    data object ImportTooBig : DataAsk
 }
 
 /** One-shot UI feedback after logging, used for the undo + trigger toast. */
@@ -320,23 +322,49 @@ class ExhaleViewModel(private val repo: ExhaleRepository) : ViewModel() {
     /** What Settings → Your data asks about an export or an import; null while nothing is asked. */
     val dataAsk: StateFlow<DataAsk?> = _dataAsk.asStateFlow()
 
+    /** The Settings visit [dataAsk] belongs to: a file read after the user left asks nothing the next time. */
+    private var dataVisit: String? = null
+
+    /**
+     * Settings opened: a new [visit] (kept across rotation, so a question survives it) drops what an
+     * earlier visit left to ask.
+     */
+    fun startDataVisit(visit: String) {
+        if (visit == dataVisit) return
+        dataVisit = visit
+        _dataAsk.value = null
+    }
+
+    /** Asks [ask], unless the Settings visit [visit] it came from has ended since. */
+    private fun ask(visit: String?, ask: DataAsk) {
+        if (visit == dataVisit) _dataAsk.value = ask
+    }
+
     /**
      * Settings → Export as CSV: writes everything to the stream [open] gives (the file the user picked),
      * then hands [done] what it holds; one that couldn't be opened or written asks [DataAsk.ExportFailed].
      */
     fun exportCsv(open: () -> OutputStream?, done: (Export.Counts) -> Unit) {
+        val visit = dataVisit
         viewModelScope.launch {
             val counts = ioOrNull { open()?.use { repo.exportCsv(it, zone) } }
-            if (counts != null) done(counts) else _dataAsk.value = DataAsk.ExportFailed
+            if (counts != null) done(counts) else ask(visit, DataAsk.ExportFailed)
         }
     }
 
     /** Settings → Import from CSV: reads the file [open] gives and asks what importing it would do. */
     fun readImport(open: () -> InputStream?) {
+        val visit = dataVisit
         viewModelScope.launch {
-            val rows = ioOrNull { open()?.use { repo.readCsv(it, zone) } }
-            _dataAsk.value = if (rows == null) DataAsk.ImportUnreadable
-            else DataAsk.ImportReady(Import.question(planImport(rows), LocalDate.now(zone), zone), rows)
+            val read = ioOrNull { open()?.use { repo.readCsv(it, zone) } }
+            ask(
+                visit,
+                when (read) {
+                    is Import.Read.Ok -> DataAsk.ImportReady(Import.question(planImport(read.rows), LocalDate.now(zone), zone), read.rows)
+                    Import.Read.TooBig -> DataAsk.ImportTooBig
+                    Import.Read.NotExhale, null -> DataAsk.ImportUnreadable
+                },
+            )
         }
     }
 

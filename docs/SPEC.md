@@ -393,13 +393,17 @@ Edits everything set during onboarding; keeps the original plan start. Sections,
     isn't this year; "On 12 November." for one day), "New for your triggers: Bus stop, Phone calls.", "Some
     names look garbled, like “???????”. In Excel, save the file as CSV UTF-8 and import it again." (when a new
     trigger's name didn't survive the file's encoding), "20 already in Exhale stay as they are." ("1 … stays as it
-    is", or "Nothing already here changes."), "1 later than now is left out.",
+    is", or "Nothing already here changes."), "3 repeated in the file are added once.", "1 later than now is left out.",
     "3 lines couldn't be read and are left out.", with **Add them** (Primary) and Cancel (Ghost). Add works it
     out again against the data as it is then, adds it in one transaction and says "Added 412 cigarettes and 38
     craving waves". A file with nothing new says "Nothing new in that file" / "What it has is already in
     Exhale." (or "It has no cigarettes or craving waves to add."), Close. A file that can't be opened or read
-    (or is over 4 MB) says "Exhale can't read that file" / "It reads CSV files like the ones Export as CSV
-    makes: a type column, and a timestamp or a date and time." with **Choose another file** and Close. Rules in
+    says "Exhale can't read that file" / "It reads CSV files like the ones Export as CSV makes: a type column,
+    and a timestamp or a date and time."; one over 4 MB says "That file is too big" / "Exhale imports files up
+    to 4 MB. An export of years of logs is far smaller, so this may be another file." Both have **Choose
+    another file** and Close. The question belongs to the Settings visit that picked the file: one read after
+    the user has left Settings asks nothing the next time (`startDataVisit`, one id per visit kept across
+    rotation). Rules in
     §4 Import.
 - **Prototype tools**, debug builds only (`BuildConfig.DEBUG`): Design system (opens `UiKitScreen`,
   the live component catalogue; its route only exists in debug builds) and Load demo data (60 days, so
@@ -715,30 +719,38 @@ Loading it keeps the current Appearance and Home screen.
   - `timestamp`: the moment to the second with its UTC offset (ISO 8601), so nothing is lost.
 - RFC 4180: commas, CRLF line ends, a cell with a comma, quote or line break quoted (quotes doubled). A UTF-8
   byte-order mark first, so Excel reads the user's own trigger names in any script. A cell that starts like a
-  formula (`=`, `+`, `-`, `@`, tab, CR), or with a `'`, gets a leading `'` (`guard`), so a spreadsheet shows it
-  as text; `unguard` takes exactly that off, so a name round-trips whatever it starts with. The column names,
+  formula (`=`, `+`, `-`, `@`, tab, CR) after any leading `'`s gets a leading `'` (`guard`), so a spreadsheet
+  shows it as text; `unguard` takes exactly that off, so a name round-trips whatever it starts with, and files
+  from 0.17.0 (which guarded only a formula character first) read back the same. The column names,
   type words ("cigarette", "craving wave") and outcome words are constants Import reads by.
 - `fileName(today)`: `exhale-<date>.csv`. `savedNote(counts)`: the toast after saving.
 - Storage: `ExhaleRepository.exportCsv(out)` writes what's stored to the stream the save dialog gave. Only
   cigarettes and craving waves go in; settings, the plan and the goal stay out.
 
 ### Import — `Import`
-- `decode(bytes, locale)`: the file's text: UTF-8 when it is valid UTF-8 (what Export writes); otherwise the
-  Windows code page a spreadsheet saves in for the phone's language (`legacyCharset`: 1251 for Russian,
-  Kazakh, Ukrainian and other Cyrillic ones, 1250 for Central European, 1253 Greek, 1254 Turkish, else 1252),
-  since Excel's plain "CSV" on Windows saves in the region's code page. `garbled(label)`: a name with a
-  replacement character or `??` (a code page that couldn't hold the letters); the question warns about new
-  triggers named like that (`Plan.garbledTriggers`). Files larger than `MAX_BYTES` (4 MB) aren't read.
+- `read(bytes, zone, locale)`: `TooBig` over `MAX_BYTES` (4 MB), else `decode` and `parse`: `Ok(rows)` or
+  `NotExhale`.
+- `decode(bytes, locale)`: the file's text: UTF-8 when it is valid UTF-8 (what Export writes); otherwise a
+  Windows code page, since Excel's plain "CSV" on Windows saves in the region's one. Each of 1252, 1251, 1250,
+  1253 and 1254 is tried, the phone language's first (`legacyCharset`: 1251 for Russian, Kazakh, Ukrainian and
+  other Cyrillic ones, 1250 Central European, 1253 Greek, 1254 Turkish, else 1252), and the one with the fewest
+  `oddWords` wins (a word mixing two scripts, like "Cafй", or three accented Latin-1 letters in a row, like
+  "Àâòîáóñ"), the phone's own on a tie. So a Cyrillic file reads right on an English phone too.
+  `garbled(label)`: a replacement character, a name that is mostly `?` (a code page that couldn't hold the
+  letters), or odd words; the question warns about new triggers named like that (`Plan.garbledTriggers`).
 - `parse(text, zone)`: the rows of a file in Export's format, or null when it has no `type` column or no
   moment (`timestamp`, or `date` and `time`). Lenient about what a spreadsheet may have done: columns by
   header name in any order and case, extra columns ignored, a byte-order mark, LF or CRLF, `;` as the
-  separator when the header has no comma, RFC 4180 quotes, and Export's leading `'` on formula-like cells
-  taken off (`Export.unguard`). The moment is the `timestamp`, else `date` + `time` on the phone's clock. A craving wave with no
+  separator when the first line with text has no comma, RFC 4180 quotes (a quote opens a quoted cell only at
+  the start of a cell; anywhere else it is just a quote), and Export's leading `'` on formula-like cells
+  taken off (`Export.unguard`). The moment is the `timestamp`, else `date` + `time` on the phone's clock. A
+  date may also be `12.11.2026` (day first) or `12/11/2026` (day first, unless the second part is past 12 or,
+  when neither is, the phone is set to the US); a time may be `8:14`, `08:14:03` or `8:14 PM`. A craving wave with no
   `minutes` lasts a whole wave (4 min) and with no `outcome` was ridden out; a type, moment, length (0 to 24 h)
   or outcome that can't be read leaves the row out, counted as `unreadable`.
 - `plan(rows, logs, urges, triggers, now)`: what importing adds. Nothing stored changes or goes. A row is
-  already here when one of its kind starts in the same second (the file keeps whole seconds), stored or
-  earlier in the file, so importing a file twice adds nothing the second time. Rows after `now` are left out,
+  already here when one of its kind is stored starting in the same second (the file keeps whole seconds), so
+  importing a file twice adds nothing the second time; a row the file has twice is added once (`repeated`). Rows after `now` are left out,
   and a wave still running at `now` ends there. A trigger label (tidied by `Triggers.clean`) means the
   trigger already called that, shown or hidden (hidden stays hidden); otherwise it is added at the end of the shown
   ones (`Triggers.forName`; a deleted built-in comes back). `span` is the first and last moment added.
