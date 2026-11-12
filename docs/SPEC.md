@@ -456,7 +456,8 @@ data?") with the safe choice as a Ghost button; neither uses a warm colour.
   - **Redraws**: a widget can't tick, so it shows clock times, not a countdown, and the ring moves in 8 steps. It
     redraws at the next step, when the next one is earned, at midnight and at the end of an armed or Undo window
     (`WidgetModel.refreshAt`, an inexact alarm; the window ends also get a timer in the app process), after any
-    log or settings change (`ExhaleRepository.onWrite`) and when the clock, time zone or language changes.
+    log or settings change (`ExhaleRepository.onWrite`), when the app is opened or left (`MainActivity` onStart and
+    onStop: Android may hold the alarm back for a long time), and when the clock, time zone or language changes.
   - **Theme**: the app's setting (Settings → Appearance); "System" is read when it is drawn, so after the phone
     switches theme it catches up at the next redraw.
   - **Privacy**: a home screen is seen by others, so the widget never says "cigarette": only counts and times.

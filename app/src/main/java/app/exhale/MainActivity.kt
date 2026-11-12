@@ -15,6 +15,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import app.exhale.data.enumOrNull
 import app.exhale.domain.ReminderKind
 import app.exhale.notify.ReminderScheduler
+import app.exhale.widget.WidgetRefresh
 import app.exhale.ui.ExhaleRoot
 import app.exhale.ui.ExhaleViewModel
 import app.exhale.ui.theme.ExhaleTheme
@@ -52,6 +53,14 @@ class MainActivity : ComponentActivity() {
         // Coming to the front sets the reminder alarms again: Android may have dropped them, or the user
         // may have just allowed notifications in its settings.
         ReminderScheduler.runAsync(application as ExhaleApp)
+        // The home-screen widget only redraws on its own schedule, which Android may hold back, so it is
+        // brought up to date whenever the app is opened and again when it is left (back to the home screen).
+        WidgetRefresh.refreshAllAsync(application as ExhaleApp)
+    }
+
+    override fun onStop() {
+        super.onStop()
+        WidgetRefresh.refreshAllAsync(application as ExhaleApp)
     }
 
     override fun onNewIntent(intent: Intent) {
